@@ -14,7 +14,11 @@
 package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
+import io.prestosql.spi.type.Type;
+
+import java.util.function.Predicate;
 
 public final class StreamReaders
 {
@@ -22,40 +26,56 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public static StreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
-                return new BooleanStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new BooleanStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BYTE:
-                return new ByteStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new ByteStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case SHORT:
             case INT:
             case LONG:
             case DATE:
-                return new LongStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new LongStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case FLOAT:
-                return new FloatStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new FloatStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case DOUBLE:
-                return new DoubleStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DoubleStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case BINARY:
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceStreamReader(streamDescriptor, systemMemoryContext);
+                return new SliceStreamReader(type, streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new TimestampStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case LIST:
-                return new ListStreamReader(streamDescriptor, systemMemoryContext);
+                return new ListStreamReader(type, streamDescriptor, systemMemoryContext);
             case STRUCT:
-                return new StructStreamReader(streamDescriptor, systemMemoryContext);
+                return new StructStreamReader(type, streamDescriptor, systemMemoryContext);
             case MAP:
-                return new MapStreamReader(streamDescriptor, systemMemoryContext);
+                return new MapStreamReader(type, streamDescriptor, systemMemoryContext);
             case DECIMAL:
-                return new DecimalStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new DecimalStreamReader(type, streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
         }
+    }
+
+    public static void verifyStreamType(StreamDescriptor streamDescriptor, Type actual, Predicate<Type> validTypes)
+            throws OrcCorruptionException
+    {
+        if (validTypes.test(actual)) {
+            return;
+        }
+
+        throw new OrcCorruptionException(
+                streamDescriptor.getOrcDataSourceId(),
+                "Can not read SQL type %s from ORC stream %s of type %s",
+                actual,
+                streamDescriptor.getStreamName(),
+                streamDescriptor.getStreamType());
     }
 }
