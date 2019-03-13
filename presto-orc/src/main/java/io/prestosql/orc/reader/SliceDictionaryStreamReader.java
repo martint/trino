@@ -146,7 +146,7 @@ public class SliceDictionaryStreamReader
             else {
                 for (int i = 0; i < nextBatchSize; i++) {
                     idsVector[i] = toIntExact(dataStream.next());
-                    if (!inDictionaryStream.nextBit()) {
+                    if (!inDictionaryStream.nextBoolean()) {
                         // row group dictionary elements are after the main dictionary
                         idsVector[i] += stripeDictionarySize;
                     }
@@ -166,13 +166,13 @@ public class SliceDictionaryStreamReader
             }
             else {
                 for (int i = 0; i < nextBatchSize; i++) {
-                    if (!presentStream.nextBit()) {
+                    if (!presentStream.nextBoolean()) {
                         // null is the last entry in the slice dictionary
                         idsVector[i] = dictionaryBlock.getPositionCount() - 1;
                     }
                     else {
                         idsVector[i] = toIntExact(dataStream.next());
-                        if (inDictionaryStream != null && !inDictionaryStream.nextBit()) {
+                        if (inDictionaryStream != null && !inDictionaryStream.nextBoolean()) {
                             // row group dictionary elements are after the main dictionary
                             idsVector[i] += stripeDictionarySize;
                         }

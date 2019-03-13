@@ -135,13 +135,6 @@ public class TimestampStreamReader
         BlockBuilder builder = TIMESTAMP.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
-            if (secondsStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but seconds stream is not present");
-            }
-            if (nanosStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but nanos stream is not present");
-            }
-
             for (int i = 0; i < nextBatchSize; i++) {
                 TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
             }
@@ -150,7 +143,7 @@ public class TimestampStreamReader
             verify(secondsStream != null, "Value is not null but seconds stream is not present");
             verify(nanosStream != null, "Value is not null but nanos stream is not present");
             for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
+                if (presentStream.nextBoolean()) {
                     TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
                 }
                 else {

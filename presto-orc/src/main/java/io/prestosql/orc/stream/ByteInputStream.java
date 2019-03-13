@@ -126,4 +126,26 @@ public class ByteInputStream
             type.writeLong(builder, next());
         }
     }
+
+    public byte[] nextVector(int batchSize)
+            throws IOException
+    {
+        byte[] vector = new byte[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            vector[i] = next();
+        }
+        return vector;
+    }
+
+    public byte[] nextVector(int batchSize, boolean[] isNull)
+            throws IOException
+    {
+        byte[] vector = new byte[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            if (!isNull[i]) {
+                vector[i] = next();
+            }
+        }
+        return vector;
+    }
 }

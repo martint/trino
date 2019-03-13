@@ -109,7 +109,10 @@ public class LongStreamReader
             }
         }
 
-        if (dataStream == null && presentStream != null) {
+        if (dataStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            }
             presentStream.skip(nextBatchSize);
             Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             readOffset = 0;
@@ -119,14 +122,11 @@ public class LongStreamReader
 
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-            }
             dataStream.nextLongVector(type, nextBatchSize, builder);
         }
         else {
             for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
+                if (presentStream.nextBoolean()) {
                     type.writeLong(builder, dataStream.next());
                 }
                 else {

@@ -130,6 +130,6 @@ public class TestBooleanStream
     protected Boolean readValue(BooleanInputStream valueStream)
             throws IOException
     {
-        return valueStream.nextBit();
+        return valueStream.nextBoolean();
     }
 }

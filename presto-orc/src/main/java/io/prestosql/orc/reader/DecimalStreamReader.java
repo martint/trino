@@ -145,7 +145,7 @@ public class DecimalStreamReader
             verify(decimalStream != null);
             verify(scaleStream != null);
             for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
+                if (presentStream.nextBoolean()) {
                     // The current row is not null
                     long sourceScale = scaleStream.next();
                     if (type.isShort()) {

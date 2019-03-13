@@ -22,7 +22,7 @@ import io.prestosql.orc.stream.ByteInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -40,6 +41,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.StreamReaders.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
@@ -105,7 +107,10 @@ public class ByteStreamReader
             }
         }
 
-        if (dataStream == null && presentStream != null) {
+        if (dataStream == null) {
+            if (presentStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            }
             presentStream.skip(nextBatchSize);
             Block nullValueBlock = RunLengthEncodedBlock.create(TINYINT, null, nextBatchSize);
             readOffset = 0;
@@ -113,28 +118,28 @@ public class ByteStreamReader
             return nullValueBlock;
         }
 
-        BlockBuilder builder = TINYINT.createBlockBuilder(null, nextBatchSize);
+        Block block;
         if (presentStream == null) {
-            if (dataStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-            }
-            dataStream.nextVector(TINYINT, nextBatchSize, builder);
+            block = new ByteArrayBlock(nextBatchSize, Optional.empty(), dataStream.nextVector(nextBatchSize));
         }
         else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBit()) {
-                    TINYINT.writeLong(builder, dataStream.next());
-                }
-                else {
-                    builder.appendNull();
-                }
+            boolean[] valueIsNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, valueIsNull);
+            if (nullCount == 0) {
+                block = new ByteArrayBlock(nextBatchSize, Optional.empty(), dataStream.nextVector(nextBatchSize));
+            }
+            else if (nullCount != nextBatchSize) {
+                block = new ByteArrayBlock(nextBatchSize, Optional.of(valueIsNull), dataStream.nextVector(nextBatchSize, valueIsNull));
+            }
+            else {
+                block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return block;
     }
 
     private void openRowGroup()

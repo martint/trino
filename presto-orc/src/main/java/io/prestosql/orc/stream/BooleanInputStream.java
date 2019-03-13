@@ -43,7 +43,13 @@ public class BooleanInputStream
         bitsInData = 8;
     }
 
-    public boolean nextBit()
+    public boolean nextBoolean()
+            throws IOException
+    {
+        return nextBit() != 0;
+    }
+
+    public int nextBit()
             throws IOException
     {
         // read more data if necessary
@@ -52,7 +58,7 @@ public class BooleanInputStream
         }
 
         // read bit
-        boolean result = (data & HIGH_BIT_MASK) != 0;
+        int result = (data & HIGH_BIT_MASK) >>> 7;
 
         // mark bit consumed
         data <<= 1;
@@ -119,40 +125,64 @@ public class BooleanInputStream
 
         // count remaining bits
         for (int i = 0; i < items; i++) {
-            count += nextBit() ? 1 : 0;
+            count += nextBit();
         }
 
         return count;
     }
 
     /**
-     * Sets the vector element to true if the bit is set.
+     * Sets the vector element to 1 if the bit is set.
      */
-    public int getSetBits(int batchSize, boolean[] vector)
+    public int getSetBits(int batchSize, byte[] vector)
             throws IOException
     {
         int count = 0;
         for (int i = 0; i < batchSize; i++) {
-            vector[i] = nextBit();
-            count += vector[i] ? 1 : 0;
+            int bit = nextBit();
+            vector[i] = (byte) bit;
+            count += bit;
         }
         return count;
     }
 
+    public byte[] getSetBits(int batchSize)
+            throws IOException
+    {
+        byte[] vector = new byte[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            vector[i] = (byte) nextBit();
+        }
+        return vector;
+    }
+
     /**
-     * Sets the vector element to true if the bit is set, skipping the null values.
+     * Sets the vector element to 1 if the bit is set, skipping the null values.
      */
-    public int getSetBits(int batchSize, boolean[] vector, boolean[] isNull)
+    public int getSetBits(int batchSize, byte[] vector, boolean[] isNull)
             throws IOException
     {
         int count = 0;
         for (int i = 0; i < batchSize; i++) {
             if (!isNull[i]) {
-                vector[i] = nextBit();
-                count += vector[i] ? 1 : 0;
+                int bit = nextBit();
+                vector[i] = (byte) bit;
+                count += bit;
             }
         }
         return count;
+    }
+
+    public byte[] getSetBits(int batchSize, boolean[] isNull)
+            throws IOException
+    {
+        byte[] vector = new byte[batchSize];
+        for (int i = 0; i < batchSize; i++) {
+            if (!isNull[i]) {
+                vector[i] = (byte) nextBit();
+            }
+        }
+        return vector;
     }
 
     /**
@@ -162,7 +192,7 @@ public class BooleanInputStream
             throws IOException
     {
         for (int i = 0; i < batchSize; i++) {
-            type.writeBoolean(builder, nextBit());
+            type.writeBoolean(builder, nextBoolean());
         }
     }
 
@@ -184,8 +214,9 @@ public class BooleanInputStream
     {
         int count = 0;
         for (int i = offset; i < batchSize + offset; i++) {
-            vector[i] = !nextBit();
-            count += vector[i] ? 1 : 0;
+            int bit = nextBit() ^ 0b1;
+            vector[i] = bit != 0;
+            count += bit;
         }
         return count;
     }
@@ -198,7 +229,7 @@ public class BooleanInputStream
     {
         int count = 0;
         for (int i = 0; i < batchSize; i++) {
-            count += nextBit() ? 0 : 1;
+            count += nextBit() ^ 0b1;
         }
         return count;
     }
