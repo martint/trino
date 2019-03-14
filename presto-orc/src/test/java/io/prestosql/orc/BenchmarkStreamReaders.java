@@ -161,19 +161,19 @@ public class BenchmarkStreamReaders
 //        }
 //    }
 //
-//    @Benchmark
-//    public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
-//            throws Throwable
-//    {
-//        try (OrcRecordReader recordReader = data.createRecordReader()) {
-//            List<Block> blocks = new ArrayList<>();
-//            while (recordReader.nextBatch() > 0) {
-//                Block block = recordReader.readBlock(0);
-//                blocks.add(block);
-//            }
-//            return blocks;
-//        }
-//    }
+    @Benchmark
+    public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
 //
 //    @Benchmark
 //    public Object readDecimalWithNull(DecimalWithNullBenchmarkData data)
@@ -329,61 +329,61 @@ public class BenchmarkStreamReaders
 //        }
 //    }
 
-    @Benchmark
-    public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
-
-    @Benchmark
-    public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
-
-    @Benchmark
-    public Object readSliceDictionaryNoNull(VarcharDictionaryNoNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
-
-    @Benchmark
-    public Object readSliceDictionaryWithNull(VarcharDictionaryWithNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
+//    @Benchmark
+//    public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
+//            throws Throwable
+//    {
+//        try (OrcRecordReader recordReader = data.createRecordReader()) {
+//            List<Block> blocks = new ArrayList<>();
+//            while (recordReader.nextBatch() > 0) {
+//                Block block = recordReader.readBlock(0);
+//                blocks.add(block);
+//            }
+//            return blocks;
+//        }
+//    }
+//
+//    @Benchmark
+//    public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
+//            throws Throwable
+//    {
+//        try (OrcRecordReader recordReader = data.createRecordReader()) {
+//            List<Block> blocks = new ArrayList<>();
+//            while (recordReader.nextBatch() > 0) {
+//                Block block = recordReader.readBlock(0);
+//                blocks.add(block);
+//            }
+//            return blocks;
+//        }
+//    }
+//
+//    @Benchmark
+//    public Object readSliceDictionaryNoNull(VarcharDictionaryNoNullBenchmarkData data)
+//            throws Throwable
+//    {
+//        try (OrcRecordReader recordReader = data.createRecordReader()) {
+//            List<Block> blocks = new ArrayList<>();
+//            while (recordReader.nextBatch() > 0) {
+//                Block block = recordReader.readBlock(0);
+//                blocks.add(block);
+//            }
+//            return blocks;
+//        }
+//    }
+//
+//    @Benchmark
+//    public Object readSliceDictionaryWithNull(VarcharDictionaryWithNullBenchmarkData data)
+//            throws Throwable
+//    {
+//        try (OrcRecordReader recordReader = data.createRecordReader()) {
+//            List<Block> blocks = new ArrayList<>();
+//            while (recordReader.nextBatch() > 0) {
+//                Block block = recordReader.readBlock(0);
+//                blocks.add(block);
+//            }
+//            return blocks;
+//        }
+//    }
 
 //    @Benchmark
 //    public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)

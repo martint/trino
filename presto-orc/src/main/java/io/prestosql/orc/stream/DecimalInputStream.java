@@ -103,7 +103,7 @@ public class DecimalInputStream
         int offset = 0;
         long b;
         do {
-            b = input.read();
+            b = input.read(); input.available();
             if (b == -1) {
                 throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading BigInteger past EOF");
             }
@@ -115,6 +115,7 @@ public class DecimalInputStream
             offset += 7;
         }
         while (b >= 0x80);
+
         boolean isNegative = (result & 0x01) != 0;
         if (isNegative) {
             result += 1;
