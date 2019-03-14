@@ -65,7 +65,9 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -258,6 +260,62 @@ public class BenchmarkStreamReaders
 
     @Benchmark
     public Object readLongDirectWithNull(BigintWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readIntDirectNoNull(IntegerNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readIntDirectWithNull(IntegerWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readShortDirectNoNull(SmallintNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readShortDirectWithNull(SmallintWithNullBenchmarkData data)
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -652,6 +710,13 @@ public class BenchmarkStreamReaders
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
     {
+        public BigintNoNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
         @Setup
         public void setup()
                 throws Exception
@@ -674,6 +739,13 @@ public class BenchmarkStreamReaders
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
     {
+        public BigintWithNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
         @Setup
         public void setup()
                 throws Exception
@@ -688,6 +760,132 @@ public class BenchmarkStreamReaders
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
                     values.add(random.nextLong());
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class IntegerNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        public IntegerNoNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(INTEGER);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Integer> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(random.nextInt());
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class IntegerWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        public IntegerWithNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(INTEGER);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Integer> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(random.nextInt());
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SmallintNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        public SmallintNoNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(SMALLINT);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Short> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add((short) random.nextInt());
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SmallintWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        public SmallintWithNullBenchmarkData init()
+                throws Exception
+        {
+            setup();
+            return this;
+        }
+
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(SMALLINT);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<Short> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add((short) random.nextInt());
                 }
                 else {
                     values.add(null);
@@ -792,6 +990,21 @@ public class BenchmarkStreamReaders
                 }
             }
             return values.iterator();
+        }
+    }
+
+    static {
+        try {
+            BenchmarkStreamReaders benchmark = new BenchmarkStreamReaders();
+            benchmark.readLongDirectNoNull(new BigintNoNullBenchmarkData().init());
+            benchmark.readLongDirectWithNull(new BigintWithNullBenchmarkData().init());
+            benchmark.readIntDirectNoNull(new IntegerNoNullBenchmarkData().init());
+            benchmark.readIntDirectWithNull(new IntegerWithNullBenchmarkData().init());
+            benchmark.readShortDirectNoNull(new SmallintNoNullBenchmarkData().init());
+            benchmark.readShortDirectWithNull(new SmallintWithNullBenchmarkData().init());
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
         }
     }
 

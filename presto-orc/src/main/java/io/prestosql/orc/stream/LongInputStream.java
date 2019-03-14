@@ -14,8 +14,6 @@
 package io.prestosql.orc.stream;
 
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 
@@ -28,15 +26,14 @@ public interface LongInputStream
     long next()
             throws IOException;
 
-    default void nextIntVector(int items, int[] vector, int offset)
-            throws IOException
-    {
-        checkPositionIndex(items + offset, vector.length);
+    void next(long[] values, int items)
+            throws IOException;
 
-        for (int i = offset; i < items + offset; i++) {
-            vector[i] = toIntExact(next());
-        }
-    }
+    void next(int[] values, int items)
+            throws IOException;
+
+    void next(short[] values, int items)
+            throws IOException;
 
     default void nextIntVector(int items, int[] vector, int vectorOffset, boolean[] isNull)
             throws IOException
@@ -48,24 +45,6 @@ public interface LongInputStream
             if (!isNull[i]) {
                 vector[i + vectorOffset] = toIntExact(next());
             }
-        }
-    }
-
-    default void nextLongVector(int items, long[] vector)
-            throws IOException
-    {
-        checkPositionIndex(items, vector.length);
-
-        for (int i = 0; i < items; i++) {
-            vector[i] = next();
-        }
-    }
-
-    default void nextLongVector(Type type, int items, BlockBuilder builder)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            type.writeLong(builder, next());
         }
     }
 

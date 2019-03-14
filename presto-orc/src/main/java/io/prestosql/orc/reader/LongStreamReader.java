@@ -22,8 +22,10 @@ import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.IntArrayBlock;
+import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.block.ShortArrayBlock;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
@@ -36,13 +38,17 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.StreamReaders.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.orc.stream.StreamUtils.unpackNulls;
+import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
 
 public class LongStreamReader
@@ -120,25 +126,75 @@ public class LongStreamReader
             return nullValueBlock;
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        Block block;
         if (presentStream == null) {
-            dataStream.nextLongVector(type, nextBatchSize, builder);
+            block = readNonNullBlock();
         }
         else {
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (presentStream.nextBoolean()) {
-                    type.writeLong(builder, dataStream.next());
-                }
-                else {
-                    builder.appendNull();
-                }
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
             }
         }
 
         readOffset = 0;
         nextBatchSize = 0;
 
-        return builder.build();
+        return block;
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        verify(dataStream != null);
+        if (type instanceof BigintType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type instanceof IntegerType || type instanceof DateType) {
+            int[] values = new int[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new IntArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        if (type instanceof SmallintType) {
+            short[] values = new short[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new ShortArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
+        throw new VerifyError("Unsupported type " + type);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        if (type instanceof BigintType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nonNullCount);
+            unpackNulls(values, isNull, nonNullCount);
+            return new LongArrayBlock(nextBatchSize, Optional.of(isNull), values);
+        }
+        if (type instanceof IntegerType || type instanceof DateType) {
+            int[] values = new int[nextBatchSize];
+            dataStream.next(values, nonNullCount);
+            unpackNulls(values, isNull, nonNullCount);
+            return new IntArrayBlock(nextBatchSize, Optional.of(isNull), values);
+        }
+        if (type instanceof SmallintType) {
+            short[] values = new short[nextBatchSize];
+            dataStream.next(values, nonNullCount);
+            unpackNulls(values, isNull, nonNullCount);
+            return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), values);
+        }
+        throw new VerifyError("Unsupported type " + type);
     }
 
     private void openRowGroup()

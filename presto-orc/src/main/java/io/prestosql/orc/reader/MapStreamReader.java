@@ -124,7 +124,7 @@ public class MapStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             nullVector = new boolean[nextBatchSize];

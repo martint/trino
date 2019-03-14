@@ -20,6 +20,8 @@ import io.prestosql.orc.checkpoint.LongStreamV2Checkpoint;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static com.google.common.primitives.Ints.min;
+
 /**
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
@@ -330,6 +332,70 @@ public class LongInputStreamV2
             readValues();
         }
         return literals[used++];
+    }
+
+    @Override
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            System.arraycopy(literals, used, values, offset, chunkSize);
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            for (int i = 0; i < chunkSize; i++) {
+                values[offset + i] = (int) literals[used + i];
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
+    }
+
+    @Override
+    public void next(short[] values, int items)
+            throws IOException
+    {
+        int offset = 0;
+        while (items > 0) {
+            if (used == numLiterals) {
+                numLiterals = 0;
+                used = 0;
+                readValues();
+            }
+
+            int chunkSize = min(numLiterals - used, items);
+            for (int i = 0; i < chunkSize; i++) {
+                values[offset + i] = (short) literals[used + i];
+            }
+            used += chunkSize;
+            offset += chunkSize;
+            items -= chunkSize;
+        }
     }
 
     @Override

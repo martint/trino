@@ -42,6 +42,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.StreamReaders.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.orc.stream.StreamUtils.unpackNulls;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static java.util.Objects.requireNonNull;
 
@@ -158,16 +159,7 @@ public class DoubleStreamReader
         long[] values = new long[isNull.length];
         dataStream.next(values, nonNullCount);
 
-        int nullSuppressedPosition = nonNullCount - 1;
-        for (int outputPosition = values.length - 1; outputPosition >= 0; outputPosition--) {
-            if (isNull[outputPosition]) {
-                values[outputPosition] = 0;
-            }
-            else {
-                values[outputPosition] = values[nullSuppressedPosition];
-                nullSuppressedPosition--;
-            }
-        }
+        unpackNulls(values, isNull, nonNullCount);
         return new LongArrayBlock(isNull.length, Optional.of(isNull), values);
     }
 
