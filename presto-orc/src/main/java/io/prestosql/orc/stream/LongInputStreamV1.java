@@ -138,12 +138,22 @@ public class LongInputStreamV1
             int chunkSize = min(numLiterals - used, items);
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
-                    values[offset + i] = (int) (literals[0] + ((used + i) * delta));
+                    long literal = literals[0] + ((used + i) * delta);
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
                 }
             }
             else {
                 for (int i = 0; i < chunkSize; i++) {
-                    values[offset + i] = (int) literals[used + i];
+                    long literal = literals[used + i];
+                    int value = (int) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                    }
+                    values[offset + i] = value;
                 }
             }
             used += chunkSize;
@@ -167,12 +177,22 @@ public class LongInputStreamV1
             int chunkSize = min(numLiterals - used, items);
             if (repeat) {
                 for (int i = 0; i < chunkSize; i++) {
-                    values[offset + i] = (short) (literals[0] + ((used + i) * delta));
+                    long literal = literals[0] + ((used + i) * delta);
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
                 }
             }
             else {
                 for (int i = 0; i < chunkSize; i++) {
-                    values[offset + i] = (short) literals[used + i];
+                    long literal = literals[used + i];
+                    short value = (short) literal;
+                    if (literal != value) {
+                        throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                    }
+                    values[offset + i] = value;
                 }
             }
             used += chunkSize;

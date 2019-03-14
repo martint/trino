@@ -368,7 +368,12 @@ public class LongInputStreamV2
 
             int chunkSize = min(numLiterals - used, items);
             for (int i = 0; i < chunkSize; i++) {
-                values[offset + i] = (int) literals[used + i];
+                long literal = literals[used + i];
+                int value = (int) literal;
+                if (literal != value) {
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 32bit number");
+                }
+                values[offset + i] = value;
             }
             used += chunkSize;
             offset += chunkSize;
@@ -390,7 +395,12 @@ public class LongInputStreamV2
 
             int chunkSize = min(numLiterals - used, items);
             for (int i = 0; i < chunkSize; i++) {
-                values[offset + i] = (short) literals[used + i];
+                long literal = literals[used + i];
+                short value = (short) literal;
+                if (literal != value) {
+                    throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decoded value out of range for a 16bit number");
+                }
+                values[offset + i] = value;
             }
             used += chunkSize;
             offset += chunkSize;
