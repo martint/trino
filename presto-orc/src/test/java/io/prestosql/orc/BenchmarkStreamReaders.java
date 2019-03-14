@@ -92,19 +92,19 @@ public class BenchmarkStreamReaders
     private static final int MAX_STRING = 19;
     private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
-//    @Benchmark
-//    public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
-//            throws Throwable
-//    {
-//        try (OrcRecordReader recordReader = data.createRecordReader()) {
-//            List<Block> blocks = new ArrayList<>();
-//            while (recordReader.nextBatch() > 0) {
-//                Block block = recordReader.readBlock(0);
-//                blocks.add(block);
-//            }
-//            return blocks;
-//        }
-//    }
+    @Benchmark
+    public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
 //
 //    @Benchmark
 //    public Object readBooleanWithNull(BooleanWithNullBenchmarkData data)

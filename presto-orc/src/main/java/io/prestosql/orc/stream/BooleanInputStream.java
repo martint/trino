@@ -150,9 +150,54 @@ public class BooleanInputStream
             throws IOException
     {
         byte[] vector = new byte[batchSize];
-        for (int i = 0; i < batchSize; i++) {
-            vector[i] = (byte) nextBit();
+
+        if (bitsInData != 0) {
+            for (int i = 0; i < batchSize; i++) {
+                vector[i] = (byte) nextBit();
+            }
         }
+        else {
+            int offset = 0;
+            while (offset < batchSize - 7) {
+                byte value = byteStream.next();
+                vector[offset + 0] = (byte) ((value & 0b10000000) >>> 7);
+                vector[offset + 1] = (byte) ((value & 0b01000000) >>> 6);
+                vector[offset + 2] = (byte) ((value & 0b00100000) >>> 5);
+                vector[offset + 3] = (byte) ((value & 0b00010000) >>> 4);
+                vector[offset + 4] = (byte) ((value & 0b00001000) >>> 3);
+                vector[offset + 5] = (byte) ((value & 0b00000100) >>> 2);
+                vector[offset + 6] = (byte) ((value & 0b00000010) >>> 1);
+                vector[offset + 7] = (byte) ((value & 0b00000001) >>> 0);
+                offset += 8;
+            }
+
+            int remaining = batchSize - offset;
+            if (remaining > 0) {
+                byte value = byteStream.next();
+
+                int tmp = value >>> (8 - remaining);
+                switch (remaining) {
+                    case 7:
+                        vector[offset++] = (byte) ((tmp & 64) >>> 6);
+                    case 6:
+                        vector[offset++] = (byte) ((tmp & 32) >>> 5);
+                    case 5:
+                        vector[offset++] = (byte) ((tmp & 16) >>> 4);
+                    case 4:
+                        vector[offset++] = (byte) ((tmp & 8) >>> 3);
+                    case 3:
+                        vector[offset++] = (byte) ((tmp & 4) >>> 2);
+                    case 2:
+                        vector[offset++] = (byte) ((tmp & 2) >>> 1);
+                    case 1:
+                        vector[offset++] = (byte) ((tmp & 1) >>> 0);
+                }
+
+                data = (byte) (value << remaining);
+                bitsInData = 8 - remaining;
+            }
+        }
+
         return vector;
     }
 
