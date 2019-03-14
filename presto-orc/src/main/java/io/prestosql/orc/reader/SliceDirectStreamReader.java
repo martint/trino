@@ -147,7 +147,7 @@ public class SliceDirectStreamReader
                     lengthStream.next(offsetVector, nextBatchSize);
                 }
                 else {
-                    lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, isNullVector);
+                    lengthStream.nextIntVector(offsetVector, isNullVector, nextBatchSize - nullValues);
                 }
             }
         }
