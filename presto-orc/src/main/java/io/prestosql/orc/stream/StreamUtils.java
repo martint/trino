@@ -45,4 +45,15 @@ public final class StreamUtils
             }
         }
     }
+
+    public static void convertLengthVectorToOffsetVector(int[] vector)
+    {
+        int currentLength = vector[0];
+        vector[0] = 0;
+        for (int i = 1; i < vector.length; i++) {
+            int nextLength = vector[i];
+            vector[i] = vector[i - 1] + currentLength;
+            currentLength = nextLength;
+        }
+    }
 }

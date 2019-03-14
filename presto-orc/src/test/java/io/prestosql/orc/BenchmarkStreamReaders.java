@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.spi.block.Block;
@@ -88,6 +87,8 @@ public class BenchmarkStreamReaders
 {
     private static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
     public static final int ROWS = 10_000_000;
+    private static final int DICTIONARY = 22;
+    private static final int MAX_STRING = 19;
     private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
 //    @Benchmark
@@ -328,8 +329,64 @@ public class BenchmarkStreamReaders
 //        }
 //    }
 
+    @Benchmark
+    public Object readSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readSliceDictionaryNoNull(VarcharDictionaryNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
+    @Benchmark
+    public Object readSliceDictionaryWithNull(VarcharDictionaryWithNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
+
 //    @Benchmark
-//    public Object readSliceDictionaryNoNull(VarcharNoNullBenchmarkData data)
+//    public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
 //            throws Throwable
 //    {
 //        try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -343,7 +400,7 @@ public class BenchmarkStreamReaders
 //    }
 //
 //    @Benchmark
-//    public Object readSliceDictionaryWithNull(VarcharWithNullBenchmarkData data)
+//    public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
 //            throws Throwable
 //    {
 //        try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -355,34 +412,6 @@ public class BenchmarkStreamReaders
 //            return blocks;
 //        }
 //    }
-
-    @Benchmark
-    public Object readTimestampNoNull(TimestampNoNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
-
-    @Benchmark
-    public Object readTimestampWithNull(TimestampWithNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
 
     private abstract static class BenchmarkData
     {
@@ -896,7 +925,7 @@ public class BenchmarkStreamReaders
     }
 
     @State(Scope.Thread)
-    public static class VarcharNoNullBenchmarkData
+    public static class VarcharDirectNoNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
@@ -911,14 +940,15 @@ public class BenchmarkStreamReaders
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(Strings.repeat("0", 4));
+                values.add(randomAsciiString(random));
             }
             return values.iterator();
         }
+
     }
 
     @State(Scope.Thread)
-    public static class VarcharWithNullBenchmarkData
+    public static class VarcharDirectWithNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
@@ -934,7 +964,7 @@ public class BenchmarkStreamReaders
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Strings.repeat("0", 4));
+                    values.add(randomAsciiString(random));
                 }
                 else {
                     values.add(null);
@@ -942,6 +972,79 @@ public class BenchmarkStreamReaders
             }
             return values.iterator();
         }
+    }
+
+    @State(Scope.Thread)
+    public static class VarcharDictionaryNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARCHAR);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<String> dictionary = createDictionary(random);
+
+            List<String> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(dictionary.get(random.nextInt(dictionary.size())));
+            }
+            return values.iterator();
+        }
+
+    }
+
+    @State(Scope.Thread)
+    public static class VarcharDictionaryWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(VARCHAR);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<String> dictionary = createDictionary(random);
+
+            List<String> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(dictionary.get(random.nextInt(dictionary.size())));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    private static List<String> createDictionary(Random random)
+    {
+        List<String> dictionary = new ArrayList<>();
+        for (int dictionaryIndex = 0; dictionaryIndex < DICTIONARY; dictionaryIndex++) {
+            dictionary.add(randomAsciiString(random));
+        }
+        return dictionary;
+    }
+
+    // this is not appropriate for benchmarking with compression
+    private static String randomAsciiString(Random random)
+    {
+        char[] value = new char[random.nextInt(MAX_STRING)];
+        for (int i = 0; i < value.length; i++) {
+            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
+        }
+        return new String(value);
     }
 
     @State(Scope.Thread)

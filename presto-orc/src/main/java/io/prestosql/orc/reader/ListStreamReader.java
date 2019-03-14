@@ -42,6 +42,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
 import static io.prestosql.orc.reader.StreamReaders.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.orc.stream.StreamUtils.convertLengthVectorToOffsetVector;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -129,15 +130,7 @@ public class ListStreamReader
                 lengthStream.nextIntVector(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
-
-        // Convert the length values in the offsetVector to offset values in place
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        for (int i = 1; i < offsetVector.length; i++) {
-            int nextLength = offsetVector[i];
-            offsetVector[i] = offsetVector[i - 1] + currentLength;
-            currentLength = nextLength;
-        }
+        convertLengthVectorToOffsetVector(offsetVector);
 
         int elementCount = offsetVector[offsetVector.length - 1];
 

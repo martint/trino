@@ -126,7 +126,7 @@ public class TimestampStreamReader
 
         if (secondsStream == null && nanosStream == null) {
             if (presentStream == null) {
-                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is null but data stream is not present");
             }
             presentStream.skip(nextBatchSize);
             Block nullValueBlock = RunLengthEncodedBlock.create(TIMESTAMP, null, nextBatchSize);
