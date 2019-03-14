@@ -25,6 +25,7 @@ import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.block.VariableWidthBlock;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -38,6 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -45,6 +47,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.SliceStreamReader.computeTruncatedLength;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.orc.stream.StreamUtils.unpackNulls;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -126,42 +129,64 @@ public class SliceDictionaryStreamReader
             }
         }
 
-        int[] idsVector = new int[nextBatchSize];
-        if (presentStream == null) {
-            // Data doesn't have nulls
-            if (dataStream == null) {
+        Block block;
+        if (dataStream == null) {
+            if (presentStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.next(idsVector, nextBatchSize);
+            presentStream.skip(nextBatchSize);
+            block = readAllNullsBlock();
+        }
+        else if (presentStream == null) {
+            block = readNonNullBlock();
         }
         else {
-            // Data has nulls
-            if (dataStream == null) {
-                // The only valid case for dataStream is null when data has nulls is that all values are nulls.
-                // In that case the only element in the dictionaryBlock is null and the ids in idsVector should
-                // be all 0's, so we don't need to update idVector again.
-                int nullValues = presentStream.getUnsetBits(nextBatchSize);
-                if (nullValues != nextBatchSize) {
-                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
-                }
+            boolean[] isNull = new boolean[nextBatchSize];
+            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    if (!presentStream.nextBoolean()) {
-                        // null is the last entry in the slice dictionary
-                        idsVector[i] = dictionaryBlock.getPositionCount() - 1;
-                    }
-                    else {
-                        idsVector[i] = toIntExact(dataStream.next());
-                    }
-                }
+                block = readAllNullsBlock();
             }
         }
-        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, idsVector);
 
         readOffset = 0;
         nextBatchSize = 0;
         return block;
+    }
+
+    private RunLengthEncodedBlock readAllNullsBlock()
+    {
+        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        verify(dataStream != null);
+        int[] values = new int[nextBatchSize];
+        dataStream.next(values, nextBatchSize);
+        return new DictionaryBlock(nextBatchSize, dictionaryBlock, values);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        int[] values = new int[nextBatchSize];
+        dataStream.next(values, nonNullCount);
+
+        unpackNulls(values, isNull, nonNullCount);
+        for (int i = 0; i < isNull.length; i++) {
+            if (isNull[i]) {
+                values[i] = dictionarySize;
+            }
+        }
+        return new DictionaryBlock(nextBatchSize, dictionaryBlock, values);
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)
