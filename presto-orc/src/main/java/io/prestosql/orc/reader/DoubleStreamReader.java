@@ -22,6 +22,7 @@ import io.prestosql.orc.stream.DoubleInputStream;
 import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.Type;
@@ -32,8 +33,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
@@ -117,16 +120,16 @@ public class DoubleStreamReader
 
         Block block;
         if (presentStream == null) {
-            block = dataStream.nextBlock(DOUBLE, nextBatchSize);
+            block = readNonNullBlock();
         }
         else {
             boolean[] isNull = new boolean[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
-                block = dataStream.nextBlock(DOUBLE, nextBatchSize);
+                block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = dataStream.nextBlock(DOUBLE, isNull);
+                block = readNullBlock(isNull, nextBatchSize - nullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(DOUBLE, null, nextBatchSize);
@@ -137,6 +140,35 @@ public class DoubleStreamReader
         nextBatchSize = 0;
 
         return block;
+    }
+
+    private Block readNonNullBlock()
+            throws IOException
+    {
+        verify(dataStream != null);
+        long[] values = new long[nextBatchSize];
+        dataStream.next(values, nextBatchSize);
+        return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+    }
+
+    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+            throws IOException
+    {
+        verify(dataStream != null);
+        long[] values = new long[isNull.length];
+        dataStream.next(values, nonNullCount);
+
+        int nullSuppressedPosition = nonNullCount - 1;
+        for (int outputPosition = values.length - 1; outputPosition >= 0; outputPosition--) {
+            if (isNull[outputPosition]) {
+                values[outputPosition] = 0;
+            }
+            else {
+                values[outputPosition] = values[nullSuppressedPosition];
+                nullSuppressedPosition--;
+            }
+        }
+        return new LongArrayBlock(isNull.length, Optional.of(isNull), values);
     }
 
     private void openRowGroup()
