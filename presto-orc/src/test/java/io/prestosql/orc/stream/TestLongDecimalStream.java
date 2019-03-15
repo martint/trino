@@ -76,7 +76,7 @@ public class TestLongDecimalStream
             throws IOException
     {
         Slice decimal = unscaledDecimal();
-        valueStream.nextLongDecimal(decimal);
+        valueStream.nextLongDecimal(decimal, 0);
         return decimal;
     }
 }

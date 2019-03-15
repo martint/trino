@@ -114,7 +114,7 @@ public class TestDecimalStream
     {
         DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
         Slice decimal = unscaledDecimal();
-        stream.nextLongDecimal(decimal);
+        stream.nextLongDecimal(decimal, 0);
         assertEquals(unscaledDecimalToBigInteger(decimal), value);
     }
 
@@ -131,7 +131,7 @@ public class TestDecimalStream
         Slice decimal = unscaledDecimal();
         assertThrows(OrcCorruptionException.class, () -> {
             DecimalInputStream stream = new DecimalInputStream(decimalInputStream(value));
-            stream.nextLongDecimal(decimal);
+            stream.nextLongDecimal(decimal, 0);
         });
     }
 

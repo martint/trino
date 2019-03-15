@@ -1643,6 +1643,14 @@ public final class UnscaledDecimal128Arithmetic
         setRawLong(result, 1, high | (negative ? SIGN_LONG_MASK : 0));
     }
 
+    public static void pack(long low, long high, boolean negative, Slice result, int resultOffset)
+    {
+        unsafe.putLong(result.getBase(), result.getAddress() + resultOffset, low);
+
+        long value = high | (negative ? SIGN_LONG_MASK : 0);
+        unsafe.putLong(result.getBase(), result.getAddress() + resultOffset + SIZE_OF_LONG, value);
+    }
+
     public static void throwOverflowException()
     {
         throw new ArithmeticException("Decimal overflow");

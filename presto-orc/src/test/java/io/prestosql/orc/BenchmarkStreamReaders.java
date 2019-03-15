@@ -162,22 +162,8 @@ public class BenchmarkStreamReaders
 //        }
 //    }
 //
-    @Benchmark
-    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
-            throws Throwable
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            List<Block> blocks = new ArrayList<>();
-            while (recordReader.nextBatch() > 0) {
-                Block block = recordReader.readBlock(0);
-                blocks.add(block);
-            }
-            return blocks;
-        }
-    }
-
 //    @Benchmark
-//    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+//    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
 //            throws Throwable
 //    {
 //        try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -189,6 +175,20 @@ public class BenchmarkStreamReaders
 //            return blocks;
 //        }
 //    }
+
+    @Benchmark
+    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+            throws Throwable
+    {
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            List<Block> blocks = new ArrayList<>();
+            while (recordReader.nextBatch() > 0) {
+                Block block = recordReader.readBlock(0);
+                blocks.add(block);
+            }
+            return blocks;
+        }
+    }
 //
 //    @Benchmark
 //    public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)

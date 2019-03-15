@@ -45,7 +45,7 @@ public class DecimalInputStream
         input.seekToCheckpoint(checkpoint.getInputStreamCheckpoint());
     }
 
-    public void nextLongDecimal(Slice result)
+    public void nextLongDecimal(Slice result, int resultOffset)
             throws IOException
     {
         long b;
@@ -90,7 +90,7 @@ public class DecimalInputStream
             }
         }
 
-        UnscaledDecimal128Arithmetic.pack(low, high, negative, result);
+        UnscaledDecimal128Arithmetic.pack(low, high, negative, result, resultOffset);
     }
 
     public long nextLong()

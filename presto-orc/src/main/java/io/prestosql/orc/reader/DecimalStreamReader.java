@@ -14,6 +14,7 @@
 package io.prestosql.orc.reader;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
@@ -25,6 +26,7 @@ import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.FixedWidthBlock;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.DecimalType;
@@ -166,23 +168,22 @@ public class DecimalStreamReader
     private Block readLongNotNullBlock()
             throws IOException
     {
-        Block block;
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
-        for (int i = 0; i < nextBatchSize; i++) {
-            long sourceScale = scaleStream.next();
-            
-            Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            decimalStream.nextLongDecimal(decimal);
+        verify(decimalStream != null);
+        verify(scaleStream != null);
 
+        int limit = nextBatchSize * 16;
+        Slice data = Slices.allocate(limit);
+        for (int offset = 0; offset < limit; offset += 16) {
+            decimalStream.nextLongDecimal(data, offset);
+
+            long sourceScale = scaleStream.next();
             if (sourceScale != type.getScale()) {
-                Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-                rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
-                decimal = rescaledDecimal;
+                Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
+                decimal.setBytes(0, data, offset, 16);
+                rescale(decimal, (int) (type.getScale() - sourceScale), data.slice(offset, 16));
             }
-            type.writeSlice(builder, decimal);
         }
-        block = builder.build();
-        return block;
+        return new FixedWidthBlock(16, nextBatchSize, data, Optional.empty());
     }
 
     private Block readNullBlock()
@@ -204,7 +205,7 @@ public class DecimalStreamReader
                     Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
                     Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
 
-                    decimalStream.nextLongDecimal(decimal);
+                    decimalStream.nextLongDecimal(decimal, 0);
                     rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
                     type.writeSlice(builder, rescaledDecimal);
                 }
