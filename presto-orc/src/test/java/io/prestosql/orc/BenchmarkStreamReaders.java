@@ -85,7 +85,8 @@ import static org.joda.time.DateTimeZone.UTC;
 @OperationsPerInvocation(BenchmarkStreamReaders.ROWS)
 public class BenchmarkStreamReaders
 {
-    private static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final DecimalType SHORT_DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
     public static final int ROWS = 10_000_000;
     private static final int DICTIONARY = 22;
     private static final int MAX_STRING = 19;
@@ -162,7 +163,7 @@ public class BenchmarkStreamReaders
 //    }
 //
     @Benchmark
-    public Object readDecimalNoNull(DecimalNoNullBenchmarkData data)
+    public Object readShortDecimalNoNull(ShortDecimalNoNullBenchmarkData data)
             throws Throwable
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -174,9 +175,23 @@ public class BenchmarkStreamReaders
             return blocks;
         }
     }
+
+//    @Benchmark
+//    public Object readLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+//            throws Throwable
+//    {
+//        try (OrcRecordReader recordReader = data.createRecordReader()) {
+//            List<Block> blocks = new ArrayList<>();
+//            while (recordReader.nextBatch() > 0) {
+//                Block block = recordReader.readBlock(0);
+//                blocks.add(block);
+//            }
+//            return blocks;
+//        }
+//    }
 //
 //    @Benchmark
-//    public Object readDecimalWithNull(DecimalWithNullBenchmarkData data)
+//    public Object readShortDecimalWithNull(ShortDecimalWithNullBenchmarkData data)
 //            throws Throwable
 //    {
 //        try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -589,14 +604,14 @@ public class BenchmarkStreamReaders
     }
 
     @State(Scope.Thread)
-    public static class DecimalNoNullBenchmarkData
+    public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
@@ -604,21 +619,21 @@ public class BenchmarkStreamReaders
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), 10, 5));
             }
             return values.iterator();
         }
     }
 
     @State(Scope.Thread)
-    public static class DecimalWithNullBenchmarkData
+    public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE);
         }
 
         @Override
@@ -628,6 +643,55 @@ public class BenchmarkStreamReaders
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
                     values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
+                }
+                else {
+                    values.add(null);
+                }
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalNoNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
+            }
+            return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LongDecimalWithNullBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(LONG_DECIMAL_TYPE);
+        }
+
+        @Override
+        protected Iterator<?> createValues()
+        {
+            List<SqlDecimal> values = new ArrayList<>();
+            for (int i = 0; i < ROWS; ++i) {
+                if (random.nextBoolean()) {
+                    values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
                 }
                 else {
                     values.add(null);
@@ -1114,6 +1178,9 @@ public class BenchmarkStreamReaders
     public static void main(String[] args)
             throws Throwable
     {
+        LongDecimalNoNullBenchmarkData x = new LongDecimalNoNullBenchmarkData();
+        x.setup();
+        x.createValues();
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkStreamReaders.class.getSimpleName() + ".*")

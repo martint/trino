@@ -146,9 +146,13 @@ public class DecimalStreamReader
     private Block readShortNotNullBlock()
             throws IOException
     {
-        Block block;
+        verify(scaleStream != null);
+        verify(decimalStream != null);
+
+        // read all scales in a single batch
         long[] values = new long[nextBatchSize];
         scaleStream.next(values, nextBatchSize);
+
         for (int i = 0; i < nextBatchSize; i++) {
             long value = decimalStream.nextLong();
             if (values[i] != type.getScale()) {
@@ -156,8 +160,7 @@ public class DecimalStreamReader
             }
             values[i] = value;
         }
-        block = new LongArrayBlock(nextBatchSize, Optional.empty(), values);
-        return block;
+        return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
     private Block readLongNotNullBlock()
@@ -167,12 +170,16 @@ public class DecimalStreamReader
         BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         for (int i = 0; i < nextBatchSize; i++) {
             long sourceScale = scaleStream.next();
+            
             Slice decimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-            Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
-
             decimalStream.nextLongDecimal(decimal);
-            rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
-            type.writeSlice(builder, rescaledDecimal);
+
+            if (sourceScale != type.getScale()) {
+                Slice rescaledDecimal = UnscaledDecimal128Arithmetic.unscaledDecimal();
+                rescale(decimal, (int) (type.getScale() - sourceScale), rescaledDecimal);
+                decimal = rescaledDecimal;
+            }
+            type.writeSlice(builder, decimal);
         }
         block = builder.build();
         return block;

@@ -16,14 +16,11 @@ package io.prestosql.orc.stream;
 import io.airlift.slice.Slice;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.io.IOException;
 
-import static java.lang.Long.MAX_VALUE;
+import static io.prestosql.orc.stream.LongDecode.zigzagDecode;
 
 public class DecimalInputStream
         implements ValueInputStream<DecimalStreamCheckpoint>
@@ -103,55 +100,20 @@ public class DecimalInputStream
         int offset = 0;
         long b;
         do {
-            b = input.read(); input.available();
+            b = input.read();
             if (b == -1) {
                 throw new OrcCorruptionException(input.getOrcDataSourceId(), "Reading BigInteger past EOF");
             }
-            long work = 0x7f & b;
-            if (offset >= 63 && (offset != 63 || work > 1)) {
-                throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decimal does not fit long (invalid table schema?)");
-            }
-            result |= work << offset;
+            result |= (b & 0b0111_1111) << offset;
             offset += 7;
         }
-        while (b >= 0x80);
+        while ((b & 0b1000_0000) != 0);
 
-        boolean isNegative = (result & 0x01) != 0;
-        if (isNegative) {
-            result += 1;
-            result = -result;
-            result = result >> 1;
-            result |= 0x01L << 63;
+        if (offset > 70 || (offset == 70 && b > 1)) {
+            throw new OrcCorruptionException(input.getOrcDataSourceId(), "Decimal does not fit long (invalid table schema?)");
         }
-        else {
-            result = result >> 1;
-            result &= MAX_VALUE;
-        }
-        return result;
-    }
 
-    public void nextShortDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            long value = nextLong();
-            long rescaledDecimal = Decimals.rescale(value, (int) sourceScale[i], targetType.getScale());
-            targetType.writeLong(builder, rescaledDecimal);
-        }
-    }
-
-    public void nextShortDecimalVector(int items, BlockBuilder builder, DecimalType targetType, long[] sourceScale, boolean[] isNull)
-            throws IOException
-    {
-        for (int i = 0; i < items; i++) {
-            if (!isNull[i]) {
-                long rescaledDecimal = Decimals.rescale(nextLong(), (int) sourceScale[i], targetType.getScale());
-                targetType.writeLong(builder, rescaledDecimal);
-            }
-            else {
-                builder.appendNull();
-            }
-        }
+        return zigzagDecode(result);
     }
 
     @Override
