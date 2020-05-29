@@ -411,12 +411,7 @@ public final class TypeCoercion
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.CHAR:
-                        VarcharType varcharType = (VarcharType) sourceType;
-                        if (varcharType.isUnbounded()) {
-                            return Optional.of(createCharType(CharType.MAX_LENGTH));
-                        }
-
-                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
+                        return Optional.empty();
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
@@ -432,7 +427,7 @@ public final class TypeCoercion
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
-                        return Optional.empty();
+                        return Optional.of(createVarcharType(((CharType) sourceType).getLength()));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
