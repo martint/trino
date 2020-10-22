@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.Session;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.query.QueryAssertions;
 import io.prestosql.testing.TestingSession;
@@ -436,5 +437,117 @@ public class TestExtract
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '2020'");
+    }
+
+    @Test
+    public void testTimezoneHour()
+    {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(0)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(1)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(2)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(3)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(4)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(5)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(6)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(7)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(8)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(9)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567891')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(10)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678912')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(11)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789123')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(12)");
+    }
+
+    @Test
+    public void testTimezoneMinute()
+    {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(0)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(1)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(2)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(3)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(4)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(5)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(6)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(7)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(8)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(9)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567891')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(10)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678912')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(11)");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789123')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(12)");
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.scalar.timetz;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.query.QueryAssertions;
 import org.testng.annotations.AfterClass;
@@ -219,5 +220,173 @@ public class TestExtract
         assertThat(assertions.expression("timezone_minute(TIME '12:34:56.1234567890+08:35')")).matches("BIGINT '35'");
         assertThat(assertions.expression("timezone_minute(TIME '12:34:56.12345678901+08:35')")).matches("BIGINT '35'");
         assertThat(assertions.expression("timezone_minute(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '35'");
+    }
+
+    @Test
+    public void testYear()
+    {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(0) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(1) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(2) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(3) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(4) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(5) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(6) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234567+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(7) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345678+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(8) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456789+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(9) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.1234567891+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(10) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.12345678912+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(11) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(YEAR FROM TIME '12:34:56.123456789123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:26: Cannot extract YEAR from time(12) with time zone");
+    }
+
+    @Test
+    public void testMonth()
+    {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(0) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(1) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(2) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(3) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(4) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(5) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(6) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234567+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(7) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345678+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(8) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456789+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(9) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.1234567891+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(10) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.12345678912+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(11) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(MONTH FROM TIME '12:34:56.123456789123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:27: Cannot extract MONTH from time(12) with time zone");
+    }
+
+    @Test
+    public void testDay()
+    {
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(0) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(1) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(2) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(3) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(4) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(5) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(6) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234567+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(7) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345678+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(8) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456789+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(9) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.1234567891+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(10) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.12345678912+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(11) with time zone");
+
+        assertThatThrownBy(() -> assertions.expression("EXTRACT(DAY FROM TIME '12:34:56.123456789123+08:35')"))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("line 1:25: Cannot extract DAY from time(12) with time zone");
     }
 }
