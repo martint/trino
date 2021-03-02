@@ -2,15 +2,19 @@
 
 ## General
 
+* Add {doc}`/connector/clickhouse`. ({issue}`4500`)
 * Fix aliasing of columns in common table expressions. ({issue}`6839`)
 * Fix potential incorrect query results for queries containing multiple `<` predicates. ({issue}`6896`)
 * Always show `SECURITY` clause in `SHOW CREATE VIEW`. ({issue}`6720`)
 * Fix reporting column references for aliased tables. ({issue}`6972`)
+* Fix potential compiler failure when constructing an array with more than 128 elements. ({issue}`7014`)
 * Fail `SHOW COLUMNS` when there are issues with getting information about table columns.
   Previously empty list of columns was returned. ({issue}`6958`)
 * Improve parallelism of bucketed tables inserts. Inserts into bucketed tables can now be parallelized
   within task using `task.writer-count` feature config. ({issue}`6924`)
 * Extend support for correlated subqueries including `UNNEST`. ({issue}`6326`, {issue}`6925`, {issue}`6951`)
+* Fix printing of filter expressions in `EXPLAIN` output. ({issue}`6703`)
+* Improve query planning time for queries containing `IN` predicates with long in-list. ({issue}`7015`)
 
 ## Server RPM
 
@@ -28,6 +32,8 @@
 * Add support for `current_user()` in Hive defined views. ({issue}`6720`)
 * Improve insert parallelism when inserting into partitioned and bucketed tables. ({issue}`6866`)
 * Add support for reading and writing column statistics from Glue metastore. ({issue}`6178`)
+* Add {func}`to_geojson_geometry` and {func}`from_geojson_geometry` functions to enable usage
+  of spherical geographies stored as GeoJSON. ({issue}`6355`)
 
 ## Iceberg connector
 
@@ -37,6 +43,7 @@
 
 * Fix `Classloader` related issue seen in Worker for Schema Registry tables. ({issue}`6902`)
 * Fix querying of Schema Registry tables with References in their schema. ({issue}`6907`)
+* Fix listing of schema registry tables having ambiguous subject name in lower case.
 
 ## MySQL connector
 
