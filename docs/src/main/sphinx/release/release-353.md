@@ -92,3 +92,4 @@
 * Change return type of `io.trino.spi.predicate.Range.intersect(Range)`. The method now returns `Optional.empty()`
   instead of throwing when ranges do not overlap. ({issue}`6976`)
 * Change signature of `io.trino.spi.connector.ConnectorMetadata.applyJoin`. Method now takes additional `JoinStatistics` argument. ({issue}`7000`)
+* Deprecate `io.trino.spi.predicate.Marker`.
