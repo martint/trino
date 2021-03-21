@@ -27,45 +27,45 @@ public final class Merge
 {
     private final Table table;
     private final Optional<Identifier> targetAlias;
-    private final Relation relation;
-    private final Expression expression;
+    private final Relation source;
+    private final Expression predicate;
     private final List<MergeCase> mergeCases;
 
     public Merge(
             Table table,
             Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
+            Relation source,
+            Expression predicate,
             List<MergeCase> mergeCases)
 
     {
-        this(Optional.empty(), table, targetAlias, relation, expression, mergeCases);
+        this(Optional.empty(), table, targetAlias, source, predicate, mergeCases);
     }
 
     public Merge(
             NodeLocation location,
             Table table,
             Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
+            Relation source,
+            Expression predicate,
             List<MergeCase> mergeCases)
     {
-        this(Optional.of(location), table, targetAlias, relation, expression, mergeCases);
+        this(Optional.of(location), table, targetAlias, source, predicate, mergeCases);
     }
 
     public Merge(
             Optional<NodeLocation> location,
             Table table,
             Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
+            Relation source,
+            Expression predicate,
             List<MergeCase> mergeCases)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
         this.targetAlias = requireNonNull(targetAlias, "targetAlias is null");
-        this.relation = requireNonNull(relation, "relation is null");
-        this.expression = requireNonNull(expression, "expression is null");
+        this.source = requireNonNull(source, "relation is null");
+        this.predicate = requireNonNull(predicate, "expression is null");
         this.mergeCases = ImmutableList.copyOf(requireNonNull(mergeCases, "mergeCases is null"));
     }
 
@@ -79,14 +79,14 @@ public final class Merge
         return targetAlias;
     }
 
-    public Relation getRelation()
+    public Relation getSource()
     {
-        return relation;
+        return source;
     }
 
-    public Expression getExpression()
+    public Expression getPredicate()
     {
-        return expression;
+        return predicate;
     }
 
     public List<MergeCase> getMergeCases()
@@ -105,8 +105,8 @@ public final class Merge
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
         builder.add(table);
-        builder.add(relation);
-        builder.add(expression);
+        builder.add(source);
+        builder.add(predicate);
         builder.addAll(mergeCases);
         return builder.build();
     }
@@ -123,15 +123,15 @@ public final class Merge
         Merge merge = (Merge) o;
         return Objects.equals(table, merge.table) &&
                 Objects.equals(targetAlias, merge.targetAlias) &&
-                Objects.equals(relation, merge.relation) &&
-                Objects.equals(expression, merge.expression) &&
+                Objects.equals(source, merge.source) &&
+                Objects.equals(predicate, merge.predicate) &&
                 Objects.equals(mergeCases, merge.mergeCases);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, targetAlias, relation, expression, mergeCases);
+        return Objects.hash(table, targetAlias, source, predicate, mergeCases);
     }
 
     @Override
@@ -140,8 +140,8 @@ public final class Merge
         return toStringHelper(this)
                 .add("table", table)
                 .add("targetAlias", targetAlias.orElse(null))
-                .add("relation", relation)
-                .add("expression", expression)
+                .add("relation", source)
+                .add("expression", predicate)
                 .add("mergeCases", mergeCases)
                 .omitNullValues()
                 .toString();

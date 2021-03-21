@@ -20,7 +20,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
@@ -33,6 +32,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -74,6 +74,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -92,7 +93,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -148,11 +148,7 @@ public class Analysis
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
-
-    private final ListMultimap<NodeRef<Node>, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
-    private final ListMultimap<NodeRef<Node>, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
+    private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
@@ -185,6 +181,8 @@ public class Analysis
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<Table> mergeTarget = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -236,7 +234,7 @@ public class Analysis
 
     public boolean isUpdateTarget(Table table)
     {
-        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
+        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType) || "MERGE".equals(updateType)) &&
                 target.orElseThrow(() -> new IllegalStateException("Update target not set"))
                         .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
     }
@@ -427,11 +425,11 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        NodeRef<Node> key = NodeRef.of(node);
-        this.inPredicatesSubqueries.putAll(key, dereference(expressionAnalysis.getSubqueryInPredicates()));
-        this.scalarSubqueries.putAll(key, dereference(expressionAnalysis.getScalarSubqueries()));
-        this.existsSubqueries.putAll(key, dereference(expressionAnalysis.getExistsSubqueries()));
-        this.quantifiedComparisonSubqueries.putAll(key, dereference(expressionAnalysis.getQuantifiedComparisons()));
+        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
+        subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
+        subqueries.addScalarSubqueries(dereference(expressionAnalysis.getScalarSubqueries()));
+        subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
+        subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -441,24 +439,9 @@ public class Analysis
                 .collect(toImmutableList());
     }
 
-    public List<InPredicate> getInPredicateSubqueries(Node node)
+    public SubqueryAnalysis getSubqueries(Node node)
     {
-        return ImmutableList.copyOf(inPredicatesSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<SubqueryExpression> getScalarSubqueries(Node node)
-    {
-        return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<ExistsPredicate> getExistsSubqueries(Node node)
-    {
-        return ImmutableList.copyOf(existsSubqueries.get(NodeRef.of(node)));
-    }
-
-    public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
-    {
-        return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
+        return subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
     }
 
     public void addWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name, ResolvedWindow window)
@@ -711,6 +694,26 @@ public class Analysis
     public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
     {
         this.updatedColumns = Optional.of(updatedColumns);
+    }
+
+    public Optional<Table> getMergeTarget()
+    {
+        return mergeTarget;
+    }
+
+    public void setMergeTarget(Optional<Table> mergeTarget)
+    {
+        this.mergeTarget = mergeTarget;
+    }
+
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
     }
 
     public Optional<List<ColumnMetadata>> getUpdatedColumns()
@@ -1276,6 +1279,54 @@ public class Analysis
         }
     }
 
+    public static class SubqueryAnalysis
+    {
+        private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
+        private final List<SubqueryExpression> scalarSubqueries = new ArrayList<>();
+        private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
+        private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
+
+        public void addInPredicates(List<InPredicate> expressions)
+        {
+            inPredicatesSubqueries.addAll(expressions);
+        }
+
+        public void addScalarSubqueries(List<SubqueryExpression> expressions)
+        {
+            scalarSubqueries.addAll(expressions);
+        }
+
+        public void addExistsSubqueries(List<ExistsPredicate> expressions)
+        {
+            existsSubqueries.addAll(expressions);
+        }
+
+        public void addQuantifiedComparisons(List<QuantifiedComparisonExpression> expressions)
+        {
+            quantifiedComparisonSubqueries.addAll(expressions);
+        }
+
+        public List<InPredicate> getInPredicatesSubqueries()
+        {
+            return Collections.unmodifiableList(inPredicatesSubqueries);
+        }
+
+        public List<SubqueryExpression> getScalarSubqueries()
+        {
+            return Collections.unmodifiableList(scalarSubqueries);
+        }
+
+        public List<ExistsPredicate> getExistsSubqueries()
+        {
+            return Collections.unmodifiableList(existsSubqueries);
+        }
+
+        public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
+        {
+            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+        }
+    }
+
     public static class ResolvedWindow
     {
         private final List<Expression> partitionBy;
@@ -1323,6 +1374,41 @@ public class Analysis
         public boolean isFrameInherited()
         {
             return frameInherited;
+        }
+    }
+
+    // All string column names have been translated from the user's spelling of
+    // column names to the column names from the table column metadata, so identification
+    // of columns by string column name is consistent.
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final List<ColumnSchema> allColumns;
+        private final Scope joinScope;
+
+        public MergeAnalysis(
+                Table targetTable,
+                List<ColumnSchema> allColumns,
+                Scope joinScope)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.allColumns = requireNonNull(allColumns, "allColumns is null");
+            this.joinScope = requireNonNull(joinScope, "joinScope is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public List<ColumnSchema> getAllColumns()
+        {
+            return allColumns;
+        }
+
+        public Scope getJoinScope()
+        {
+            return joinScope;
         }
     }
 

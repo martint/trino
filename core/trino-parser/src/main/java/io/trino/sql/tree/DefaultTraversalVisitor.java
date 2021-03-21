@@ -641,8 +641,8 @@ public abstract class DefaultTraversalVisitor<C>
     {
         process(node.getTable(), context);
         node.getTargetAlias().ifPresent(target -> process(target, context));
-        process(node.getRelation(), context);
-        process(node.getExpression(), context);
+        process(node.getSource(), context);
+        process(node.getPredicate(), context);
         node.getMergeCases().forEach(mergeCase -> process(mergeCase, context));
         return null;
     }

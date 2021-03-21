@@ -21,28 +21,43 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.operator.ChangeOnlyUpdatedColumnsMergeProcessor;
+import io.trino.operator.DeleteAndInsertMergeProcessor;
+import io.trino.operator.RowChangeProcessor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.MergeCaseDetails;
+import io.trino.spi.connector.MergeCaseKind;
+import io.trino.spi.connector.MergeDetails;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ExpressionUtils;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
+import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -51,6 +66,7 @@ import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UpdateNode;
@@ -62,33 +78,49 @@ import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
+import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Update;
+import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -109,6 +141,7 @@ import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -116,6 +149,7 @@ import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
+import static io.trino.sql.planner.LogicalPlanner.createPartitioningScheme;
 import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
@@ -134,6 +168,7 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -185,7 +220,7 @@ class QueryPlanner
         PlanBuilder builder = planQueryBody(query);
 
         List<Expression> orderBy = analysis.getOrderByExpressions(query);
-        builder = subqueryPlanner.handleSubqueries(builder, orderBy, query);
+        builder = subqueryPlanner.handleSubqueries(builder, orderBy, analysis.getSubqueries(query));
 
         List<SelectExpression> selectExpressions = analysis.getSelectExpressions(query);
         List<Expression> outputs = selectExpressions.stream()
@@ -382,7 +417,7 @@ class QueryPlanner
         List<Expression> expressions = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
-        builder = subqueryPlanner.handleSubqueries(builder, expressions, node);
+        builder = subqueryPlanner.handleSubqueries(builder, expressions, analysis.getSubqueries(node));
 
         if (hasExpressionsToUnfold(selectExpressions)) {
             // pre-project the folded expressions to preserve any non-deterministic semantics of functions that might be referenced
@@ -419,7 +454,7 @@ class QueryPlanner
         }
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
-        builder = subqueryPlanner.handleSubqueries(builder, orderBy, node);
+        builder = subqueryPlanner.handleSubqueries(builder, orderBy, analysis.getSubqueries(node));
         builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
 
         builder = distinct(builder, node, outputs);
@@ -560,6 +595,306 @@ class QueryPlanner
                 outputs);
     }
 
+    private MergeCaseKind getMergeCaseKind(MergeCase mergeCase)
+    {
+        requireNonNull(mergeCase, "mergeCase is null");
+        if (mergeCase instanceof MergeInsert) {
+            return MergeCaseKind.INSERT;
+        }
+        if (mergeCase instanceof MergeUpdate) {
+            return MergeCaseKind.UPDATE;
+        }
+        if (mergeCase instanceof MergeDelete) {
+            return MergeCaseKind.DELETE;
+        }
+        throw new IllegalArgumentException("Unrecognized MergeCase " + mergeCase.getClass());
+    }
+
+    public MergeNode plan(Merge merge)
+    {
+        MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
+
+        TableHandle targetTableHandle = analysis.getTableHandle(mergeAnalysis.getTargetTable());
+        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle);
+        List<ColumnHandle> redistributionColumns = metadata.getWriteRedistributionColumns(session, targetTableHandle);
+        List<String> writeRedistributionColumnNames = columnHandles.entrySet().stream()
+                .filter(entry -> redistributionColumns.contains(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(toImmutableList());
+
+        ImmutableMap.Builder<Integer, List<String>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
+        for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
+            MergeCase operation = merge.getMergeCases().get(caseCounter);
+            List<String> mergeColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
+            mergeCaseColumnsListsBuilder.put(caseCounter, mergeColumnNames);
+        }
+
+        Map<Integer, List<String>> mergeCaseColumnsLists = mergeCaseColumnsListsBuilder.build();
+
+        MergeDetails mergeDetails = createMergeDetails(merge, mergeCaseColumnsLists);
+
+        RelationPlan target = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .process(merge.getTable());
+
+        PlanBuilder targetPlanBuilder = newPlanBuilder(target, analysis, lambdaDeclarationToSymbolMap);
+
+        Assignments.Builder projections = Assignments.builder();
+        projections.putIdentities(targetPlanBuilder.getRoot().getOutputSymbols());
+
+        Symbol presentColumn = symbolAllocator.newSymbol("present", BOOLEAN);
+        projections.put(presentColumn, TRUE_LITERAL);
+
+        target = new RelationPlan(
+                new ProjectNode(idAllocator.getNextId(), targetPlanBuilder.getRoot(), projections.build()),
+                analysis.getScope(merge.getTable()),
+                target.getFieldMappings(),
+                outerContext);
+
+        RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .process(merge.getSource());
+
+        RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), target, source, analysis.getSubqueries(merge));
+
+        PlanBuilder joinBuilder = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap);
+
+        ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+        for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
+            MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
+
+            ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+            for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
+                Field field = target.getDescriptor().getFieldByIndex(i);
+
+                if (field.isHidden() || field.getName().isEmpty()) {
+                    continue;
+                }
+
+                List<String> mergeCaseSetColunns = mergeCaseColumnsLists.get(caseNumber);
+                int index = mergeCaseSetColunns.indexOf(field.getName().get());
+                if (index >= 0) {
+                    rowBuilder.add(joinBuilder.rewrite(mergeCase.getSetExpressions().get(index)));
+                }
+                else {
+                    rowBuilder.add(target.getFieldMappings().get(i).toSymbolReference());
+                }
+            }
+
+            // Build the match condition for the MERGE case
+            MergeCaseKind mergeKind = getMergeCaseKind(mergeCase);
+
+            // Add the caseNumber and the operation number
+            rowBuilder.add(new LongLiteral(String.valueOf(caseNumber)));
+            rowBuilder.add(new LongLiteral(String.valueOf(mergeKind.getOperationNumber())));
+
+            Optional<Expression> rewritten = mergeCase.getExpression().map(joinBuilder::rewrite);
+            Expression condition = presentColumn.toSymbolReference();
+            if (mergeCase instanceof MergeInsert) {
+                condition = new IsNullPredicate(presentColumn.toSymbolReference());
+            }
+
+            if (rewritten.isPresent()) {
+                condition = ExpressionUtils.and(condition, rewritten.get());
+            }
+
+            whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
+        }
+
+        ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+        for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
+            Field field = target.getDescriptor().getFieldByIndex(i);
+            if (field.isHidden() || field.getName().isEmpty()) {
+                continue;
+            }
+
+            rowBuilder.add(new Cast(new NullLiteral(), toSqlType(field.getType())));
+        }
+        rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
+        rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
+
+        SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
+        RowType rowType = createRowType(mergeAnalysis.getAllColumns());
+        Expression castCaseExpression = new Cast(caseExpression, toSqlType(rowType));
+
+        Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
+        for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
+            Field field = target.getDescriptor().getFieldByIndex(i);
+            if (writeRedistributionColumnNames.contains(field.getName().orElse(null))) {
+                Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+                projectionAssignmentsBuilder.put(symbol, target.getFieldMappings().get(i).toSymbolReference());
+            }
+        }
+        FieldReference reference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        Field rowIdField = target.getDescriptor().getFieldByIndex(reference.getFieldIndex());
+        Symbol rowId = symbolAllocator.newSymbol("row_id", rowIdField.getType());
+        projectionAssignmentsBuilder.put(rowId, target.getFieldMappings().get(reference.getFieldIndex()).toSymbolReference());
+        Symbol mergeOutput = symbolAllocator.newSymbol("merge_row", rowType);
+        projectionAssignmentsBuilder.put(mergeOutput, castCaseExpression);
+
+        ProjectNode project = new ProjectNode(
+                idAllocator.getNextId(),
+                joinBuilder.getRoot(),
+                projectionAssignmentsBuilder.build());
+        int expectedSize = 2 + writeRedistributionColumnNames.size();
+        int actualSize = project.getOutputSymbols().size();
+        checkArgument(actualSize == expectedSize, "projectedSymbols should have size %s, but is %s", expectedSize, actualSize);
+
+        Table table = merge.getTable();
+        TableHandle handle = analysis.getTableHandle(table);
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+
+        RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
+        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
+        Type rowIdType = analysis.getType(analysis.getRowIdField(table));
+        RowChangeProcessor rowChangeProcessor = createMergeProcessor(paradigm, tableMetadata, columnMap, writeRedistributionColumnNames, rowIdType);
+        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeDetails, rowChangeProcessor);
+
+        Map<String, Type> allColumnTypes = mergeAnalysis.getAllColumns().stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
+        Set<String> columnNamesSet = allColumnTypes.keySet();
+
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .filter(columnNamesSet::contains)
+                .collect(toImmutableList());
+        List<Symbol> columnSymbols = target.getRoot().getOutputSymbols().stream()
+                .filter(symbol -> columnNamesSet.contains(symbol.getName()))
+                .collect(toImmutableList());
+        checkState(columnNames.size() == columnSymbols.size(), "Didn't find symbols for all the columns, columns %s, symbols %s", columnNames, columnSymbols);
+
+        ImmutableList.Builder<Symbol> projectedSymbolsBuilder = ImmutableList.builder();
+        int subscriptIndex = 1;
+        for (Symbol columnSymbol : columnSymbols) {
+            SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new LongLiteral(String.valueOf(subscriptIndex)));
+            projectedSymbolsBuilder.add(columnSymbol);
+            analysis.addTypes(ImmutableMap.of(NodeRef.of(subscriptExpression), allColumnTypes.get(columnSymbol.getName())));
+            subscriptIndex++;
+        }
+
+        Symbol operationSymbol = symbolAllocator.newSymbol("operation", INTEGER);
+        projectedSymbolsBuilder.add(operationSymbol);
+        projectedSymbolsBuilder.add(rowId);
+
+        List<Symbol> finalProjectedSymbols = projectedSymbolsBuilder.build();
+
+        Optional<PartitioningScheme> partitioningScheme = createPartitioningScheme(newTableLayout, columnSymbols, columnNames);
+        DeleteAndInsertNode deleteAndInsertNode = new DeleteAndInsertNode(
+                idAllocator.getNextId(),
+                project,
+                mergeTarget,
+                finalProjectedSymbols);
+
+        Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(target.getRoot());
+        checkArgument(tableScanId.isPresent(), "tableScanId not present");
+        List<Symbol> outputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARBINARY));
+        return new MergeNode(
+                idAllocator.getNextId(),
+                deleteAndInsertNode,
+                mergeTarget,
+                tableScanId,
+                finalProjectedSymbols,
+                partitioningScheme,
+                outputs);
+    }
+
+    private List<String> canonicalizeIdentifierList(Collection<Identifier> identifiers)
+    {
+        return identifiers.stream()
+                // TODO Is the toLowerCase() necessary?  It doesn't seem to impact test results
+                .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+    }
+
+    private RowType createRowType(List<ColumnSchema> allColumnsSchema)
+    {
+        // Create the RowType that holds all column values
+        ImmutableList.Builder<RowType.Field> fieldsBuilder = ImmutableList.builder();
+        allColumnsSchema.forEach(columnSchema -> fieldsBuilder.add(new RowType.Field(Optional.of(columnSchema.getName()), columnSchema.getType())));
+        // Add the case number and the operation number
+        fieldsBuilder.add(new RowType.Field(Optional.empty(), INTEGER));
+        fieldsBuilder.add(new RowType.Field(Optional.empty(), INTEGER));
+        List<RowType.Field> rowFields = fieldsBuilder.build();
+        return RowType.from(rowFields);
+    }
+
+    private MergeDetails createMergeDetails(Merge merge, Map<Integer, List<String>> mergeCaseColumnsLists)
+    {
+        // Create MergeDetails
+        ImmutableList.Builder<MergeCaseDetails> caseDetailsBuilder = ImmutableList.builder();
+        int caseCounter = 0;
+        for (MergeCase operation : merge.getMergeCases()) {
+            List<String> mergeColumnNames = mergeCaseColumnsLists.get(caseCounter);
+            if (operation instanceof MergeInsert) {
+                caseDetailsBuilder.add(new MergeCaseDetails(
+                        caseCounter,
+                        MergeCaseKind.INSERT,
+                        ImmutableSet.copyOf(mergeColumnNames)));
+            }
+            else if (operation instanceof MergeUpdate) {
+                caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.UPDATE, ImmutableSet.copyOf(mergeColumnNames)));
+            }
+            else if (operation instanceof MergeDelete) {
+                caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.DELETE, ImmutableSet.of()));
+            }
+            else {
+                throw new IllegalArgumentException(format("Unknown MergeOperation %s of class %s", operation, operation.getClass().getName()));
+            }
+            caseCounter++;
+        }
+        List<MergeCaseDetails> mergeCases = caseDetailsBuilder.build();
+        return new MergeDetails(mergeCases);
+    }
+
+    private RowChangeProcessor createMergeProcessor(
+            RowChangeParadigm paradigm,
+            TableMetadata tableMetadata,
+            Map<String, ColumnHandle> columnHandles,
+            List<String> writeRedistributionColumnNames,
+            Type rowIdType)
+    {
+        switch (paradigm) {
+            case DELETE_ROW_AND_INSERT_ROW:
+                return createDeleteAndInsertMergeProcessor(tableMetadata, columnHandles, writeRedistributionColumnNames, rowIdType);
+            case CHANGE_ONLY_UPDATED_COLUMNS:
+                return createChangeOnlyUpdatedColumnsMergeProcessor(tableMetadata, columnHandles, writeRedistributionColumnNames, rowIdType);
+            default:
+                throw new IllegalArgumentException("Unsupported RowChangeParadigm " + paradigm);
+        }
+    }
+
+    private RowChangeProcessor createDeleteAndInsertMergeProcessor(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, List<String> writeRedistributionColumnNames, Type rowIdType)
+    {
+        List<ColumnMetadata> dataColumnMetadata = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+        List<Type> dataColumnTypes = dataColumnMetadata.stream().map(ColumnMetadata::getType).collect(toImmutableList());
+        List<ColumnHandle> dataColumns = dataColumnMetadata.stream()
+                .map(column -> columnHandles.get(column.getName()))
+                .collect(toImmutableList());
+        List<ColumnHandle> writeRedistributionColumns = writeRedistributionColumnNames.stream()
+                .map(columnHandles::get)
+                .collect(toImmutableList());
+        return new DeleteAndInsertMergeProcessor(dataColumns, dataColumnTypes, writeRedistributionColumns, rowIdType);
+    }
+
+    private RowChangeProcessor createChangeOnlyUpdatedColumnsMergeProcessor(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, List<String> writeRedistributionColumnNames, Type rowIdType)
+    {
+        List<ColumnMetadata> dataColumnMetadata = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+        List<Type> dataColumnTypes = dataColumnMetadata.stream().map(ColumnMetadata::getType).collect(toImmutableList());
+        List<ColumnHandle> dataColumns = dataColumnMetadata.stream()
+                .map(column -> columnHandles.get(column.getName()))
+                .collect(toImmutableList());
+        List<ColumnHandle> writeRedistributionColumns = writeRedistributionColumnNames.stream()
+                .map(columnHandles::get)
+                .collect(toImmutableList());
+        return new ChangeOnlyUpdatedColumnsMergeProcessor(dataColumns, dataColumnTypes, writeRedistributionColumns, rowIdType);
+    }
+
     private Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
     {
         if (node instanceof TableScanNode) {
@@ -608,7 +943,7 @@ class QueryPlanner
             return subPlan;
         }
 
-        subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, node);
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(node));
 
         return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.rewrite(predicate)));
     }
@@ -644,7 +979,7 @@ class QueryPlanner
         inputBuilder.addAll(groupingSetAnalysis.getComplexExpressions());
 
         List<Expression> inputs = inputBuilder.build();
-        subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, node);
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
         subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
         // Add projection to coerce inputs to their site-specific types.
@@ -945,7 +1280,7 @@ class QueryPlanner
 
             List<Expression> inputs = inputsBuilder.build();
 
-            subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, node);
+            subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
             subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
 
             // Add projection to coerce inputs to their site-specific types.
