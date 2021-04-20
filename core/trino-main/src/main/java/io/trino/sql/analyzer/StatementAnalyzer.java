@@ -2076,16 +2076,17 @@ class StatementAnalyzer
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
                 List<Identifier> caseColumnIdentifiers = operation.getSetColumns();
                 int columnCount = caseColumnIdentifiers.size();
+                // TODO: rename to setExpressions
                 List<Expression> expressions = operation.getSetExpressions();
 
                 checkArgument(columnCount == expressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)");
                 Set<String> columnNameSet = new HashSet<>(columnCount);
                 caseColumnIdentifiers.forEach(column -> {
                     String mergeColumn = column.getValue();
-                    if (!tableColumnsSet.contains(mergeColumn)) {
+                    if (!tableColumnsSet.contains(mergeColumn)) { // TODO: canonicalize
                         throw semanticException(COLUMN_NOT_FOUND, merge, "Merge column name does not exist in target table: %s", mergeColumn);
                     }
-                    if (!columnNameSet.add(column.getValue())) {
+                    if (!columnNameSet.add(column.getValue())) { // TODO: canonicalize
                         throw semanticException(DUPLICATE_COLUMN_NAME, merge, "Merge column name is specified more than once: %s", column.getValue());
                     }
                 });
@@ -2105,6 +2106,7 @@ class StatementAnalyzer
                     }
                 }
 
+                // TODO: collect permission checks to do and perform them later in one shot (to avoid checking the same permission multiple times)
                 if (operation instanceof MergeInsert) {
                     accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
                 }
@@ -2125,6 +2127,8 @@ class StatementAnalyzer
 
                 ImmutableList.Builder<Type> setColumnTypesBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Type> setExpressionTypesBuilder = ImmutableList.builder();
+
+                // TODO: hoist canonicalization up since it's being used for other checks earlier
                 List<String> columnList = canonicalizeIdentifierList(caseColumnIdentifiers);
                 allColumnTypes.forEach((name, type) -> {
                     int index = columnList.indexOf(name);

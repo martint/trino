@@ -615,8 +615,13 @@ class QueryPlanner
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
 
         TableHandle targetTableHandle = analysis.getTableHandle(mergeAnalysis.getTargetTable());
+
+        // TODO: this should be read and validated during analysis (to make sure it's present)
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
 
+        // TODO: do this in the analyzer
+        //   Determine ordinals of fields in target descriptor
+        //   Include the ordinals in merge analysis
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle);
         List<ColumnHandle> redistributionColumns = metadata.getWriteRedistributionColumns(session, targetTableHandle);
         List<String> writeRedistributionColumnNames = columnHandles.entrySet().stream()
@@ -624,6 +629,7 @@ class QueryPlanner
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
 
+        // TODO: canonicalize in analyzer, record the list of names for each case in MergeAnalysis
         ImmutableMap.Builder<Integer, List<String>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
         for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
             MergeCase operation = merge.getMergeCases().get(caseCounter);
@@ -668,10 +674,12 @@ class QueryPlanner
             for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
                 Field field = target.getDescriptor().getFieldByIndex(i);
 
-                if (field.isHidden() || field.getName().isEmpty()) {
+                if (field.isHidden() || field.getName().isEmpty()) { // TODO: why would fields in target table not have a name?
                     continue;
                 }
 
+                // TODO: typo: mergeCaseSetColunns
+                // TODO: look up by ordinal
                 List<String> mergeCaseSetColunns = mergeCaseColumnsLists.get(caseNumber);
                 int index = mergeCaseSetColunns.indexOf(field.getName().get());
                 if (index >= 0) {
@@ -686,6 +694,7 @@ class QueryPlanner
             MergeCaseKind mergeKind = getMergeCaseKind(mergeCase);
 
             // Add the caseNumber and the operation number
+            // TODO: use GenericLiteral() which has explicit type
             rowBuilder.add(new LongLiteral(String.valueOf(caseNumber)));
             rowBuilder.add(new LongLiteral(String.valueOf(mergeKind.getOperationNumber())));
 
@@ -721,6 +730,9 @@ class QueryPlanner
         Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
         for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
             Field field = target.getDescriptor().getFieldByIndex(i);
+
+            // TODO: see above
+            //   for each ordinal in redistribution column list...
             if (writeRedistributionColumnNames.contains(field.getName().orElse(null))) {
                 Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
                 projectionAssignmentsBuilder.put(symbol, target.getFieldMappings().get(i).toSymbolReference());
@@ -737,7 +749,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 joinBuilder.getRoot(),
                 projectionAssignmentsBuilder.build());
-        int expectedSize = 2 + writeRedistributionColumnNames.size();
+        int expectedSize = 2 + writeRedistributionColumnNames.size(); // TODO: comment for 2
         int actualSize = project.getOutputSymbols().size();
         checkArgument(actualSize == expectedSize, "projectedSymbols should have size %s, but is %s", expectedSize, actualSize);
 
@@ -756,8 +768,16 @@ class QueryPlanner
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
-                .filter(columnNamesSet::contains)
+                .filter(columnNamesSet::contains)  // TODO: is columnNamesSet different from tableMetadata.getColumns()?
                 .collect(toImmutableList());
+
+        /* TODO
+
+            List<Symbol> columnSymbols = target.getFieldMappings();
+
+            field mappings match the order of fields in the descriptor
+
+         */
         List<Symbol> columnSymbols = target.getRoot().getOutputSymbols().stream()
                 .filter(symbol -> columnNamesSet.contains(symbol.getName()))
                 .collect(toImmutableList());
@@ -766,7 +786,7 @@ class QueryPlanner
         ImmutableList.Builder<Symbol> projectedSymbolsBuilder = ImmutableList.builder();
         int subscriptIndex = 1;
         for (Symbol columnSymbol : columnSymbols) {
-            SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new LongLiteral(String.valueOf(subscriptIndex)));
+            SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new LongLiteral(String.valueOf(subscriptIndex))); // TODO: use GenericLiteral
             projectedSymbolsBuilder.add(columnSymbol);
             analysis.addTypes(ImmutableMap.of(NodeRef.of(subscriptExpression), allColumnTypes.get(columnSymbol.getName())));
             subscriptIndex++;
@@ -800,6 +820,7 @@ class QueryPlanner
                 outputs);
     }
 
+    // TODO: this shouldn't be done in planning
     private List<String> canonicalizeIdentifierList(Collection<Identifier> identifiers)
     {
         return identifiers.stream()
