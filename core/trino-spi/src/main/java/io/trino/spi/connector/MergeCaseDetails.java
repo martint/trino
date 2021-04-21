@@ -25,13 +25,13 @@ public class MergeCaseDetails
 {
     private final int caseNumber;
     private final MergeCaseKind caseKind;
-    private final Set<String> updatedColumns;
+    private final Set<ColumnHandle> updatedColumns;
 
     @JsonCreator
     public MergeCaseDetails(
             @JsonProperty("caseNumber") int caseNumber,
             @JsonProperty("caseKind") MergeCaseKind caseKind,
-            @JsonProperty("updatedColumns") Set<String> updatedColumns)
+            @JsonProperty("updatedColumns") Set<ColumnHandle> updatedColumns)
     {
         this.caseNumber = caseNumber;
         this.caseKind = requireNonNull(caseKind, "caseKind is null");
@@ -60,7 +60,7 @@ public class MergeCaseDetails
     }
 
     @JsonProperty
-    public Set<String> getUpdatedColumns()
+    public Set<ColumnHandle> getUpdatedColumns()
     {
         return updatedColumns;
     }

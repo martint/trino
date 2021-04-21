@@ -1383,22 +1383,31 @@ public class Analysis
     public static class MergeAnalysis
     {
         private final Table targetTable;
-        private final List<ColumnSchema> allColumns;
-        private final List<Integer> redistributionColumnFieldNumbers;
-        private final Map<Integer, List<Integer>> mergeCaseColumnFieldNumbers;
+        private final List<ColumnSchema> dataColumnSchemas;
+        private final List<ColumnHandle> dataColumnHandles;
+        private final List<ColumnHandle> redistributionColumnHandles;
+        private final Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final Optional<NewTableLayout> newTableLayout;
         private final Scope joinScope;
 
         public MergeAnalysis(
                 Table targetTable,
-                List<ColumnSchema> allColumns,
-                List<Integer> redistributionColumnFieldNumbers,
-                Map<Integer, List<Integer>> mergeCaseColumnFieldNumbers,
+                List<ColumnSchema> dataColumnSchemas,
+                List<ColumnHandle> dataColumnHandles,
+                List<ColumnHandle> redistributionColumnHandles,
+                Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles,
+                Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                Optional<NewTableLayout> newTableLayout,
                 Scope joinScope)
         {
             this.targetTable = requireNonNull(targetTable, "targetTable is null");
-            this.allColumns = requireNonNull(allColumns, "allColumns is null");
-            this.redistributionColumnFieldNumbers = redistributionColumnFieldNumbers; //requireNonNull(redistributionColumnFieldNumbers, "redistributionColumnFieldNumbers is null");
-            this.mergeCaseColumnFieldNumbers = mergeCaseColumnFieldNumbers; //requireNonNull(mergeCaseColumnFieldNumbers, "mergeCaseColumnFieldNumbers is null");
+            this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
+            this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
+            this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
+            this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
             this.joinScope = requireNonNull(joinScope, "joinScope is null");
         }
 
@@ -1407,19 +1416,34 @@ public class Analysis
             return targetTable;
         }
 
-        public List<ColumnSchema> getAllColumns()
+        public List<ColumnSchema> getDataColumnSchemas()
         {
-            return allColumns;
+            return dataColumnSchemas;
         }
 
-        public List<Integer> getRedistributionColumnFieldNumbers()
+        public List<ColumnHandle> getDataColumnHandles()
         {
-            return redistributionColumnFieldNumbers;
+            return dataColumnHandles;
         }
 
-        public Map<Integer, List<Integer>> getMergeCaseColumnFieldNumbers()
+        public List<ColumnHandle> getRedistributionColumnHandles()
         {
-            return mergeCaseColumnFieldNumbers;
+            return redistributionColumnHandles;
+        }
+
+        public Map<Integer, List<ColumnHandle>> getMergeCaseColumnHandles()
+        {
+            return mergeCaseColumnHandles;
+        }
+
+        public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
+        {
+            return columnHandleFieldNumbers;
+        }
+
+        public Optional<NewTableLayout> getNewTableLayout()
+        {
+            return newTableLayout;
         }
 
         public Scope getJoinScope()

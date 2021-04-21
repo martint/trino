@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -614,20 +613,8 @@ class QueryPlanner
     {
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow(() -> new IllegalArgumentException("analysis.getMergeAnalysis() isn't present"));
 
-        TableHandle targetTableHandle = analysis.getTableHandle(mergeAnalysis.getTargetTable());
-
-        // TODO: this should be read and validated during analysis (to make sure it's present)
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
-
-        // TODO: do this in the analyzer
-        //   Determine ordinals of fields in target descriptor
-        //   Include the ordinals in merge analysis
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle);
-        List<ColumnHandle> redistributionColumns = metadata.getWriteRedistributionColumns(session, targetTableHandle);
-        List<String> writeRedistributionColumnNames = columnHandles.entrySet().stream()
-                .filter(entry -> redistributionColumns.contains(entry.getValue()))
-                .map(Map.Entry::getKey)
-                .collect(toImmutableList());
+        List<ColumnHandle> redistributionColumns = mergeAnalysis.getRedistributionColumnHandles();
+        Map<Integer, List<ColumnHandle>> mergeCaseColumnsHandles = mergeAnalysis.getMergeCaseColumnHandles();
 
         // TODO: canonicalize in analyzer, record the list of names for each case in MergeAnalysis
         ImmutableMap.Builder<Integer, List<String>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
@@ -637,9 +624,7 @@ class QueryPlanner
             mergeCaseColumnsListsBuilder.put(caseCounter, mergeColumnNames);
         }
 
-        Map<Integer, List<String>> mergeCaseColumnsLists = mergeCaseColumnsListsBuilder.build();
-
-        MergeDetails mergeDetails = createMergeDetails(merge, mergeCaseColumnsLists);
+        MergeDetails mergeDetails = createMergeDetails(merge, mergeCaseColumnsHandles);
 
         RelationPlan target = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
                 .process(merge.getTable());
@@ -671,22 +656,15 @@ class QueryPlanner
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-            for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
-                Field field = target.getDescriptor().getFieldByIndex(i);
-
-                if (field.isHidden() || field.getName().isEmpty()) { // TODO: why would fields in target table not have a name?
-                    continue;
-                }
-
-                // TODO: typo: mergeCaseSetColunns
-                // TODO: look up by ordinal
-                List<String> mergeCaseSetColunns = mergeCaseColumnsLists.get(caseNumber);
-                int index = mergeCaseSetColunns.indexOf(field.getName().get());
+            List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
+            for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
+                int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
                 if (index >= 0) {
                     rowBuilder.add(joinBuilder.rewrite(mergeCase.getSetExpressions().get(index)));
                 }
                 else {
-                    rowBuilder.add(target.getFieldMappings().get(i).toSymbolReference());
+                    Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
+                    rowBuilder.add(target.getFieldMappings().get(fieldNumber).toSymbolReference());
                 }
             }
 
@@ -723,20 +701,17 @@ class QueryPlanner
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
 
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
-        RowType rowType = createRowType(mergeAnalysis.getAllColumns());
+        RowType rowType = createRowType(mergeAnalysis.getDataColumnSchemas());
         Expression castCaseExpression = new Cast(caseExpression, toSqlType(rowType));
 
         Assignments.Builder projectionAssignmentsBuilder = Assignments.builder();
-        for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
-            Field field = target.getDescriptor().getFieldByIndex(i);
-
-            // TODO: see above
-            //   for each ordinal in redistribution column list...
-            if (writeRedistributionColumnNames.contains(field.getName().orElse(null))) {
-                Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-                projectionAssignmentsBuilder.put(symbol, target.getFieldMappings().get(i).toSymbolReference());
-            }
+        for (ColumnHandle column : mergeAnalysis.getRedistributionColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
+            Field field = target.getDescriptor().getFieldByIndex(fieldIndex);
+            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+            projectionAssignmentsBuilder.put(symbol, target.getFieldMappings().get(fieldIndex).toSymbolReference());
         }
+
         FieldReference reference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Field rowIdField = target.getDescriptor().getFieldByIndex(reference.getFieldIndex());
         Symbol rowId = symbolAllocator.newSymbol("row_id", rowIdField.getType());
@@ -749,7 +724,7 @@ class QueryPlanner
                 joinBuilder.getRoot(),
                 projectionAssignmentsBuilder.build());
         // Projecting the writeRedistributionColumns, the merge RowBlock, and the rowId column
-        int expectedSize = writeRedistributionColumnNames.size() + 1 + 1;
+        int expectedSize = redistributionColumns.size() + 1 + 1;
         int actualSize = project.getOutputSymbols().size();
         checkArgument(actualSize == expectedSize, "projectedSymbols should have size %s, but is %s", expectedSize, actualSize);
 
@@ -760,10 +735,10 @@ class QueryPlanner
         RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
         Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
         Type rowIdType = analysis.getType(analysis.getRowIdField(table));
-        RowChangeProcessor rowChangeProcessor = createMergeProcessor(paradigm, tableMetadata, columnMap, writeRedistributionColumnNames, rowIdType);
+        RowChangeProcessor rowChangeProcessor = createMergeProcessor(paradigm, tableMetadata, mergeAnalysis.getDataColumnHandles(), mergeAnalysis.getRedistributionColumnHandles(), rowIdType);
         MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeDetails, rowChangeProcessor);
 
-        Map<String, Type> allColumnTypes = mergeAnalysis.getAllColumns().stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
+        Map<String, Type> allColumnTypes = mergeAnalysis.getDataColumnSchemas().stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
         Set<String> columnNamesSet = allColumnTypes.keySet();
 
         List<String> columnNames = tableMetadata.getColumns().stream()
@@ -798,7 +773,7 @@ class QueryPlanner
 
         List<Symbol> finalProjectedSymbols = projectedSymbolsBuilder.build();
 
-        Optional<PartitioningScheme> partitioningScheme = createPartitioningScheme(newTableLayout, columnSymbols, columnNames);
+        Optional<PartitioningScheme> partitioningScheme = createPartitioningScheme(mergeAnalysis.getNewTableLayout(), columnSymbols, columnNames);
         DeleteAndInsertNode deleteAndInsertNode = new DeleteAndInsertNode(
                 idAllocator.getNextId(),
                 project,
@@ -841,21 +816,21 @@ class QueryPlanner
         return RowType.from(rowFields);
     }
 
-    private MergeDetails createMergeDetails(Merge merge, Map<Integer, List<String>> mergeCaseColumnsLists)
+    private MergeDetails createMergeDetails(Merge merge, Map<Integer, List<ColumnHandle>> mergeCaseColumnsLists)
     {
         // Create MergeDetails
         ImmutableList.Builder<MergeCaseDetails> caseDetailsBuilder = ImmutableList.builder();
         int caseCounter = 0;
         for (MergeCase operation : merge.getMergeCases()) {
-            List<String> mergeColumnNames = mergeCaseColumnsLists.get(caseCounter);
+            List<ColumnHandle> caseColumnHandles = mergeCaseColumnsLists.get(caseCounter);
             if (operation instanceof MergeInsert) {
                 caseDetailsBuilder.add(new MergeCaseDetails(
                         caseCounter,
                         MergeCaseKind.INSERT,
-                        ImmutableSet.copyOf(mergeColumnNames)));
+                        ImmutableSet.copyOf(caseColumnHandles)));
             }
             else if (operation instanceof MergeUpdate) {
-                caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.UPDATE, ImmutableSet.copyOf(mergeColumnNames)));
+                caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.UPDATE, ImmutableSet.copyOf(caseColumnHandles)));
             }
             else if (operation instanceof MergeDelete) {
                 caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.DELETE, ImmutableSet.of()));
@@ -872,48 +847,22 @@ class QueryPlanner
     private RowChangeProcessor createMergeProcessor(
             RowChangeParadigm paradigm,
             TableMetadata tableMetadata,
-            Map<String, ColumnHandle> columnHandles,
-            List<String> writeRedistributionColumnNames,
+            List<ColumnHandle> columnHandles,
+            List<ColumnHandle> writeRedistributionColumnNames,
             Type rowIdType)
     {
+        List<ColumnMetadata> dataColumnMetadata = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+        List<Type> dataColumnTypes = dataColumnMetadata.stream().map(ColumnMetadata::getType).collect(toImmutableList());
         switch (paradigm) {
             case DELETE_ROW_AND_INSERT_ROW:
-                return createDeleteAndInsertMergeProcessor(tableMetadata, columnHandles, writeRedistributionColumnNames, rowIdType);
+                return new DeleteAndInsertMergeProcessor(columnHandles, dataColumnTypes, writeRedistributionColumnNames, rowIdType);
             case CHANGE_ONLY_UPDATED_COLUMNS:
-                return createChangeOnlyUpdatedColumnsMergeProcessor(tableMetadata, columnHandles, writeRedistributionColumnNames, rowIdType);
+                return new ChangeOnlyUpdatedColumnsMergeProcessor(columnHandles, dataColumnTypes, writeRedistributionColumnNames, rowIdType);
             default:
                 throw new IllegalArgumentException("Unsupported RowChangeParadigm " + paradigm);
         }
-    }
-
-    private RowChangeProcessor createDeleteAndInsertMergeProcessor(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, List<String> writeRedistributionColumnNames, Type rowIdType)
-    {
-        List<ColumnMetadata> dataColumnMetadata = tableMetadata.getMetadata().getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<Type> dataColumnTypes = dataColumnMetadata.stream().map(ColumnMetadata::getType).collect(toImmutableList());
-        List<ColumnHandle> dataColumns = dataColumnMetadata.stream()
-                .map(column -> columnHandles.get(column.getName()))
-                .collect(toImmutableList());
-        List<ColumnHandle> writeRedistributionColumns = writeRedistributionColumnNames.stream()
-                .map(columnHandles::get)
-                .collect(toImmutableList());
-        return new DeleteAndInsertMergeProcessor(dataColumns, dataColumnTypes, writeRedistributionColumns, rowIdType);
-    }
-
-    private RowChangeProcessor createChangeOnlyUpdatedColumnsMergeProcessor(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, List<String> writeRedistributionColumnNames, Type rowIdType)
-    {
-        List<ColumnMetadata> dataColumnMetadata = tableMetadata.getMetadata().getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
-        List<Type> dataColumnTypes = dataColumnMetadata.stream().map(ColumnMetadata::getType).collect(toImmutableList());
-        List<ColumnHandle> dataColumns = dataColumnMetadata.stream()
-                .map(column -> columnHandles.get(column.getName()))
-                .collect(toImmutableList());
-        List<ColumnHandle> writeRedistributionColumns = writeRedistributionColumnNames.stream()
-                .map(columnHandles::get)
-                .collect(toImmutableList());
-        return new ChangeOnlyUpdatedColumnsMergeProcessor(dataColumns, dataColumnTypes, writeRedistributionColumns, rowIdType);
     }
 
     private Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)

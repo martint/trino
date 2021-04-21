@@ -2055,16 +2055,23 @@ class StatementAnalyzer
 
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle);
 
-            List<ColumnSchema> columns = tableSchema.getColumns().stream()
+            List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
 
-            List<String> tableColumns = columns.stream()
-                    .map(ColumnSchema::getName)
-                    .collect(toImmutableList());
-            Set<String> tableColumnsSet = ImmutableSet.copyOf(tableColumns);
+            Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, targetTableHandle);
+            ImmutableList.Builder<ColumnHandle> dataColumnHandlesBuilder = ImmutableList.builder();
+            ImmutableSet.Builder<String> dataColumnNamesBulder = ImmutableSet.builder();
+            for (ColumnSchema columnSchema : dataColumnSchemas) {
+                String name = columnSchema.getName();
+                ColumnHandle handle = requireNonNull(allColumnHandles.get(columnSchema.getName()), "ColumnHandle for name is null");
+                dataColumnNamesBulder.add(name);
+                dataColumnHandlesBuilder.add(handle);
+            }
+            List<ColumnHandle> dataColumnHandles = dataColumnHandlesBuilder.build();
+            Set<String> dataColumnNames = dataColumnNamesBulder.build();
 
-            Map<String, Type> allColumnTypes = columns.stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
+            Map<String, Type> allColumnTypes = dataColumnSchemas.stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
 
             // Analyze all expressions in the Merge node
 
@@ -2084,7 +2091,7 @@ class StatementAnalyzer
                 checkArgument(columnCount == setExpressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)");
                 Set<String> columnNameSet = new HashSet<>(columnCount);
                 caseColumnNames.forEach(mergeColumn -> {
-                    if (!tableColumnsSet.contains(mergeColumn)) {
+                    if (!dataColumnNames.contains(mergeColumn)) {
                         throw semanticException(COLUMN_NOT_FOUND, merge, "Merge column name does not exist in target table: %s", mergeColumn);
                     }
                     if (!columnNameSet.add(mergeColumn)) {
@@ -2154,7 +2161,6 @@ class StatementAnalyzer
                     .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
 
             Set<String> allUpdateColumnNames = allUpdateColumnNamesBuilder.build();
-
             if (!allUpdateColumnNames.isEmpty()) {
                 accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
             }
@@ -2163,7 +2169,7 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
             }
 
-            for (ColumnSchema column : columns) {
+            for (ColumnSchema column : dataColumnSchemas) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, column.getName(), column.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, merge, "Merge table with column mask");
                 }
@@ -2171,10 +2177,44 @@ class StatementAnalyzer
 
             analysis.setUpdateType("MERGE", tableName, Optional.of(table), Optional.empty());
 
-            // TODO: fill in these nulls
-            analysis.setMergeAnalysis(new MergeAnalysis(table, columns, null, null, joinScope));
+            List<ColumnHandle> redistributionColumnHandles = metadata.getWriteRedistributionColumns(session, targetTableHandle);
+            Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, allColumnHandles);
+
+            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
+
+            ImmutableMap.Builder<ColumnHandle, Integer> columnHandleFieldNumbersBuilder = ImmutableMap.builder();
+            RelationType relationType = targetTableScope.getRelationType();
+            int fieldCount = relationType.getVisibleFieldCount();
+            int fieldIndex = 0;
+            for (Field field : relationType.getAllFields()) {
+                Optional<String> name = field.getName();
+                if (name.isPresent()) {
+                    ColumnHandle handle = allColumnHandles.get(name.get());
+                    if (handle != null) {
+                        columnHandleFieldNumbersBuilder.put(handle, fieldIndex);
+                    }
+                }
+                fieldIndex++;
+            }
+            Map<ColumnHandle, Integer> columnHandleFieldNumbers = columnHandleFieldNumbersBuilder.build();
+            analysis.setMergeAnalysis(new MergeAnalysis(table, dataColumnSchemas, dataColumnHandles, redistributionColumnHandles, mergeCaseColumnHandles, columnHandleFieldNumbers, newTableLayout, joinScope));
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
+        }
+
+        private Map<Integer, List<ColumnHandle>> buildCaseColumnLists(Merge merge, Map<String, ColumnHandle> allColumnHandles)
+        {
+            ImmutableMap.Builder<Integer, List<ColumnHandle>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
+            for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
+                MergeCase operation = merge.getMergeCases().get(caseCounter);
+                List<String> mergeColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
+                mergeCaseColumnsListsBuilder.put(
+                        caseCounter,
+                        mergeColumnNames.stream()
+                                .map(name -> requireNonNull(allColumnHandles.get(name), "No column found for name"))
+                                .collect(toImmutableList()));
+            }
+            return mergeCaseColumnsListsBuilder.build();
         }
 
         private List<String> canonicalizeIdentifierList(Collection<Identifier> identifiers)
