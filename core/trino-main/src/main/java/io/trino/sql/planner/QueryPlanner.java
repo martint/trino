@@ -694,9 +694,8 @@ class QueryPlanner
             MergeCaseKind mergeKind = getMergeCaseKind(mergeCase);
 
             // Add the caseNumber and the operation number
-            // TODO: use GenericLiteral() which has explicit type
-            rowBuilder.add(new LongLiteral(String.valueOf(caseNumber)));
-            rowBuilder.add(new LongLiteral(String.valueOf(mergeKind.getOperationNumber())));
+            rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
+            rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(mergeKind.getOperationNumber())));
 
             Optional<Expression> rewritten = mergeCase.getExpression().map(joinBuilder::rewrite);
             Expression condition = presentColumn.toSymbolReference();
@@ -749,7 +748,8 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 joinBuilder.getRoot(),
                 projectionAssignmentsBuilder.build());
-        int expectedSize = 2 + writeRedistributionColumnNames.size(); // TODO: comment for 2
+        // Projecting the writeRedistributionColumns, the merge RowBlock, and the rowId column
+        int expectedSize = writeRedistributionColumnNames.size() + 1 + 1;
         int actualSize = project.getOutputSymbols().size();
         checkArgument(actualSize == expectedSize, "projectedSymbols should have size %s, but is %s", expectedSize, actualSize);
 
@@ -786,7 +786,7 @@ class QueryPlanner
         ImmutableList.Builder<Symbol> projectedSymbolsBuilder = ImmutableList.builder();
         int subscriptIndex = 1;
         for (Symbol columnSymbol : columnSymbols) {
-            SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new LongLiteral(String.valueOf(subscriptIndex))); // TODO: use GenericLiteral
+            SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new GenericLiteral("BIGINT", String.valueOf(subscriptIndex)));
             projectedSymbolsBuilder.add(columnSymbol);
             analysis.addTypes(ImmutableMap.of(NodeRef.of(subscriptExpression), allColumnTypes.get(columnSymbol.getName())));
             subscriptIndex++;

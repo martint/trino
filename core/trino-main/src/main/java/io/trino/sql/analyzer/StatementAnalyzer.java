@@ -2053,8 +2053,6 @@ class StatementAnalyzer
             Scope sourceTableScope = process(merge.getSource(), scope);
             Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
 
-            /// ------
-
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle);
 
             List<ColumnSchema> columns = tableSchema.getColumns().stream()
@@ -2072,22 +2070,25 @@ class StatementAnalyzer
 
             analyzeExpression(merge.getPredicate(), joinScope);
 
+            ImmutableSet.Builder<String> allUpdateColumnNamesBuilder = ImmutableSet.builder();
+
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
-                List<Identifier> caseColumnIdentifiers = operation.getSetColumns();
-                int columnCount = caseColumnIdentifiers.size();
-                // TODO: rename to setExpressions
-                List<Expression> expressions = operation.getSetExpressions();
+                List<String> caseColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
+                if (operation instanceof MergeUpdate) {
+                    allUpdateColumnNamesBuilder.addAll(caseColumnNames);
+                }
+                int columnCount = caseColumnNames.size();
+                List<Expression> setExpressions = operation.getSetExpressions();
 
-                checkArgument(columnCount == expressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)");
+                checkArgument(columnCount == setExpressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)");
                 Set<String> columnNameSet = new HashSet<>(columnCount);
-                caseColumnIdentifiers.forEach(column -> {
-                    String mergeColumn = column.getValue();
-                    if (!tableColumnsSet.contains(mergeColumn)) { // TODO: canonicalize
+                caseColumnNames.forEach(mergeColumn -> {
+                    if (!tableColumnsSet.contains(mergeColumn)) {
                         throw semanticException(COLUMN_NOT_FOUND, merge, "Merge column name does not exist in target table: %s", mergeColumn);
                     }
-                    if (!columnNameSet.add(column.getValue())) { // TODO: canonicalize
-                        throw semanticException(DUPLICATE_COLUMN_NAME, merge, "Merge column name is specified more than once: %s", column.getValue());
+                    if (!columnNameSet.add(mergeColumn)) {
+                        throw semanticException(DUPLICATE_COLUMN_NAME, merge, "Merge column name is specified more than once: %s", mergeColumn);
                     }
                 });
 
@@ -2106,32 +2107,16 @@ class StatementAnalyzer
                     }
                 }
 
-                // TODO: collect permission checks to do and perform them later in one shot (to avoid checking the same permission multiple times)
-                if (operation instanceof MergeInsert) {
-                    accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
-                }
-                else if (operation instanceof MergeDelete) {
-                    accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
-                }
-                else if (operation instanceof MergeUpdate) {
-                    accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, columnNameSet);
-                }
-                else {
-                    throw new IllegalStateException("Unknown MergeCase " + operation);
-                }
-
-                for (int index = 0; index < caseColumnIdentifiers.size(); index++) {
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expressions.get(index), joinScope);
+                for (int index = 0; index < caseColumnNames.size(); index++) {
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(setExpressions.get(index), joinScope);
                     analysis.recordSubqueries(operation, expressionAnalysis);
                 }
 
                 ImmutableList.Builder<Type> setColumnTypesBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Type> setExpressionTypesBuilder = ImmutableList.builder();
 
-                // TODO: hoist canonicalization up since it's being used for other checks earlier
-                List<String> columnList = canonicalizeIdentifierList(caseColumnIdentifiers);
                 allColumnTypes.forEach((name, type) -> {
-                    int index = columnList.indexOf(name);
+                    int index = caseColumnNames.indexOf(name);
                     if (index >= 0) {
                         setColumnTypesBuilder.add(type);
                         Expression expression = requireNonNull(operation.getSetExpressions().get(index), "merge set expression is null");
@@ -2158,6 +2143,22 @@ class StatementAnalyzer
                 }
             }
 
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeInsert)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName));
+
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeDelete)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
+
+            Set<String> allUpdateColumnNames = allUpdateColumnNamesBuilder.build();
+
+            if (!allUpdateColumnNames.isEmpty()) {
+                accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
+            }
+
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
             }
@@ -2170,7 +2171,8 @@ class StatementAnalyzer
 
             analysis.setUpdateType("MERGE", tableName, Optional.of(table), Optional.empty());
 
-            analysis.setMergeAnalysis(new MergeAnalysis(table, columns, joinScope));
+            // TODO: fill in these nulls
+            analysis.setMergeAnalysis(new MergeAnalysis(table, columns, null, null, joinScope));
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }

@@ -1384,15 +1384,21 @@ public class Analysis
     {
         private final Table targetTable;
         private final List<ColumnSchema> allColumns;
+        private final List<Integer> redistributionColumnFieldNumbers;
+        private final Map<Integer, List<Integer>> mergeCaseColumnFieldNumbers;
         private final Scope joinScope;
 
         public MergeAnalysis(
                 Table targetTable,
                 List<ColumnSchema> allColumns,
+                List<Integer> redistributionColumnFieldNumbers,
+                Map<Integer, List<Integer>> mergeCaseColumnFieldNumbers,
                 Scope joinScope)
         {
             this.targetTable = requireNonNull(targetTable, "targetTable is null");
             this.allColumns = requireNonNull(allColumns, "allColumns is null");
+            this.redistributionColumnFieldNumbers = redistributionColumnFieldNumbers; //requireNonNull(redistributionColumnFieldNumbers, "redistributionColumnFieldNumbers is null");
+            this.mergeCaseColumnFieldNumbers = mergeCaseColumnFieldNumbers; //requireNonNull(mergeCaseColumnFieldNumbers, "mergeCaseColumnFieldNumbers is null");
             this.joinScope = requireNonNull(joinScope, "joinScope is null");
         }
 
@@ -1404,6 +1410,16 @@ public class Analysis
         public List<ColumnSchema> getAllColumns()
         {
             return allColumns;
+        }
+
+        public List<Integer> getRedistributionColumnFieldNumbers()
+        {
+            return redistributionColumnFieldNumbers;
+        }
+
+        public Map<Integer, List<Integer>> getMergeCaseColumnFieldNumbers()
+        {
+            return mergeCaseColumnFieldNumbers;
         }
 
         public Scope getJoinScope()
