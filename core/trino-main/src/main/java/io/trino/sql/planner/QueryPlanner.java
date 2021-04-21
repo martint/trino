@@ -82,7 +82,6 @@ import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNullPredicate;
@@ -119,7 +118,6 @@ import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -167,7 +165,6 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 class QueryPlanner
@@ -616,14 +613,6 @@ class QueryPlanner
         List<ColumnHandle> redistributionColumns = mergeAnalysis.getRedistributionColumnHandles();
         Map<Integer, List<ColumnHandle>> mergeCaseColumnsHandles = mergeAnalysis.getMergeCaseColumnHandles();
 
-        // TODO: canonicalize in analyzer, record the list of names for each case in MergeAnalysis
-        ImmutableMap.Builder<Integer, List<String>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
-        for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
-            MergeCase operation = merge.getMergeCases().get(caseCounter);
-            List<String> mergeColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
-            mergeCaseColumnsListsBuilder.put(caseCounter, mergeColumnNames);
-        }
-
         MergeDetails mergeDetails = createMergeDetails(merge, mergeCaseColumnsHandles);
 
         RelationPlan target = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
@@ -689,14 +678,8 @@ class QueryPlanner
         }
 
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
-        for (int i = 0; i < target.getDescriptor().getAllFieldCount(); i++) {
-            Field field = target.getDescriptor().getFieldByIndex(i);
-            if (field.isHidden() || field.getName().isEmpty()) {
-                continue;
-            }
-
-            rowBuilder.add(new Cast(new NullLiteral(), toSqlType(field.getType())));
-        }
+        mergeAnalysis.getDataColumnSchemas().forEach(columnSchema ->
+                rowBuilder.add(new Cast(new NullLiteral(), toSqlType(columnSchema.getType()))));
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
         rowBuilder.add(new GenericLiteral("INTEGER", "-1"));
 
@@ -723,7 +706,8 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 joinBuilder.getRoot(),
                 projectionAssignmentsBuilder.build());
-        // Projecting the writeRedistributionColumns, the merge RowBlock, and the rowId column
+
+        // Projecting the writeRedistributionColumns, the rowId block, and the merge RowBlock
         int expectedSize = redistributionColumns.size() + 1 + 1;
         int actualSize = project.getOutputSymbols().size();
         checkArgument(actualSize == expectedSize, "projectedSymbols should have size %s, but is %s", expectedSize, actualSize);
@@ -733,37 +717,24 @@ class QueryPlanner
         TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
 
         RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
-        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
         Type rowIdType = analysis.getType(analysis.getRowIdField(table));
         RowChangeProcessor rowChangeProcessor = createMergeProcessor(paradigm, tableMetadata, mergeAnalysis.getDataColumnHandles(), mergeAnalysis.getRedistributionColumnHandles(), rowIdType);
         MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), tableMetadata.getTable(), mergeDetails, rowChangeProcessor);
 
-        Map<String, Type> allColumnTypes = mergeAnalysis.getDataColumnSchemas().stream().collect(toImmutableMap(ColumnSchema::getName, ColumnSchema::getType));
-        Set<String> columnNamesSet = allColumnTypes.keySet();
-
-        List<String> columnNames = tableMetadata.getColumns().stream()
-                .map(ColumnMetadata::getName)
-                .filter(columnNamesSet::contains)  // TODO: is columnNamesSet different from tableMetadata.getColumns()?
-                .collect(toImmutableList());
-
-        /* TODO
-
-            List<Symbol> columnSymbols = target.getFieldMappings();
-
-            field mappings match the order of fields in the descriptor
-
-         */
-        List<Symbol> columnSymbols = target.getRoot().getOutputSymbols().stream()
-                .filter(symbol -> columnNamesSet.contains(symbol.getName()))
-                .collect(toImmutableList());
-        checkState(columnNames.size() == columnSymbols.size(), "Didn't find symbols for all the columns, columns %s, symbols %s", columnNames, columnSymbols);
+        ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
+            int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(columnHandle), "Could not find field number for column handle");
+            columnSymbolsBuilder.add(target.getFieldMappings().get(fieldIndex));
+        }
+        List<Symbol> columnSymbols = columnSymbolsBuilder.build();
 
         ImmutableList.Builder<Symbol> projectedSymbolsBuilder = ImmutableList.builder();
         int subscriptIndex = 1;
         for (Symbol columnSymbol : columnSymbols) {
             SubscriptExpression subscriptExpression = new SubscriptExpression(new SymbolReference(mergeOutput.getName()), new GenericLiteral("BIGINT", String.valueOf(subscriptIndex)));
             projectedSymbolsBuilder.add(columnSymbol);
-            analysis.addTypes(ImmutableMap.of(NodeRef.of(subscriptExpression), allColumnTypes.get(columnSymbol.getName())));
+            Type type = mergeAnalysis.getDataColumnSchemas().get(subscriptIndex - 1).getType();
+            analysis.addTypes(ImmutableMap.of(NodeRef.of(subscriptExpression), type));
             subscriptIndex++;
         }
 
@@ -773,7 +744,7 @@ class QueryPlanner
 
         List<Symbol> finalProjectedSymbols = projectedSymbolsBuilder.build();
 
-        Optional<PartitioningScheme> partitioningScheme = createPartitioningScheme(mergeAnalysis.getNewTableLayout(), columnSymbols, columnNames);
+        Optional<PartitioningScheme> partitioningScheme = createPartitioningScheme(mergeAnalysis.getNewTableLayout(), columnSymbols, mergeAnalysis.getPartitionFunctionArgumentIndexes());
         DeleteAndInsertNode deleteAndInsertNode = new DeleteAndInsertNode(
                 idAllocator.getNextId(),
                 project,
@@ -793,15 +764,6 @@ class QueryPlanner
                 finalProjectedSymbols,
                 partitioningScheme,
                 outputs);
-    }
-
-    // TODO: this shouldn't be done in planning
-    private List<String> canonicalizeIdentifierList(Collection<Identifier> identifiers)
-    {
-        return identifiers.stream()
-                // TODO Is the toLowerCase() necessary?  It doesn't seem to impact test results
-                .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
-                .collect(toImmutableList());
     }
 
     private RowType createRowType(List<ColumnSchema> allColumnsSchema)

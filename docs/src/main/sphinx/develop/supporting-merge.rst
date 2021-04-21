@@ -134,8 +134,9 @@ cases to the connector.  ``MergeDetails`` contains a list of
 * The ``int`` ``caseNumber``, starting from 0, in syntactic order.
 * The ``MergeCaseKind`` ``caseKind``: One of ``UPDATE``, ``DELETE`` or
   ``INSERT``.
-* The ``Set<String>`` ``updatedColumns``: The columns updated by the case.
-  For an ``INSERT``, all data columns targeted in the insert are included.
+* The ``Set<ColumnHandle>`` ``updatedColumns``: The columns updated by the
+  case.  For an ``INSERT``, all data columns targeted in the insert are
+  included.
 
 ``MERGE`` Redistribution
 ------------------------

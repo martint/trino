@@ -2181,10 +2181,15 @@ class StatementAnalyzer
             Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, allColumnHandles);
 
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
+            ImmutableList.Builder<Integer> partitionFunctionArgumentIndexesBuilder = ImmutableList.builder();
+            List<String> partitioningColumnNames = ImmutableList.of();
+
+            if (newTableLayout.isPresent()) {
+                partitioningColumnNames = newTableLayout.get().getPartitionColumns();
+            }
 
             ImmutableMap.Builder<ColumnHandle, Integer> columnHandleFieldNumbersBuilder = ImmutableMap.builder();
             RelationType relationType = targetTableScope.getRelationType();
-            int fieldCount = relationType.getVisibleFieldCount();
             int fieldIndex = 0;
             for (Field field : relationType.getAllFields()) {
                 Optional<String> name = field.getName();
@@ -2193,11 +2198,23 @@ class StatementAnalyzer
                     if (handle != null) {
                         columnHandleFieldNumbersBuilder.put(handle, fieldIndex);
                     }
+                    if (partitioningColumnNames.contains(name.get())) {
+                        partitionFunctionArgumentIndexesBuilder.add(fieldIndex);
+                    }
                 }
                 fieldIndex++;
             }
             Map<ColumnHandle, Integer> columnHandleFieldNumbers = columnHandleFieldNumbersBuilder.build();
-            analysis.setMergeAnalysis(new MergeAnalysis(table, dataColumnSchemas, dataColumnHandles, redistributionColumnHandles, mergeCaseColumnHandles, columnHandleFieldNumbers, newTableLayout, joinScope));
+            analysis.setMergeAnalysis(new MergeAnalysis(
+                    table,
+                    dataColumnSchemas,
+                    dataColumnHandles,
+                    redistributionColumnHandles,
+                    mergeCaseColumnHandles,
+                    columnHandleFieldNumbers,
+                    partitionFunctionArgumentIndexesBuilder.build(),
+                    newTableLayout,
+                    joinScope));
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }

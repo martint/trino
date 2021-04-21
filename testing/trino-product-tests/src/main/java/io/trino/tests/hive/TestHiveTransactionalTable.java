@@ -1753,6 +1753,172 @@ public class TestHiveTransactionalTable
         };
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000, dataProvider = "targetAndSourceWithDifferentPartitioning")
+    public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
+    {
+        withTemporaryTable(format("%s_target", testDescription), true, true, NONE, targetTable -> {
+            onHive().executeQuery(format(createTargetTableSql, targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable(format("%s_source", testDescription), true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable));
+
+                String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(sql);
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT customer, purchases, address FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+            });
+        });
+    }
+
+    @DataProvider
+    public Object[][] targetAndSourceWithDifferentPartitioning()
+    {
+        return new Object[][] {
+                {
+                        "target_flat_source_partitioned_by_customer",
+                        "CREATE TABLE %s (customer STRING, purchases INT, address STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                        "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')"
+                },
+                {
+                        "target_partitioned_by_customer_source_flat",
+                        "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                        "CREATE TABLE %s (customer STRING, purchases INT, address STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                },
+                {
+                        "target_bucketed_by_customer_source_flat",
+                        "CREATE TABLE %s (customer STRING, purchases INT, address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                        "CREATE TABLE %s (customer STRING, purchases INT, address STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                },
+                {
+                        "target_partitioned_source_partitioned_and_bucketed",
+                        "CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                        "CREATE TABLE %s (customer STRING, purchases INT) PARTITIONED BY (address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')",
+                }
+        };
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeQueryWithStrangeCapitalization()
+    {
+        withTemporaryTable("test_without_aliases_target", true, true, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            log.info("About to merge, target table %s", targetTable);
+            query(format("MERGE INTO %s t USING ", targetTable.toUpperCase(ENGLISH)) +
+                    "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
+                    "ON (t.customer = s.customer)" +
+                    "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                    "    WHEN MATCHED THEN UPDATE SET purCHases = s.PurchaseS + t.pUrchases, aDDress = s.addrESs" +
+                    "    WHEN NOT MATCHED THEN INSERT (CUSTOMER, purchases, addRESS) VALUES(s.custoMer, s.Purchases, s.ADDress)");
+
+            log.info("Verifying MERGE");
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeWithoutTablesAliases()
+    {
+        withTemporaryTable("test_without_aliases_target", true, true, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (cusTomer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("test_without_aliases_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable));
+
+                log.info("About to merge, target table %s", targetTable);
+                query(format("MERGE INTO %s USING %s", targetTable, sourceTable) +
+                        format(" ON (%s.customer = %s.customer)", targetTable, sourceTable) +
+                        format("    WHEN MATCHED AND %s.address = 'Centreville' THEN DELETE", sourceTable) +
+                        format("    WHEN MATCHED THEN UPDATE SET purchases = %s.pURCHases + %s.pUrchases, aDDress = %s.addrESs", sourceTable, targetTable, sourceTable) +
+                        format("    WHEN NOT MATCHED THEN INSERT (cusTomer, purchases, addRESS) VALUES(%s.custoMer, %s.Purchases, %s.ADDress)", sourceTable, sourceTable, sourceTable));
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeWithUnpredictablePredicates()
+    {
+        withTemporaryTable("test_without_aliases_target", true, true, NONE, targetTable -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (cusTomer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("test_without_aliases_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable));
+
+                log.info("About to merge, target table %s", targetTable);
+                query(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                        " ON t.customer = s.customer AND s.purchases < 10.2" +
+                        "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE",
+                        row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 11, "Darbyshire"), row("Dave", 11, "Devon"), row("Ed", 7, "Etherville"));
+
+                log.info("About to merge a second time");
+                query(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                        " ON t.customer = s.customer" +
+                        "    WHEN MATCHED AND t.address <> 'Darbyshire' AND s.purchases * 2 > 20 AND s.purchases < 12 THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = concat(t.address, '/', s.address)" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
+
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE",
+                        row("Aaron", 17, "Arches/Antioch"), row("Bill", 7, "Buena/Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire/Darbyshire"), row("Ed", 14, "Etherville/Etherville"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeSubqueries()
+    {
+        withTemporaryTable("merge_nation_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (nation_name, region_name) VALUES ('EGYPT', 'MIDDLE EAST'), ('IRAN', 'MIDDLE EAST'), ('SYRIA', 'MIDDLE EAST')", targetTable));
+
+            log.info("About to merge");
+            query(format("MERGE INTO %s t", targetTable) +
+                    "    USING (SELECT n.name AS nation_name, r.name as region_name FROM tpch.tiny.region r JOIN tpch.tiny.nation n ON n.regionkey = r.regionkey AND n.name < r.name) s" +
+                    "    ON (t.nation_name = s.nation_name)" +
+                    "    WHEN MATCHED AND EXISTS (SELECT TRUE FROM s WHERE t.region_name = s.region_name AND s.region_name LIKE ('A%')) THEN DELETE" +
+                    "    WHEN NOT MATCHED AND s.region_name = 'EUROPE' THEN INSERT VALUES(s.nation_name, s.region_name)");
+
+            log.info("Verifying MERGE");
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("SAUDI ARABIA", "MIDDLE EAST"), row("FRANCE", "EUROPE"), row("GERMANY", "EUROPE"), row("ROMANIA", "EUROPE"), row("RUSSIA", "EUROPE"), row("UNITED KINGDOM", "EUROPE"));
+        });
+    }
+
     @DataProvider
     public Object[][] insertersProvider()
     {

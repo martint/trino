@@ -1388,6 +1388,7 @@ public class Analysis
         private final List<ColumnHandle> redistributionColumnHandles;
         private final Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final List<Integer> partitionFunctionArgumentIndexes;
         private final Optional<NewTableLayout> newTableLayout;
         private final Scope joinScope;
 
@@ -1398,6 +1399,7 @@ public class Analysis
                 List<ColumnHandle> redistributionColumnHandles,
                 Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                List<Integer> partitionFunctionArgumentIndexes,
                 Optional<NewTableLayout> newTableLayout,
                 Scope joinScope)
         {
@@ -1408,6 +1410,7 @@ public class Analysis
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
             this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
+            this.partitionFunctionArgumentIndexes = (requireNonNull(partitionFunctionArgumentIndexes, "partitionFunctionArgumentIndexes is null"));
             this.joinScope = requireNonNull(joinScope, "joinScope is null");
         }
 
@@ -1439,6 +1442,11 @@ public class Analysis
         public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
         {
             return columnHandleFieldNumbers;
+        }
+
+        public List<Integer> getPartitionFunctionArgumentIndexes()
+        {
+            return partitionFunctionArgumentIndexes;
         }
 
         public Optional<NewTableLayout> getNewTableLayout()

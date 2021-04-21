@@ -686,17 +686,12 @@ public class LogicalPlanner
         return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
     }
 
-    // TODO: use ordinals for partitioning columns (from analysis)
-    //   names are not needed
-    public static Optional<PartitioningScheme> createPartitioningScheme(Optional<NewTableLayout> writeTableLayout, List<Symbol> symbols, List<String> columnNames)
+    public static Optional<PartitioningScheme> createPartitioningScheme(Optional<NewTableLayout> writeTableLayout, List<Symbol> symbols, List<Integer> partitionFunctionArgumentIndexes)
     {
         if (writeTableLayout.isPresent()) {
-            List<Symbol> partitionFunctionArguments = new ArrayList<>();
-            writeTableLayout.get().getPartitionColumns().stream()
-                    .mapToInt(columnNames::indexOf)
-                    .mapToObj(symbols::get)
-                    .forEach(partitionFunctionArguments::add);
-
+            List<Symbol> partitionFunctionArguments = partitionFunctionArgumentIndexes.stream()
+                    .map(index -> symbols.get(index))
+                    .collect(toImmutableList());
             List<Symbol> outputLayout = new ArrayList<>(symbols);
 
             Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
