@@ -2085,10 +2085,12 @@ class StatementAnalyzer
                 if (operation instanceof MergeUpdate) {
                     allUpdateColumnNamesBuilder.addAll(caseColumnNames);
                 }
+                if (operation instanceof MergeInsert && caseColumnNames.size() == 0) {
+                    caseColumnNames = dataColumnSchemas.stream().map(ColumnSchema::getName).collect(toImmutableList());
+                }
                 int columnCount = caseColumnNames.size();
                 List<Expression> setExpressions = operation.getSetExpressions();
-
-                checkArgument(columnCount == setExpressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)");
+                checkArgument(columnCount == setExpressions.size(), "Number of merge columns (%s) isn't equal to number of expressions (%s)", columnCount, setExpressions.size());
                 Set<String> columnNameSet = new HashSet<>(columnCount);
                 caseColumnNames.forEach(mergeColumn -> {
                     if (!dataColumnNames.contains(mergeColumn)) {
@@ -2122,8 +2124,9 @@ class StatementAnalyzer
                 ImmutableList.Builder<Type> setColumnTypesBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Type> setExpressionTypesBuilder = ImmutableList.builder();
 
+                List<String> finalCaseColumnNames = caseColumnNames; // Thanks, JVM
                 allColumnTypes.forEach((name, type) -> {
-                    int index = caseColumnNames.indexOf(name);
+                    int index = finalCaseColumnNames.indexOf(name);
                     if (index >= 0) {
                         setColumnTypesBuilder.add(type);
                         Expression expression = requireNonNull(operation.getSetExpressions().get(index), "merge set expression is null");
@@ -2178,7 +2181,7 @@ class StatementAnalyzer
             analysis.setUpdateType("MERGE", tableName, Optional.of(table), Optional.empty());
 
             List<ColumnHandle> redistributionColumnHandles = metadata.getWriteRedistributionColumns(session, targetTableHandle);
-            Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, allColumnHandles);
+            Map<Integer, List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle);
             ImmutableList.Builder<Integer> partitionFunctionArgumentIndexesBuilder = ImmutableList.builder();
@@ -2219,12 +2222,18 @@ class StatementAnalyzer
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }
 
-        private Map<Integer, List<ColumnHandle>> buildCaseColumnLists(Merge merge, Map<String, ColumnHandle> allColumnHandles)
+        private Map<Integer, List<ColumnHandle>> buildCaseColumnLists(Merge merge, List<ColumnSchema> columnSchemas, Map<String, ColumnHandle> allColumnHandles)
         {
             ImmutableMap.Builder<Integer, List<ColumnHandle>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
-                List<String> mergeColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
+                List<String> mergeColumnNames;
+                if (operation instanceof MergeInsert && operation.getSetColumns().isEmpty()) {
+                    mergeColumnNames = columnSchemas.stream().map(ColumnSchema::getName).collect(toImmutableList());
+                }
+                else {
+                    mergeColumnNames = canonicalizeIdentifierList(operation.getSetColumns());
+                }
                 mergeCaseColumnsListsBuilder.put(
                         caseCounter,
                         mergeColumnNames.stream()

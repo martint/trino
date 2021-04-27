@@ -1666,10 +1666,10 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         Optional<Map<String, String>> properties = handle.getTableParameters();
-        if (isTransactionalTable(properties.get())) {
+//        if (isTransactionalTable(properties.get())) {
             return DELETE_ROW_AND_INSERT_ROW;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Hive merge is only supported for transactional tables");
+//        }
+//        throw new TrinoException(NOT_SUPPORTED, "Hive merge is only supported for transactional tables");
     }
 
     @Override

@@ -1899,6 +1899,32 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeCasts()
+    {
+        withTemporaryTable("merge_cast_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (col1 TINYINT, col2 SMALLINT, col3 INT, col4 BIGINT, col5 REAL, col6 DOUBLE) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s VALUES (1, 2, 3, 4, 5, 6)", targetTable));
+
+            withTemporaryTable("test_without_aliases_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (col1 DOUBLE, col2 REAL, col3 BIGINT, col4 INT, col5 SMALLINT, col6 TINYINT) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6, 7)", sourceTable));
+
+                log.info("About to merge");
+                query(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                        "    ON (t.col1 + 1 = s.col1)" +
+                        "    WHEN MATCHED THEN UPDATE SET col1 = s.col1, col2 = s.col2, col3 = s.col3, col4 = s.col4, col5 = s.col5, col6 = s.col6");
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row(2, 3, 4, 5, 6.0, 7.0));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
     public void testMergeSubqueries()
     {
         withTemporaryTable("merge_nation_target", true, true, NONE, targetTable -> {
@@ -1907,15 +1933,22 @@ public class TestHiveTransactionalTable
             log.info("Inserting into target");
             query(format("INSERT INTO %s (nation_name, region_name) VALUES ('EGYPT', 'MIDDLE EAST'), ('IRAN', 'MIDDLE EAST'), ('SYRIA', 'MIDDLE EAST')", targetTable));
 
-            log.info("About to merge");
-            query(format("MERGE INTO %s t", targetTable) +
-                    "    USING (SELECT n.name AS nation_name, r.name as region_name FROM tpch.tiny.region r JOIN tpch.tiny.nation n ON n.regionkey = r.regionkey AND n.name < r.name) s" +
-                    "    ON (t.nation_name = s.nation_name)" +
-                    "    WHEN MATCHED AND EXISTS (SELECT TRUE FROM s WHERE t.region_name = s.region_name AND s.region_name LIKE ('A%')) THEN DELETE" +
-                    "    WHEN NOT MATCHED AND s.region_name = 'EUROPE' THEN INSERT VALUES(s.nation_name, s.region_name)");
+            withTemporaryTable("merge_nation_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s AS ", sourceTable) +
+                        "    SELECT n.name AS nation_name, r.name as region_name FROM tpch.tiny.region r" +
+                        "    JOIN tpch.tiny.nation n" +
+                        "    ON n.regionkey = r.regionkey AND n.name > r.name");
+                log.info("About to merge");
+                query(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+                        "    ON (t.nation_name = s.nation_name)" +
+                        "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +
+                        "    THEN DELETE" +
+                        "    WHEN NOT MATCHED AND s.region_name = 'EUROPE'" +
+                        "    THEN INSERT VALUES(s.nation_name, s.region_name)");
 
-            log.info("Verifying MERGE");
-            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("SAUDI ARABIA", "MIDDLE EAST"), row("FRANCE", "EUROPE"), row("GERMANY", "EUROPE"), row("ROMANIA", "EUROPE"), row("RUSSIA", "EUROPE"), row("UNITED KINGDOM", "EUROPE"));
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("SAUDI ARABIA", "MIDDLE EAST"), row("FRANCE", "EUROPE"), row("GERMANY", "EUROPE"), row("ROMANIA", "EUROPE"), row("RUSSIA", "EUROPE"), row("UNITED KINGDOM", "EUROPE"));
+            });
         });
     }
 

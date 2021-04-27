@@ -649,7 +649,12 @@ class QueryPlanner
             for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
                 int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
                 if (index >= 0) {
-                    rowBuilder.add(joinBuilder.rewrite(mergeCase.getSetExpressions().get(index)));
+                    Expression setExpression = mergeCase.getSetExpressions().get(index);
+                    Type type = analysis.getCoercion(setExpression);
+                    if (type != null) {
+                        setExpression = new Cast(setExpression, toSqlType(type));
+                    }
+                    rowBuilder.add(joinBuilder.rewrite(setExpression));
                 }
                 else {
                     Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
