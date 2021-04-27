@@ -638,11 +638,15 @@ class QueryPlanner
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
                 .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), target, source, analysis.getSubqueries(merge));
 
-        PlanBuilder joinBuilder = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap);
 
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
         for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
+
+            if (mergeCase.getExpression().isPresent()) {
+                subPlan = subqueryPlanner.handleSubqueries(subPlan, mergeCase.getExpression().get(), analysis.getSubqueries(mergeCase));
+            }
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
             List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
@@ -654,7 +658,7 @@ class QueryPlanner
                     if (type != null) {
                         setExpression = new Cast(setExpression, toSqlType(type));
                     }
-                    rowBuilder.add(joinBuilder.rewrite(setExpression));
+                    rowBuilder.add(subPlan.rewrite(setExpression));
                 }
                 else {
                     Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
@@ -669,7 +673,7 @@ class QueryPlanner
             rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(caseNumber)));
             rowBuilder.add(new GenericLiteral("INTEGER", String.valueOf(mergeKind.getOperationNumber())));
 
-            Optional<Expression> rewritten = mergeCase.getExpression().map(joinBuilder::rewrite);
+            Optional<Expression> rewritten = mergeCase.getExpression().map(subPlan::rewrite);
             Expression condition = presentColumn.toSymbolReference();
             if (mergeCase instanceof MergeInsert) {
                 condition = new IsNullPredicate(presentColumn.toSymbolReference());
@@ -709,7 +713,7 @@ class QueryPlanner
 
         ProjectNode project = new ProjectNode(
                 idAllocator.getNextId(),
-                joinBuilder.getRoot(),
+                subPlan.getRoot(),
                 projectionAssignmentsBuilder.build());
 
         // Projecting the writeRedistributionColumns, the rowId block, and the merge RowBlock
