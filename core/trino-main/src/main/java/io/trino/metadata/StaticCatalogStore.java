@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.trino.connector.ConnectorManager;
 
@@ -27,7 +28,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,11 +70,52 @@ public class StaticCatalogStore
             return;
         }
 
-        for (File file : listFiles(catalogConfigurationDir)) {
-            if (file.isFile() && file.getName().endsWith(".properties")) {
-                loadCatalog(file);
+        long start = System.nanoTime();
+
+        List<Callable<Void>> tasks = listFiles(catalogConfigurationDir).stream()
+                .filter(file -> file.isFile() && file.getName().endsWith(".properties"))
+                .map(file -> new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                            throws Exception
+                    {
+                        try (SetThreadName ignored = new SetThreadName("catalog-loader-%s", Files.getNameWithoutExtension(file.getName()))) {
+                            loadCatalog(file);
+                        }
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            for (Future<Void> future : executor.invokeAll(tasks)) {
+                future.get();
             }
         }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            executor.shutdownNow();
+        }
+
+//        for (Callable<Void> task : tasks) {
+//            try {
+//                task.call();
+//            }
+//            catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+
+        log.info("Catalog load time: %s", (System.nanoTime() - start) / 1e9);
+
     }
 
     private void loadCatalog(File file)

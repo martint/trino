@@ -44,8 +44,14 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
@@ -54,6 +60,8 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class PluginManager
 {
+    private static final Logger LOG = Logger.get(PluginManager.class);
+
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
@@ -107,7 +115,49 @@ public class PluginManager
             return;
         }
 
-        pluginsProvider.loadPlugins(this::loadPlugin, this::createClassLoader);
+        List<PluginsProvider.PluginEntry> plugins = pluginsProvider.getPlugins(this::createClassLoader);
+
+        long start = System.nanoTime();
+
+        List<Callable<Void>> tasks = plugins.stream()
+                .map(plugin -> new Callable<Void>()
+                {
+                    @Override
+                    public Void call()
+                    {
+                        loadPlugin(plugin.description, plugin.getClassLoader);
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+        try {
+            for (Future<Void> future : executor.invokeAll(tasks)) {
+                future.get();
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            executor.shutdownNow();
+        }
+
+//        for (Callable<Void> task : tasks) {
+//            try {
+//                task.call();
+//            }
+//            catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+
+        LOG.info("Plugin load time: %s", (System.nanoTime() - start) / 1e9);
 
         metadataManager.verifyTypes();
 
@@ -223,12 +273,19 @@ public class PluginManager
 
     public interface PluginsProvider
     {
-        void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader);
-
-        interface Loader
+        class PluginEntry
         {
-            void load(String description, Supplier<PluginClassLoader> getClassLoader);
+            private String description;
+            private Supplier<PluginClassLoader> getClassLoader;
+
+            public PluginEntry(String description, Supplier<PluginClassLoader> getClassLoader)
+            {
+                this.description = description;
+                this.getClassLoader = getClassLoader;
+            }
         }
+
+        List<PluginEntry> getPlugins(ClassLoaderFactory createClassLoader);
 
         interface ClassLoaderFactory
         {

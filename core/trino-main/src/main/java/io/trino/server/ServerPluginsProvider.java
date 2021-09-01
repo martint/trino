@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.server.PluginManager.PluginsProvider;
 
 import javax.inject.Inject;
@@ -41,13 +42,13 @@ public class ServerPluginsProvider
     }
 
     @Override
-    public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
+    public List<PluginEntry> getPlugins(ClassLoaderFactory createClassLoader)
     {
+        ImmutableList.Builder<PluginEntry> builder = ImmutableList.builder();
         for (File file : listFiles(installedPluginsDir)) {
-            if (file.isDirectory()) {
-                loader.load(file.getAbsolutePath(), () -> createClassLoader.create(buildClassPath(file)));
-            }
+            builder.add(new PluginEntry(file.getAbsolutePath(), () -> createClassLoader.create(buildClassPath(file))));
         }
+        return builder.build();
     }
 
     private static List<URL> buildClassPath(File path)

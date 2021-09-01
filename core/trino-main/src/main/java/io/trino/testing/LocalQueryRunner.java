@@ -402,7 +402,7 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(
-                (loader, createClassLoader) -> {},
+                createClassLoader -> ImmutableList.of(),
                 connectorManager,
                 metadata,
                 new NoOpResourceGroupManager(),

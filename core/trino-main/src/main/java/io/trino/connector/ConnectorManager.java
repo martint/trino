@@ -188,7 +188,7 @@ public class ConnectorManager
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
     }
 
-    public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(connectorName, "connectorName is null");
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
@@ -196,7 +196,7 @@ public class ConnectorManager
         return createCatalog(catalogName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    private CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -212,7 +212,7 @@ public class ConnectorManager
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
+    private void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
@@ -256,20 +256,24 @@ public class ConnectorManager
                 systemConnector.getCatalogName(),
                 systemConnector.getConnector());
 
-        try {
-            addConnectorInternal(connector);
-            addConnectorInternal(informationSchemaConnector);
-            addConnectorInternal(systemConnector);
-            catalogManager.registerCatalog(catalog);
-            handleResolver.addCatalogHandleResolver(catalogName.getCatalogName(), connectorHandleResolver);
-        }
-        catch (Throwable e) {
-            handleResolver.removeCatalogHandleResolver(catalogName.getCatalogName());
-            catalogManager.removeCatalog(catalog.getCatalogName());
-            removeConnectorInternal(systemConnector.getCatalogName());
-            removeConnectorInternal(informationSchemaConnector.getCatalogName());
-            removeConnectorInternal(connector.getCatalogName());
-            throw e;
+        synchronized (this) {
+            checkArgument(catalogManager.getCatalog(catalog.getCatalogName()).isEmpty(), "Catalog '%s' already exists", catalogName);
+
+            try {
+                addConnectorInternal(connector);
+                addConnectorInternal(informationSchemaConnector);
+                addConnectorInternal(systemConnector);
+                catalogManager.registerCatalog(catalog);
+                handleResolver.addCatalogHandleResolver(catalogName.getCatalogName(), connectorHandleResolver);
+            }
+            catch (Throwable e) {
+                handleResolver.removeCatalogHandleResolver(catalogName.getCatalogName());
+                catalogManager.removeCatalog(catalog.getCatalogName());
+                removeConnectorInternal(systemConnector.getCatalogName());
+                removeConnectorInternal(informationSchemaConnector.getCatalogName());
+                removeConnectorInternal(connector.getCatalogName());
+                throw e;
+            }
         }
 
         connector.getEventListeners()

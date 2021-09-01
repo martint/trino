@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import io.airlift.log.Logger;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import io.trino.server.PluginManager.PluginsProvider;
@@ -36,6 +37,8 @@ import static io.trino.server.PluginDiscovery.writePluginServices;
 public class DevelopmentPluginsProvider
         implements PluginsProvider
 {
+    private static final Logger LOG = Logger.get(DevelopmentPluginsProvider.class);
+
     private final ArtifactResolver resolver;
     private final List<String> plugins;
 
@@ -47,11 +50,13 @@ public class DevelopmentPluginsProvider
     }
 
     @Override
-    public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
+    public List<PluginEntry> getPlugins(ClassLoaderFactory createClassLoader)
     {
+        ImmutableList.Builder<PluginEntry> builder = ImmutableList.builder();
         for (String plugin : plugins) {
-            loader.load(plugin, () -> buildClassLoader(plugin, createClassLoader));
+            builder.add(new PluginEntry(plugin, () -> buildClassLoader(plugin, createClassLoader)));
         }
+        return builder.build();
     }
 
     private PluginClassLoader buildClassLoader(String plugin, ClassLoaderFactory classLoaderFactory)
