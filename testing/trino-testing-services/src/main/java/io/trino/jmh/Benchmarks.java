@@ -39,7 +39,9 @@ public final class Benchmarks
     {
         ChainedOptionsBuilder optionsBuilder = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
+                .include(".*\\." + benchmarkClass.getSimpleName() + "\\..*")
                 .resultFormat(ResultFormatType.JSON)
+//                .addProfiler(LinuxPerfAsmProfiler.class)
                 .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
         return new BenchmarkBuilder(optionsBuilder, benchmarkClass);
     }
