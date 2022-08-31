@@ -16,7 +16,6 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.ArithmeticBinaryExpression.Operator;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -102,5 +101,14 @@ public class ArithmeticBinaryExpression
         }
 
         return operator == ((ArithmeticBinaryExpression) other).operator;
+    }
+
+    public enum Operator
+    {
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
+        MODULUS
     }
 }

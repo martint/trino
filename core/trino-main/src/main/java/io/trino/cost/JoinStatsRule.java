@@ -186,7 +186,7 @@ public class JoinStatsRule
         // clause separately because stats estimates would be way off.
         List<PlanNodeStatsEstimateWithClause> knownEstimates = clauses.stream()
                 .map(clause -> {
-                    ComparisonExpression predicate = new ComparisonExpression(EQUAL, clause.getLeft().toIrSymbolReference(), clause.getRight().toIrSymbolReference());
+                    ComparisonExpression predicate = new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toIrSymbolReference());
                     return new PlanNodeStatsEstimateWithClause(filterStatsCalculator.filterStats(stats, predicate, session, types), clause);
                 })
                 .collect(toImmutableList());

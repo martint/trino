@@ -32,7 +32,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Literal;
-import io.trino.sql.ir.Node;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.SymbolReference;
@@ -41,8 +40,8 @@ import io.trino.sql.iranalyzer.Scope;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrLiteralInterpreter;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.IrTypeAnalyzer;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 
 import javax.inject.Inject;
@@ -238,11 +237,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.getOperator() == io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
+            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.DIVIDE && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.getOperator() == io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS) {
+            else if (node.getOperator() == ArithmeticBinaryExpression.Operator.MODULUS) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -272,7 +271,7 @@ public class ScalarStatsCalculator
             return result.build();
         }
 
-        private double operate(io.trino.sql.tree.ArithmeticBinaryExpression.Operator operator, double left, double right)
+        private double operate(ArithmeticBinaryExpression.Operator operator, double left, double right)
         {
             switch (operator) {
                 case ADD:
@@ -286,7 +285,7 @@ public class ScalarStatsCalculator
                 case MODULUS:
                     return left % right;
             }
-            throw new IllegalStateException("Unsupported io.trino.sql.tree.ArithmeticBinaryExpression.Operator: " + operator);
+            throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
         }
 
         @Override
