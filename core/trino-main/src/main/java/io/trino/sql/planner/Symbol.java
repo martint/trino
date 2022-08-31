@@ -15,8 +15,8 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SymbolReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -30,12 +30,6 @@ public class Symbol
     {
         checkArgument(expression instanceof SymbolReference, "Unexpected expression: %s", expression);
         return new Symbol(((SymbolReference) expression).getName());
-    }
-
-    public static Symbol from(io.trino.sql.ir.Expression expression)
-    {
-        checkArgument(expression instanceof io.trino.sql.ir.SymbolReference, "Unexpected expression: %s", expression);
-        return new Symbol(((io.trino.sql.ir.SymbolReference) expression).getName());
     }
 
     @JsonCreator
@@ -54,11 +48,6 @@ public class Symbol
     public SymbolReference toSymbolReference()
     {
         return new SymbolReference(name);
-    }
-
-    public io.trino.sql.ir.SymbolReference toIrSymbolReference()
-    {
-        return new io.trino.sql.ir.SymbolReference(name);
     }
 
     @Override
