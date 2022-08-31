@@ -29,7 +29,7 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -319,7 +319,7 @@ public class PushAggregationThroughOuterJoin
     {
         Set<Symbol> sourceSymbols = ImmutableSet.copyOf(source.getOutputSymbols());
         return aggregationNode.getAggregations().values().stream()
-                .allMatch(aggregation -> sourceSymbols.containsAll(SymbolsExtractor.extractUnique(aggregation)));
+                .allMatch(aggregation -> sourceSymbols.containsAll(IrSymbolsExtractor.extractUnique(aggregation)));
     }
 
     private static class MappedAggregationInfo

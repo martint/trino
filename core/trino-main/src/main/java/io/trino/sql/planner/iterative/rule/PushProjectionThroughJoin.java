@@ -20,7 +20,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
@@ -37,8 +37,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 /**
@@ -168,7 +168,7 @@ public final class PushProjectionThroughJoin
         return Streams.concat(
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                 node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
+                node.getFilter().map(IrSymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
                 node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
                 node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());

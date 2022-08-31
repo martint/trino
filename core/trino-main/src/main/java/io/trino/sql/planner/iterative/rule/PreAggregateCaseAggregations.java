@@ -36,7 +36,7 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -146,7 +146,7 @@ public class PreAggregateCaseAggregations
         }
 
         Set<Symbol> extraGroupingKeys = aggregations.stream()
-                .flatMap(expression -> SymbolsExtractor.extractUnique(expression.getOperand()).stream())
+                .flatMap(expression -> IrSymbolsExtractor.extractUnique(expression.getOperand()).stream())
                 .collect(toImmutableSet());
         if (extraGroupingKeys.size() != 1) {
             // pre-aggregation can have single extra symbol

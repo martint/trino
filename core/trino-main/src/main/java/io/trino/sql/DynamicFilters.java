@@ -32,6 +32,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.BooleanLiteral;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonExpression;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.QualifiedName;
@@ -54,7 +55,7 @@ import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
@@ -67,7 +68,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             SymbolReference input,
-            io.trino.sql.tree.ComparisonExpression.Operator operator,
+            ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
         return createDynamicFilterExpression(session, metadata, id, inputType, (Expression) input, operator, nullAllowed);
@@ -80,7 +81,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             Expression input,
-            io.trino.sql.tree.ComparisonExpression.Operator operator)
+            ComparisonExpression.Operator operator)
     {
         return createDynamicFilterExpression(session, metadata, id, inputType, input, operator, false);
     }
@@ -92,7 +93,7 @@ public final class DynamicFilters
             DynamicFilterId id,
             Type inputType,
             Expression input,
-            io.trino.sql.tree.ComparisonExpression.Operator operator,
+            ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
         return FunctionCallBuilder.resolve(session, metadata)
@@ -137,7 +138,7 @@ public final class DynamicFilters
                         DynamicFilters.Descriptor::getId,
                         descriptor -> new DynamicFilters.Descriptor(
                                 descriptor.getId(),
-                                extractSourceSymbol(descriptor).toIrSymbolReference(),
+                                extractSourceSymbol(descriptor).toSymbolReference(),
                                 descriptor.getOperator(),
                                 descriptor.isNullAllowed())));
     }
@@ -194,7 +195,7 @@ public final class DynamicFilters
         Expression operatorExpression = arguments.get(1);
         checkArgument(operatorExpression instanceof StringLiteral, "operatorExpression is expected to be an instance of StringLiteral: %s", operatorExpression.getClass().getSimpleName());
         String operatorExpressionString = ((StringLiteral) operatorExpression).getValue();
-        io.trino.sql.tree.ComparisonExpression.Operator operator = io.trino.sql.tree.ComparisonExpression.Operator.valueOf(operatorExpressionString);
+        ComparisonExpression.Operator operator = ComparisonExpression.Operator.valueOf(operatorExpressionString);
 
         Expression idExpression = arguments.get(2);
         checkArgument(idExpression instanceof StringLiteral, "id is expected to be an instance of StringLiteral: %s", idExpression.getClass().getSimpleName());
@@ -238,10 +239,10 @@ public final class DynamicFilters
     {
         private final DynamicFilterId id;
         private final Expression input;
-        private final io.trino.sql.tree.ComparisonExpression.Operator operator;
+        private final ComparisonExpression.Operator operator;
         private final boolean nullAllowed;
 
-        public Descriptor(DynamicFilterId id, Expression input, io.trino.sql.tree.ComparisonExpression.Operator operator, boolean nullAllowed)
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
@@ -250,7 +251,7 @@ public final class DynamicFilters
             this.nullAllowed = nullAllowed;
         }
 
-        public Descriptor(DynamicFilterId id, Expression input, io.trino.sql.tree.ComparisonExpression.Operator operator)
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
         {
             this(id, input, operator, false);
         }
@@ -270,7 +271,7 @@ public final class DynamicFilters
             return input;
         }
 
-        public io.trino.sql.tree.ComparisonExpression.Operator getOperator()
+        public ComparisonExpression.Operator getOperator()
         {
             return operator;
         }

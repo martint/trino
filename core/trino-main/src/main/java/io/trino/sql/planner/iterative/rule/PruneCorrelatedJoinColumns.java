@@ -23,7 +23,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 
@@ -42,7 +42,7 @@ public class PruneSpatialJoinChildrenColumns
     {
         Set<Symbol> requiredOutputAndFilterSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(spatialJoinNode.getOutputSymbols())
-                .addAll(SymbolsExtractor.extractUnique(spatialJoinNode.getFilter()))
+                .addAll(IrSymbolsExtractor.extractUnique(spatialJoinNode.getFilter()))
                 .build();
 
         ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.<Symbol>builder()

@@ -40,7 +40,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static io.trino.sql.planner.SymbolsExtractor.extractAll;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractAll;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractRowSubscripts;
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.join;

@@ -22,7 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
@@ -128,7 +128,7 @@ public class InlineProjectIntoFilter
                 .map(Map.Entry::getKey)
                 .collect(toImmutableSet());
 
-        Set<Expression> complexConjunctSymbols = SymbolsExtractor.extractUnique(complexConjuncts).stream()
+        Set<Expression> complexConjunctSymbols = IrSymbolsExtractor.extractUnique(complexConjuncts).stream()
                 .map(Symbol::toIrSymbolReference)
                 .collect(toImmutableSet());
 
@@ -153,7 +153,7 @@ public class InlineProjectIntoFilter
                 }
                 else {
                     newConjuncts.add(expression);
-                    newAssignments.putIdentities(SymbolsExtractor.extractUnique(expression));
+                    newAssignments.putIdentities(IrSymbolsExtractor.extractUnique(expression));
                     postFilterAssignmentsBuilder.put(Symbol.from(conjunct), TRUE_LITERAL);
                 }
             }

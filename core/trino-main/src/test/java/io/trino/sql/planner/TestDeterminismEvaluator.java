@@ -40,14 +40,14 @@ public class TestDeterminismEvaluator
     public void testSanity()
     {
         Metadata metadata = functionResolution.getMetadata();
-        assertFalse(DeterminismEvaluator.isDeterministic(function("rand"), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
+        assertFalse(IrDeterminismEvaluator.isDeterministic(function("rand"), metadata));
+        assertFalse(IrDeterminismEvaluator.isDeterministic(function("random"), metadata));
+        assertFalse(IrDeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())),
                 metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
-        assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
-        assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
-        assertTrue(DeterminismEvaluator.isDeterministic(
+        assertFalse(IrDeterminismEvaluator.isDeterministic(function("uuid"), metadata));
+        assertTrue(IrDeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
+        assertFalse(IrDeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
+        assertTrue(IrDeterminismEvaluator.isDeterministic(
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),

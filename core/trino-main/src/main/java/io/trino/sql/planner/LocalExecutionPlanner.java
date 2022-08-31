@@ -1539,7 +1539,7 @@ public class LocalExecutionPlanner
                         Expression argument = argumentWithType.getKey();
                         boolean isRuntimeEvaluated = !(argument instanceof SymbolReference) || runtimeEvaluatedSymbols.contains(Symbol.from(argument));
                         if (isRuntimeEvaluated) {
-                            List<Symbol> argumentInputSymbols = ImmutableList.copyOf(SymbolsExtractor.extractUnique(argument));
+                            List<Symbol> argumentInputSymbols = ImmutableList.copyOf(IrSymbolsExtractor.extractUnique(argument));
                             Supplier<PageProjection> argumentProjectionSupplier = prepareArgumentProjection(argument, argumentInputSymbols, classifierArgumentSymbol, matchNumberArgumentSymbol, context);
 
                             List<Integer> argumentInputChannels = new ArrayList<>();

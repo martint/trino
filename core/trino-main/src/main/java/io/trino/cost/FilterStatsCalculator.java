@@ -76,7 +76,7 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.IrExpressionUtils.and;
 import static io.trino.sql.IrExpressionUtils.getExpressionTypes;
 import static io.trino.sql.planner.IrExpressionInterpreter.evaluateConstantExpression;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;

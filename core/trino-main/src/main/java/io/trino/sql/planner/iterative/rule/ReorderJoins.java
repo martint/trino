@@ -40,7 +40,7 @@ import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
@@ -77,7 +77,7 @@ import static io.trino.sql.IrExpressionUtils.and;
 import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.EqualityInference.nonInferrableConjuncts;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.AUTOMATIC;
 import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.canReplicate;
@@ -290,7 +290,7 @@ public class ReorderJoins
 
             Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
                     .addAll(outputSymbols)
-                    .addAll(SymbolsExtractor.extractUnique(joinPredicates))
+                    .addAll(IrSymbolsExtractor.extractUnique(joinPredicates))
                     .build();
 
             JoinEnumerationResult leftResult = getJoinSource(

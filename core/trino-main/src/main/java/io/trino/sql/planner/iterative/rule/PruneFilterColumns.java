@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -39,7 +39,7 @@ public class PruneFilterColumns
     {
         Set<Symbol> prunedFilterInputs = Streams.concat(
                 referencedOutputs.stream(),
-                SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
+                IrSymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), filterNode, prunedFilterInputs);

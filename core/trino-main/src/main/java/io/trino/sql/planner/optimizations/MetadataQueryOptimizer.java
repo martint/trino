@@ -54,7 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
 /**

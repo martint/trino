@@ -38,15 +38,15 @@ import io.trino.spi.WarningCode;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.sql.IrExpressionFormatter;
-import io.trino.sql.ir.DataType;
-import io.trino.sql.ir.DateTimeDataType;
-import io.trino.sql.ir.GenericDataType;
-import io.trino.sql.ir.IntervalDayTimeDataType;
-import io.trino.sql.ir.NumericParameter;
-import io.trino.sql.ir.RowDataType;
-import io.trino.sql.ir.TypeParameter;
-import io.trino.sql.iranalyzer.TypeSignatureTranslator;
+import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.tree.DataType;
+import io.trino.sql.tree.DateTimeDataType;
+import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.NumericParameter;
+import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.TypeParameter;
 
 import java.util.HashSet;
 import java.util.List;
@@ -96,21 +96,21 @@ public final class ProtocolUtil
         if (type instanceof DateTimeDataType) {
             DateTimeDataType dataTimeType = (DateTimeDataType) type;
             if (!supportsParametricDateTime) {
-                if (dataTimeType.getType() == io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                if (dataTimeType.getType() == io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP;
                 }
-                if (dataTimeType.getType() == io.trino.sql.tree.DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
                     return TIME;
                 }
-                if (dataTimeType.getType() == io.trino.sql.tree.DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
                     return TIME_WITH_TIME_ZONE;
                 }
             }
 
-            return IrExpressionFormatter.formatExpression(type);
+            return ExpressionFormatter.formatExpression(type);
         }
         if (type instanceof RowDataType) {
             RowDataType rowDataType = (RowDataType) type;
@@ -130,14 +130,14 @@ public final class ProtocolUtil
                             return ((NumericParameter) parameter).getValue();
                         }
                         if (parameter instanceof TypeParameter) {
-                            return formatType(((TypeParameter) parameter).getType(), supportsParametricDateTime);
+                            return formatType(((TypeParameter) parameter).getValue(), supportsParametricDateTime);
                         }
                         throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                     })
                     .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
         }
         if (type instanceof IntervalDayTimeDataType) {
-            return IrExpressionFormatter.formatExpression(type);
+            return ExpressionFormatter.formatExpression(type);
         }
 
         throw new IllegalArgumentException("Unsupported data type: " + type.getClass().getName());

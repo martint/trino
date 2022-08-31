@@ -143,7 +143,7 @@ import static io.trino.sql.iranalyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedIrFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.DesugarCurrentCatalog.desugarCurrentCatalog;

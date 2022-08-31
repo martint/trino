@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.sql.IrExpressionUtils.extractConjuncts;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
 import static java.util.Objects.requireNonNull;
@@ -58,7 +58,7 @@ public class EqualityInference
         // 2) Prefer smaller expression trees
         // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
         // TODO: be more precise in determining the cost of an expression
-            .comparingInt((ToIntFunction<Expression>) (expression -> SymbolsExtractor.extractAll(expression).size()))
+            .comparingInt((ToIntFunction<Expression>) (expression -> IrSymbolsExtractor.extractAll(expression).size()))
             .thenComparingLong(expression -> SubExpressionExtractor.extract(expression).count())
             .thenComparing(Expression::toString);
 
@@ -324,7 +324,7 @@ public class EqualityInference
 
     private static boolean isScoped(Expression expression, Predicate<Symbol> symbolScope)
     {
-        return SymbolsExtractor.extractUnique(expression).stream().allMatch(symbolScope);
+        return IrSymbolsExtractor.extractUnique(expression).stream().allMatch(symbolScope);
     }
 
     private static Multimap<Expression, Expression> makeEqualitySets(DisjointSet<Expression> equalities)

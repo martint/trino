@@ -37,7 +37,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;

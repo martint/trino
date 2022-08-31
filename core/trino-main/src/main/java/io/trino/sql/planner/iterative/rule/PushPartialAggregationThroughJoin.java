@@ -21,7 +21,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -102,7 +102,7 @@ public class PushPartialAggregationThroughJoin
     private static boolean allAggregationsOn(Map<Symbol, Aggregation> aggregations, List<Symbol> symbols)
     {
         Set<Symbol> inputs = aggregations.values().stream()
-                .map(SymbolsExtractor::extractAll)
+                .map(IrSymbolsExtractor::extractAll)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
         return symbols.containsAll(inputs);
@@ -129,7 +129,7 @@ public class PushPartialAggregationThroughJoin
         return Streams.concat(
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
+                        node.getFilter().map(IrSymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
                         node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
                         node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());

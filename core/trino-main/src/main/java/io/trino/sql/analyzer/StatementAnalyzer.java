@@ -110,11 +110,11 @@ import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalys
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.AstDeterminismEvaluator;
-import io.trino.sql.planner.AstSymbolsExtractor;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
@@ -2393,7 +2393,7 @@ public class StatementAnalyzer
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
             Expression samplePercentage = relation.getSamplePercentage();
-            if (!AstSymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
+            if (!SymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
                 throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             }
 
@@ -4569,7 +4569,7 @@ public class StatementAnalyzer
             }
 
             for (Expression expression : orderByExpressions) {
-                if (!AstDeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
+                if (!DeterminismEvaluator.isDeterministic(expression, this::getResolvedFunction)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }

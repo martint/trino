@@ -23,7 +23,7 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -201,7 +201,7 @@ public class AddIntermediateAggregations
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
+            Symbol input = getOnlyElement(IrSymbolsExtractor.extractAll(entry.getValue()));
             builder.put(input, entry.getValue());
         }
         return builder.buildOrThrow();

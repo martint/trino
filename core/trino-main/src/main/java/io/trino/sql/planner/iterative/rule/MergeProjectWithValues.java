@@ -25,7 +25,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -41,7 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isMergeProjectWithValues;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -146,7 +146,7 @@ public class MergeProjectWithValues
             }
         }
         Set<Symbol> multipleReferencedSymbols = expressions.stream()
-                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .flatMap(expression -> IrSymbolsExtractor.extractAll(expression).stream())
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                 .entrySet().stream()
                 .filter(entry -> entry.getValue() > 1)

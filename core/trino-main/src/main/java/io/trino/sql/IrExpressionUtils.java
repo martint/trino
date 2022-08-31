@@ -39,13 +39,13 @@ import io.trino.sql.ir.RowDataType;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.iranalyzer.ExpressionAnalyzer;
 import io.trino.sql.iranalyzer.Scope;
-import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.IrDeterminismEvaluator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.LogicalExpression.Operator;
 
@@ -231,12 +231,12 @@ public final class IrExpressionUtils
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1, metadata));
+        return filterConjuncts(metadata, expression, expression1 -> IrDeterminismEvaluator.isDeterministic(expression1, metadata));
     }
 
     public static Expression filterNonDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression, metadata)));
+        return filterConjuncts(metadata, expression, not(testExpression -> IrDeterminismEvaluator.isDeterministic(testExpression, metadata)));
     }
 
     public static Expression filterConjuncts(Metadata metadata, Expression expression, Predicate<Expression> predicate)
@@ -256,7 +256,7 @@ public final class IrExpressionUtils
             resultDisjunct.add(expression);
 
             for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = SymbolsExtractor.extractUnique(expression).stream()
+                List<Symbol> symbols = IrSymbolsExtractor.extractUnique(expression).stream()
                         .filter(nullSymbolScope)
                         .collect(toImmutableList());
 
@@ -339,7 +339,7 @@ public final class IrExpressionUtils
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression, metadata)) {
+            if (!IrDeterminismEvaluator.isDeterministic(expression, metadata)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

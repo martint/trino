@@ -17,7 +17,7 @@ import com.google.common.collect.Streams;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 
@@ -45,7 +45,7 @@ public class PruneAggregationSourceColumns
                 aggregationNode.getGroupingKeys().stream(),
                 aggregationNode.getHashSymbol().stream(),
                 aggregationNode.getAggregations().values().stream()
-                        .flatMap(aggregation -> SymbolsExtractor.extractUnique(aggregation).stream()))
+                        .flatMap(aggregation -> IrSymbolsExtractor.extractUnique(aggregation).stream()))
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), aggregationNode, requiredInputs)

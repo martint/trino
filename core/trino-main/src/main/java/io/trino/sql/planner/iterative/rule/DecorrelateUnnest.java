@@ -31,7 +31,7 @@ import io.trino.sql.ir.QualifiedName;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
@@ -299,7 +299,7 @@ public class DecorrelateUnnest
                 .collect(toImmutableList());
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         boolean basedOnCorrelation = ImmutableSet.copyOf(correlation).containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode && ImmutableSet.copyOf(correlation).containsAll(IrSymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&

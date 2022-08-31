@@ -24,7 +24,7 @@ import io.trino.matching.PropertyPattern;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
@@ -152,7 +152,7 @@ public final class GatherAndMergeWindows
                         .putIdentities(targetInputs)
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
+                if (!newTargetChildOutputs.containsAll(IrSymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }

@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.intersection;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 

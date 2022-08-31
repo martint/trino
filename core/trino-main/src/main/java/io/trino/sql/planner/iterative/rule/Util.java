@@ -20,7 +20,7 @@ import io.trino.metadata.BoundSignature;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -52,7 +52,7 @@ final class Util
     public static Optional<Set<Symbol>> pruneInputs(Collection<Symbol> availableInputs, Collection<Expression> expressions)
     {
         Set<Symbol> availableInputsSet = ImmutableSet.copyOf(availableInputs);
-        Set<Symbol> prunedInputs = Sets.filter(availableInputsSet, SymbolsExtractor.extractUnique(expressions)::contains);
+        Set<Symbol> prunedInputs = Sets.filter(availableInputsSet, IrSymbolsExtractor.extractUnique(expressions)::contains);
 
         if (prunedInputs.size() == availableInputsSet.size()) {
             return Optional.empty();

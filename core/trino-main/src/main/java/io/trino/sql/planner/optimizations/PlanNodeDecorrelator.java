@@ -33,7 +33,7 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -62,7 +62,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -164,7 +164,7 @@ public class PlanNodeDecorrelator
                     childDecorrelationResult.node,
                     IrExpressionUtils.combineConjuncts(plannerContext.getMetadata(), uncorrelatedPredicates));
 
-            Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
+            Set<Symbol> symbolsToPropagate = Sets.difference(IrSymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(
                     newFilterNode,
                     Sets.union(childDecorrelationResult.symbolsToPropagate, symbolsToPropagate),
@@ -540,7 +540,7 @@ public class PlanNodeDecorrelator
         private boolean isConstant(Expression expression)
         {
             return isDeterministic(expression, plannerContext.getMetadata()) &&
-                    ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(expression));
+                    ImmutableSet.copyOf(correlation).containsAll(IrSymbolsExtractor.extractUnique(expression));
         }
 
         // checks whether the expression is an injective cast over a symbol
@@ -571,7 +571,7 @@ public class PlanNodeDecorrelator
 
         private boolean isCorrelated(Expression expression)
         {
-            return correlation.stream().anyMatch(SymbolsExtractor.extractUnique(expression)::contains);
+            return correlation.stream().anyMatch(IrSymbolsExtractor.extractUnique(expression)::contains);
         }
     }
 
@@ -635,7 +635,7 @@ public class PlanNodeDecorrelator
 
     private boolean containsCorrelation(PlanNode node, List<Symbol> correlation)
     {
-        return Sets.union(SymbolsExtractor.extractUnique(node, lookup), SymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
+        return Sets.union(IrSymbolsExtractor.extractUnique(node, lookup), IrSymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
     public static class DecorrelatedNode

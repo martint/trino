@@ -16,7 +16,6 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.LogicalExpression.Operator;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -64,7 +63,7 @@ public class LogicalExpression
     }
 
     @Override
-    public List<? extends Node> getChildren()
+    public List<? extends Expression> getChildren()
     {
         return terms;
     }
@@ -106,5 +105,21 @@ public class LogicalExpression
         }
 
         return operator == ((LogicalExpression) other).operator;
+    }
+
+    public enum Operator
+    {
+        AND, OR;
+
+        public Operator flip()
+        {
+            switch (this) {
+                case AND:
+                    return OR;
+                case OR:
+                    return AND;
+            }
+            throw new IllegalArgumentException("Unsupported logical expression type: " + this);
+        }
     }
 }

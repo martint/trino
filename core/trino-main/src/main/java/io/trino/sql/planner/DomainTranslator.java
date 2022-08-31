@@ -384,7 +384,7 @@ public final class DomainTranslator
                     // some of these cases, we won't have to double check the bounds unnecessarily at execution time.
 
                     // We can only make inferences if the remaining expressions on all terms are equal and deterministic
-                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0), plannerContext.getMetadata())) {
+                    if (Set.copyOf(residuals).size() == 1 && IrDeterminismEvaluator.isDeterministic(residuals.get(0), plannerContext.getMetadata())) {
                         // NONE are no-op for the purpose of OR
                         tupleDomains = tupleDomains.stream()
                                 .filter(domain -> !domain.isNone())

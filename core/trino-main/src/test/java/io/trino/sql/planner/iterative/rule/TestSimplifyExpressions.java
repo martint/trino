@@ -23,7 +23,7 @@ import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.TranslationMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -274,7 +274,7 @@ public class TestSimplifyExpressions
 
     private static Map<Symbol, Type> booleanSymbolTypeMapFor(Expression expression)
     {
-        return SymbolsExtractor.extractUnique(expression).stream()
+        return IrSymbolsExtractor.extractUnique(expression).stream()
                 .collect(Collectors.toMap(symbol -> symbol, symbol -> BOOLEAN));
     }
 
@@ -355,7 +355,7 @@ public class TestSimplifyExpressions
 
     private static Map<Symbol, Type> numericAndBooleanSymbolTypeMapFor(Expression expression)
     {
-        return SymbolsExtractor.extractUnique(expression).stream()
+        return IrSymbolsExtractor.extractUnique(expression).stream()
                 .collect(Collectors.toMap(
                         symbol -> symbol,
                         symbol -> {

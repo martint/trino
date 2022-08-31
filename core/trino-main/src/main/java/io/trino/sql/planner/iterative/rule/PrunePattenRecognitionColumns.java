@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
@@ -66,7 +66,7 @@ public class PrunePattenRecognitionColumns
         patternRecognitionNode.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.getOrderBy()));
         patternRecognitionNode.getHashSymbol().ifPresent(referencedInputs::add);
         referencedFunctions.values().stream()
-                .map(SymbolsExtractor::extractUnique)
+                .map(IrSymbolsExtractor::extractUnique)
                 .forEach(referencedInputs::addAll);
         referencedMeasures.values().stream()
                 .map(Measure::getExpressionAndValuePointers)

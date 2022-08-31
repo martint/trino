@@ -13,147 +13,37 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.ir.DefaultExpressionTraversalVisitor;
-import io.trino.sql.ir.DefaultTraversalVisitor;
-import io.trino.sql.ir.DereferenceExpression;
-import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Identifier;
-import io.trino.sql.ir.LambdaExpression;
-import io.trino.sql.ir.NodeRef;
-import io.trino.sql.ir.QualifiedName;
-import io.trino.sql.ir.SubqueryExpression;
-import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.iterative.Lookup;
-import io.trino.sql.planner.plan.AggregationNode.Aggregation;
-import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SubqueryExpression;
 
-import java.util.List;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
-import static io.trino.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
-import static io.trino.sql.planner.iterative.Lookup.noLookup;
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
+// TODO: remove/rename
 public final class SymbolsExtractor
 {
     private SymbolsExtractor() {}
 
-    public static Set<Symbol> extractUnique(PlanNode node)
+    // to extract qualified name with prefix
+    public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressions(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
-    }
-
-    public static Set<Symbol> extractUniqueNonRecursive(PlanNode node)
-    {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressionsNonRecursive(node).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
-    }
-
-    public static Set<Symbol> extractUnique(PlanNode node, Lookup lookup)
-    {
-        ImmutableSet.Builder<Symbol> uniqueSymbols = ImmutableSet.builder();
-        extractExpressions(node, lookup).forEach(expression -> uniqueSymbols.addAll(extractUnique(expression)));
-
-        return uniqueSymbols.build();
-    }
-
-    public static Set<Symbol> extractUnique(Expression expression)
-    {
-        return ImmutableSet.copyOf(extractAll(expression));
-    }
-
-    public static Set<Symbol> extractUnique(Iterable<? extends Expression> expressions)
-    {
-        ImmutableSet.Builder<Symbol> unique = ImmutableSet.builder();
-        for (Expression expression : expressions) {
-            unique.addAll(extractAll(expression));
-        }
-        return unique.build();
-    }
-
-    public static Set<Symbol> extractUnique(Aggregation aggregation)
-    {
-        return ImmutableSet.copyOf(extractAll(aggregation));
-    }
-
-    public static Set<Symbol> extractUnique(WindowNode.Function function)
-    {
-        return ImmutableSet.copyOf(extractAll(function));
-    }
-
-    public static List<Symbol> extractAll(Expression expression)
-    {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        new SymbolBuilderVisitor().process(expression, builder);
+        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
+        new QualifiedNameBuilderVisitor(columnReferences, true).process(expression, builder);
         return builder.build();
     }
 
-    public static List<Symbol> extractAll(Aggregation aggregation)
+    public static Set<QualifiedName> extractNamesNoSubqueries(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (Expression argument : aggregation.getArguments()) {
-            builder.addAll(extractAll(argument));
-        }
-        aggregation.getFilter().ifPresent(builder::add);
-        aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
-        aggregation.getMask().ifPresent(builder::add);
+        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
+        new QualifiedNameBuilderVisitor(columnReferences, false).process(expression, builder);
         return builder.build();
-    }
-
-    public static List<Symbol> extractAll(WindowNode.Function function)
-    {
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (Expression argument : function.getArguments()) {
-            builder.addAll(extractAll(argument));
-        }
-        function.getFrame().getEndValue().ifPresent(builder::add);
-        function.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(builder::add);
-        function.getFrame().getStartValue().ifPresent(builder::add);
-        function.getFrame().getSortKeyCoercedForFrameStartComparison().ifPresent(builder::add);
-        return builder.build();
-    }
-
-    public static Set<Symbol> extractOutputSymbols(PlanNode planNode)
-    {
-        return extractOutputSymbols(planNode, noLookup());
-    }
-
-    public static Set<Symbol> extractOutputSymbols(PlanNode planNode, Lookup lookup)
-    {
-        return searchFrom(planNode, lookup)
-                .findAll()
-                .stream()
-                .flatMap(node -> node.getOutputSymbols().stream())
-                .collect(toImmutableSet());
-    }
-
-    private static class SymbolBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<ImmutableList.Builder<Symbol>>
-    {
-        @Override
-        protected Void visitSymbolReference(SymbolReference node, ImmutableList.Builder<Symbol> builder)
-        {
-            builder.add(Symbol.from(node));
-            return null;
-        }
-
-        @Override
-        protected Void visitLambdaExpression(LambdaExpression node, ImmutableList.Builder<Symbol> context)
-        {
-            // Symbols in lambda expression are bound to lambda arguments, so no need to extract them
-            return null;
-        }
     }
 
     private static class QualifiedNameBuilderVisitor

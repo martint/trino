@@ -21,7 +21,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -206,7 +206,7 @@ public class MergePatternRecognitionNodes
 
         return Streams.concat(
                 parent.getWindowFunctions().values().stream()
-                        .map(SymbolsExtractor::extractAll)
+                        .map(IrSymbolsExtractor::extractAll)
                         .flatMap(Collection::stream),
                 parent.getMeasures().values().stream()
                         .map(Measure::getExpressionAndValuePointers)
@@ -230,7 +230,7 @@ public class MergePatternRecognitionNodes
 
         ImmutableSet.Builder<Symbol> parentInputs = ImmutableSet.builder();
         parent.getWindowFunctions().values().stream()
-                .map(SymbolsExtractor::extractAll)
+                .map(IrSymbolsExtractor::extractAll)
                 .forEach(parentInputs::addAll);
         parent.getMeasures().values().stream()
                 .map(Measure::getExpressionAndValuePointers)
@@ -239,7 +239,7 @@ public class MergePatternRecognitionNodes
 
         return parentInputs.build().stream()
                 .map(assignments::get)
-                .map(SymbolsExtractor::extractAll)
+                .map(IrSymbolsExtractor::extractAll)
                 .flatMap(Collection::stream)
                 .anyMatch(sourceCreatedOutputs::contains);
     }
@@ -254,7 +254,7 @@ public class MergePatternRecognitionNodes
 
         ImmutableSet.Builder<Symbol> inputsBuilder = ImmutableSet.builder();
         node.getWindowFunctions().values().stream()
-                .map(SymbolsExtractor::extractAll)
+                .map(IrSymbolsExtractor::extractAll)
                 .forEach(inputsBuilder::addAll);
         node.getMeasures().values().stream()
                 .map(Measure::getExpressionAndValuePointers)

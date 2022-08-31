@@ -44,7 +44,7 @@ import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -99,9 +99,9 @@ import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.IrExpressionUtils.filterDeterministicConjuncts;
 import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
 import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
@@ -326,7 +326,7 @@ public class PredicatePushDown
             //   2. references to complex expressions that appear only once
             // which come from the node, as opposed to an enclosing scope.
             Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
-            Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
+            Map<Symbol, Long> dependencies = IrSymbolsExtractor.extractAll(expression).stream()
                     .filter(childOutputSet::contains)
                     .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 

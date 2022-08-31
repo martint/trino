@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.JoinNode.Type;
 
 import javax.annotation.concurrent.Immutable;
@@ -67,7 +67,7 @@ public class UnnestNode
         this.filter = requireNonNull(filter, "filter is null");
         if (filter.isPresent()) {
             Set<Symbol> outputs = ImmutableSet.copyOf(getOutputSymbols());
-            checkArgument(outputs.containsAll(SymbolsExtractor.extractUnique(filter.get())), "Outputs do not contain all filter symbols");
+            checkArgument(outputs.containsAll(IrSymbolsExtractor.extractUnique(filter.get())), "Outputs do not contain all filter symbols");
         }
     }
 

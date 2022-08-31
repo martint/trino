@@ -24,12 +24,10 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.AstDeterminismEvaluator;
-import io.trino.sql.planner.AstSymbolsExtractor;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -40,7 +38,6 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
@@ -55,11 +52,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.metadata.ResolvedFunction.isResolved;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -231,12 +226,12 @@ public final class ExpressionUtils
 
     public static Expression filterDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, expression1 -> AstDeterminismEvaluator.isDeterministic(expression1, metadata));
+        return filterConjuncts(metadata, expression, expression1 -> DeterminismEvaluator.isDeterministic(expression1, metadata));
     }
 
     public static Expression filterNonDeterministicConjuncts(Metadata metadata, Expression expression)
     {
-        return filterConjuncts(metadata, expression, not(testExpression -> AstDeterminismEvaluator.isDeterministic(testExpression, metadata)));
+        return filterConjuncts(metadata, expression, not(testExpression -> DeterminismEvaluator.isDeterministic(testExpression, metadata)));
     }
 
     public static Expression filterConjuncts(Metadata metadata, Expression expression, Predicate<Expression> predicate)
@@ -246,34 +241,6 @@ public final class ExpressionUtils
                 .collect(toList());
 
         return combineConjuncts(metadata, conjuncts);
-    }
-
-    @SafeVarargs
-    public static Function<Expression, Expression> expressionOrNullSymbols(Predicate<Symbol>... nullSymbolScopes)
-    {
-        return expression -> {
-            ImmutableList.Builder<Expression> resultDisjunct = ImmutableList.builder();
-            resultDisjunct.add(expression);
-
-            for (Predicate<Symbol> nullSymbolScope : nullSymbolScopes) {
-                List<Symbol> symbols = AstSymbolsExtractor.extractUnique(expression).stream()
-                        .filter(nullSymbolScope)
-                        .collect(toImmutableList());
-
-                if (symbols.isEmpty()) {
-                    continue;
-                }
-
-                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-                for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
-                }
-
-                resultDisjunct.add(and(nullConjuncts.build()));
-            }
-
-            return or(resultDisjunct.build());
-        };
     }
 
     /**
@@ -339,7 +306,7 @@ public final class ExpressionUtils
 
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!AstDeterminismEvaluator.isDeterministic(expression, metadata)) {
+            if (!DeterminismEvaluator.isDeterministic(expression, metadata)) {
                 result.add(expression);
             }
             else if (!seen.contains(expression)) {

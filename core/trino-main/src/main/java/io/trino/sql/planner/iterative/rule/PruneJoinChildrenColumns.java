@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
 
@@ -47,7 +47,7 @@ public class PruneJoinChildrenColumns
                 .addAll(joinNode.getOutputSymbols())
                 .addAll(
                         joinNode.getFilter()
-                                .map(SymbolsExtractor::extractUnique)
+                                .map(IrSymbolsExtractor::extractUnique)
                                 .orElse(ImmutableSet.of()))
                 .build();
 

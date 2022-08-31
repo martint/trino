@@ -27,7 +27,7 @@ import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.TryExpression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
@@ -115,7 +115,7 @@ public class InlineProjections
                 .entrySet().stream()
                 .filter(entry -> targets.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .flatMap(entry -> SymbolsExtractor.extractAll(entry).stream())
+                .flatMap(entry -> IrSymbolsExtractor.extractAll(entry).stream())
                 .collect(toSet());
 
         Assignments.Builder newChildAssignmentsBuilder = Assignments.builder();
@@ -179,7 +179,7 @@ public class InlineProjections
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
                 .getExpressions().stream()
-                .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
+                .flatMap(expression -> IrSymbolsExtractor.extractAll(expression).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
@@ -223,7 +223,7 @@ public class InlineProjections
         return IrUtils.preOrder(expression)
                 .filter(TryExpression.class::isInstance)
                 .map(TryExpression.class::cast)
-                .flatMap(tryExpression -> SymbolsExtractor.extractAll(tryExpression).stream())
+                .flatMap(tryExpression -> IrSymbolsExtractor.extractAll(tryExpression).stream())
                 .collect(toSet());
     }
 

@@ -609,7 +609,7 @@ class RelationPlanner
                     continue;
                 }
 
-                Set<QualifiedName> dependencies = AstSymbolsExtractor.extractNames(conjunct, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = SymbolsExtractor.extractNames(conjunct, analysis.getColumnReferences());
 
                 if (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve)) {
                     // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
@@ -620,8 +620,8 @@ class RelationPlanner
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
                     ComparisonExpression.Operator comparisonOperator = ((ComparisonExpression) conjunct).getOperator();
-                    Set<QualifiedName> firstDependencies = AstSymbolsExtractor.extractNames(firstExpression, analysis.getColumnReferences());
-                    Set<QualifiedName> secondDependencies = AstSymbolsExtractor.extractNames(secondExpression, analysis.getColumnReferences());
+                    Set<QualifiedName> firstDependencies = SymbolsExtractor.extractNames(firstExpression, analysis.getColumnReferences());
+                    Set<QualifiedName> secondDependencies = SymbolsExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
                     if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
@@ -689,7 +689,7 @@ class RelationPlanner
 
         if (type != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
-                Set<QualifiedName> dependencies = AstSymbolsExtractor.extractNamesNoSubqueries(complexExpression, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = SymbolsExtractor.extractNamesNoSubqueries(complexExpression, analysis.getColumnReferences());
 
                 // This is for handling uncorreled subqueries. Correlated subqueries are not currently supported and are dealt with
                 // during analysis.

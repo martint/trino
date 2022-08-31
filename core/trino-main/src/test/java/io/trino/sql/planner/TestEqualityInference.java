@@ -340,13 +340,13 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesSymbolScope(Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+        return expression -> Iterables.all(IrSymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(Predicate<Symbol> symbolScope)
     {
         return expression -> {
-            Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
+            Set<Symbol> symbols = IrSymbolsExtractor.extractUnique(expression);
             return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
         };
     }

@@ -18,7 +18,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -53,7 +53,7 @@ public class PruneTableWriterSourceColumns
             StatisticAggregations aggregations = tableWriterNode.getStatisticsAggregation().get();
             requiredInputs.addAll(aggregations.getGroupingSymbols());
             aggregations.getAggregations().values().stream()
-                    .map(SymbolsExtractor::extractUnique)
+                    .map(IrSymbolsExtractor::extractUnique)
                     .forEach(requiredInputs::addAll);
         }
 

@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.planner.SymbolsExtractor.extractAll;
+import static io.trino.sql.planner.IrSymbolsExtractor.extractAll;
 
 /**
  * Provides helper methods to push down dereferences in the query plan.

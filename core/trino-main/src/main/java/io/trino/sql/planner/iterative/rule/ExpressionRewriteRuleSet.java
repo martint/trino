@@ -27,7 +27,7 @@ import io.trino.sql.ir.SortItem;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -444,7 +444,7 @@ public class ExpressionRewriteRuleSet
             if (!pointers.getExpression().equals(newExpression)) {
                 rewritten = true;
                 // prune unused symbols from layout and value pointers
-                Set<Symbol> newSymbols = SymbolsExtractor.extractUnique(newExpression);
+                Set<Symbol> newSymbols = IrSymbolsExtractor.extractUnique(newExpression);
                 List<Symbol> layout = pointers.getLayout();
                 ImmutableList.Builder<Symbol> newLayoutBuilder = ImmutableList.builder();
                 ImmutableList.Builder<ValuePointer> newPointersBuilder = ImmutableList.builder();

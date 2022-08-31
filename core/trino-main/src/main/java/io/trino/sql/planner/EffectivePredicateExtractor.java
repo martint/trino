@@ -207,11 +207,11 @@ public class EffectivePredicateExtractor
                     .collect(toImmutableSet());
 
             List<Expression> validUnderlyingEqualities = extractConjuncts(underlyingPredicate).stream()
-                    .filter(expression -> Sets.intersection(SymbolsExtractor.extractUnique(expression), newlyAssignedSymbols).isEmpty())
+                    .filter(expression -> Sets.intersection(IrSymbolsExtractor.extractUnique(expression), newlyAssignedSymbols).isEmpty())
                     .collect(toImmutableList());
 
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
-                    .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
+                    .filter(assignment -> Sets.intersection(IrSymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
                     .map(ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
 
@@ -382,7 +382,7 @@ public class EffectivePredicateExtractor
                 if (row instanceof Row) {
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Expression value = ((Row) row).getItems().get(i);
-                        if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
+                        if (!IrDeterminismEvaluator.isDeterministic(value, metadata)) {
                             nonDeterministic[i] = true;
                         }
                         else {
@@ -410,7 +410,7 @@ public class EffectivePredicateExtractor
                     }
                 }
                 else {
-                    if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
+                    if (!IrDeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
                     IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session, expressionTypes);
@@ -518,7 +518,7 @@ public class EffectivePredicateExtractor
             // Conjuncts without any symbol dependencies cannot be applied to the effective predicate (e.g. FALSE literal)
             return conjuncts.stream()
                     .map(expression -> pullExpressionThroughSymbols(expression, outputSymbols))
-                    .map(expression -> SymbolsExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
+                    .map(expression -> IrSymbolsExtractor.extractAll(expression).isEmpty() ? TRUE_LITERAL : expression)
                     .map(expressionOrNullSymbols(nullSymbolScopes))
                     .collect(toImmutableList());
         }
@@ -590,7 +590,7 @@ public class EffectivePredicateExtractor
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
             EqualityInference.nonInferrableConjuncts(metadata, expression).forEach(conjunct -> {
-                if (DeterminismEvaluator.isDeterministic(conjunct, metadata)) {
+                if (IrDeterminismEvaluator.isDeterministic(conjunct, metadata)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
                         effectiveConjuncts.add(rewritten);

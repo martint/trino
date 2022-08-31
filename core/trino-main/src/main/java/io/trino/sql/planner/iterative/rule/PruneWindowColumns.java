@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
 
@@ -59,7 +59,7 @@ public class PruneWindowColumns
         windowNode.getHashSymbol().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(SymbolsExtractor.extractUnique(windowFunction));
+            referencedInputs.addAll(IrSymbolsExtractor.extractUnique(windowFunction));
         }
 
         PlanNode prunedWindowNode = new WindowNode(

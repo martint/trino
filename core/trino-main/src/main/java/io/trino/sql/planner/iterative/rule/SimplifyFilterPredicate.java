@@ -40,7 +40,7 @@ import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
 
 /**

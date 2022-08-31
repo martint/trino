@@ -31,7 +31,7 @@ import io.trino.sql.ir.FunctionCall;
 import io.trino.sql.ir.NullLiteral;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.SymbolReference;
-import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.IrDeterminismEvaluator;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
@@ -905,7 +905,7 @@ public class UnaliasSymbolReferences
                 }
                 // 2. map same deterministic expressions within a projection into the same symbol
                 // omit NullLiterals since those have ambiguous types
-                else if (DeterminismEvaluator.isDeterministic(expression, metadata) && !(expression instanceof NullLiteral)) {
+                else if (IrDeterminismEvaluator.isDeterministic(expression, metadata) && !(expression instanceof NullLiteral)) {
                     Symbol previous = inputsToOutputs.get(expression);
                     if (previous == null) {
                         inputsToOutputs.put(expression, assignment.getKey());

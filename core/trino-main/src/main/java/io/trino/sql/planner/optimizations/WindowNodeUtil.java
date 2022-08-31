@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.Collection;
@@ -27,7 +27,7 @@ public final class WindowNodeUtil
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
                 || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains))
                 || parent.getWindowFunctions().values().stream()
-                .map(SymbolsExtractor::extractUnique)
+                .map(IrSymbolsExtractor::extractUnique)
                 .flatMap(Collection::stream)
                 .anyMatch(child.getCreatedSymbols()::contains);
     }

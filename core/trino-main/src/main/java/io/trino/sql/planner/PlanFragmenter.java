@@ -233,7 +233,7 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            Set<Symbol> dependencies = SymbolsExtractor.extractOutputSymbols(root);
+            Set<Symbol> dependencies = IrSymbolsExtractor.extractOutputSymbols(root);
 
             List<PlanNodeId> schedulingOrder = scheduleOrder(root);
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));

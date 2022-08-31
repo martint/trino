@@ -69,7 +69,7 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static io.trino.sql.IrExpressionUtils.extractConjuncts;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.source;

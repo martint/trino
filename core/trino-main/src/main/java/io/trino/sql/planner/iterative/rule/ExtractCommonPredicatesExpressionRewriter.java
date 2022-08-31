@@ -29,8 +29,8 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.IrExpressionUtils.combinePredicates;
 import static io.trino.sql.IrExpressionUtils.extractPredicates;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.tree.LogicalExpression.Operator.OR;
+import static io.trino.sql.ir.LogicalExpression.Operator.OR;
+import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -102,7 +102,7 @@ public final class ExtractCommonPredicatesExpressionRewriter
                     .map(predicateList -> removeAll(predicateList, commonPredicates))
                     .collect(toImmutableList());
 
-            io.trino.sql.tree.LogicalExpression.Operator flippedOperator = node.getOperator().flip();
+            LogicalExpression.Operator flippedOperator = node.getOperator().flip();
 
             List<Expression> uncorrelatedPredicates = uncorrelatedSubPredicates.stream()
                     .map(predicate -> combinePredicates(metadata, flippedOperator, predicate))

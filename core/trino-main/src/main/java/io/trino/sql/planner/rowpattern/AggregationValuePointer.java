@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 
 import java.util.Collection;
 import java.util.List;
@@ -79,7 +79,7 @@ public class AggregationValuePointer
     public List<Symbol> getInputSymbols()
     {
         return arguments.stream()
-                .map(SymbolsExtractor::extractAll)
+                .map(IrSymbolsExtractor::extractAll)
                 .flatMap(Collection::stream)
                 .filter(symbol -> !symbol.equals(classifierSymbol) && !symbol.equals(matchNumberSymbol))
                 .collect(toImmutableList());

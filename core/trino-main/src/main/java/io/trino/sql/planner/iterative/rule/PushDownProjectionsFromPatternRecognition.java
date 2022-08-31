@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -137,7 +137,7 @@ public class PushDownProjectionsFromPatternRecognition
                 ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
                 for (int i = 0; i < aggregationPointer.getArguments().size(); i++) {
                     Expression argument = aggregationPointer.getArguments().get(i);
-                    if (argument instanceof SymbolReference || SymbolsExtractor.extractUnique(argument).stream()
+                    if (argument instanceof SymbolReference || IrSymbolsExtractor.extractUnique(argument).stream()
                             .anyMatch(runtimeEvaluatedSymbols::contains)) {
                         rewrittenArguments.add(argument);
                     }
