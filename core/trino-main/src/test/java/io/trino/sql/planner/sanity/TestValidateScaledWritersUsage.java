@@ -43,7 +43,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

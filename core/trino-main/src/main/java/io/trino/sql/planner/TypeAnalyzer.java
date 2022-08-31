@@ -14,19 +14,26 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.NodeRef;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
 
 import javax.inject.Inject;
 
 import java.util.Map;
 
-import static io.trino.sql.iranalyzer.ExpressionAnalyzer.analyzeExpressions;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
+import static io.trino.sql.analyzer.QueryType.OTHERS;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -37,11 +44,13 @@ import static java.util.Objects.requireNonNull;
 public class TypeAnalyzer
 {
     private final PlannerContext plannerContext;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
 
     @Inject
-    public TypeAnalyzer(PlannerContext plannerContext)
+    public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
@@ -49,10 +58,13 @@ public class TypeAnalyzer
         return analyzeExpressions(
                 session,
                 plannerContext,
+                statementAnalyzerFactory,
                 new AllowAllAccessControl(),
                 inputTypes,
                 expressions,
-                WarningCollector.NOOP)
+                ImmutableMap.of(),
+                WarningCollector.NOOP,
+                OTHERS)
                 .getExpressionTypes();
     }
 
@@ -69,6 +81,11 @@ public class TypeAnalyzer
     public static TypeAnalyzer createTestingTypeAnalyzer(PlannerContext plannerContext)
     {
         return new TypeAnalyzer(
-                plannerContext);
+                plannerContext,
+                createTestingStatementAnalyzerFactory(
+                        plannerContext,
+                        new AllowAllAccessControl(),
+                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing type analyzer")),
+                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing type analyzer"))));
     }
 }

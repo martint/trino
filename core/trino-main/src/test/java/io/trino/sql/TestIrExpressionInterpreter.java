@@ -71,8 +71,8 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -1968,7 +1968,7 @@ public class TestIrExpressionInterpreter
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
         io.trino.sql.tree.Expression parsed = (SQL_PARSER.createExpression(expression, parsingOptions));
-        String formatted = io.trino.sql.AstExpressionFormatter.formatExpression(parsed);
+        String formatted = ExpressionFormatter.formatExpression(parsed);
         assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
     }
 

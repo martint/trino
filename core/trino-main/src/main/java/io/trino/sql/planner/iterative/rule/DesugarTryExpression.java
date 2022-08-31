@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.DesugarTryExpressionRewriter;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 
 public class DesugarTryExpression
         extends ExpressionRewriteRuleSet
 {
-    public DesugarTryExpression(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public DesugarTryExpression(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         super((expression, context) -> DesugarTryExpressionRewriter.rewrite(expression, metadata, typeAnalyzer, context.getSession(), context.getSymbolAllocator()));
     }

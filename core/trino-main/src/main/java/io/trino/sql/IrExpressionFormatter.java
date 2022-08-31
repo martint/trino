@@ -16,122 +16,94 @@ package io.trino.sql;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.AllRows;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.ArrayConstructor;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.BetweenPredicate;
-import io.trino.sql.tree.BinaryLiteral;
-import io.trino.sql.tree.BindExpression;
-import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
-import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Cube;
-import io.trino.sql.tree.CurrentCatalog;
-import io.trino.sql.tree.CurrentPath;
-import io.trino.sql.tree.CurrentSchema;
-import io.trino.sql.tree.CurrentTime;
-import io.trino.sql.tree.CurrentUser;
-import io.trino.sql.tree.DateTimeDataType;
-import io.trino.sql.tree.DecimalLiteral;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.DoubleLiteral;
-import io.trino.sql.tree.ExistsPredicate;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Extract;
-import io.trino.sql.tree.FieldReference;
-import io.trino.sql.tree.Format;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.GroupingElement;
-import io.trino.sql.tree.GroupingOperation;
-import io.trino.sql.tree.GroupingSets;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IfExpression;
-import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IntervalDayTimeDataType;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.JsonArray;
-import io.trino.sql.tree.JsonExists;
-import io.trino.sql.tree.JsonObject;
-import io.trino.sql.tree.JsonPathInvocation;
-import io.trino.sql.tree.JsonPathParameter;
-import io.trino.sql.tree.JsonQuery;
-import io.trino.sql.tree.JsonValue;
-import io.trino.sql.tree.LabelDereference;
-import io.trino.sql.tree.LambdaArgumentDeclaration;
-import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NotExpression;
-import io.trino.sql.tree.NullIfExpression;
-import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.NumericParameter;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.Rollup;
-import io.trino.sql.tree.Row;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SearchedCaseExpression;
-import io.trino.sql.tree.SimpleCaseExpression;
-import io.trino.sql.tree.SimpleGroupBy;
-import io.trino.sql.tree.SkipTo;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubqueryExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
-import io.trino.sql.tree.Trim;
-import io.trino.sql.tree.TryExpression;
-import io.trino.sql.tree.TypeParameter;
-import io.trino.sql.tree.WhenClause;
-import io.trino.sql.tree.Window;
-import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowOperation;
-import io.trino.sql.tree.WindowReference;
-import io.trino.sql.tree.WindowSpecification;
+import io.trino.sql.ir.ArithmeticBinaryExpression;
+import io.trino.sql.ir.ArithmeticUnaryExpression;
+import io.trino.sql.ir.ArrayConstructor;
+import io.trino.sql.ir.AtTimeZone;
+import io.trino.sql.ir.BetweenPredicate;
+import io.trino.sql.ir.BinaryLiteral;
+import io.trino.sql.ir.BindExpression;
+import io.trino.sql.ir.BooleanLiteral;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.CharLiteral;
+import io.trino.sql.ir.CoalesceExpression;
+import io.trino.sql.ir.ComparisonExpression;
+import io.trino.sql.ir.CurrentCatalog;
+import io.trino.sql.ir.CurrentPath;
+import io.trino.sql.ir.CurrentSchema;
+import io.trino.sql.ir.CurrentTime;
+import io.trino.sql.ir.CurrentUser;
+import io.trino.sql.ir.DateTimeDataType;
+import io.trino.sql.ir.DecimalLiteral;
+import io.trino.sql.ir.DereferenceExpression;
+import io.trino.sql.ir.DoubleLiteral;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Extract;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Format;
+import io.trino.sql.ir.FunctionCall;
+import io.trino.sql.ir.GenericDataType;
+import io.trino.sql.ir.GenericLiteral;
+import io.trino.sql.ir.Identifier;
+import io.trino.sql.ir.IfExpression;
+import io.trino.sql.ir.InListExpression;
+import io.trino.sql.ir.InPredicate;
+import io.trino.sql.ir.IntervalDayTimeDataType;
+import io.trino.sql.ir.IntervalLiteral;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.IsNotNullPredicate;
+import io.trino.sql.ir.IsNullPredicate;
+import io.trino.sql.ir.JsonArray;
+import io.trino.sql.ir.JsonExists;
+import io.trino.sql.ir.JsonObject;
+import io.trino.sql.ir.JsonPathInvocation;
+import io.trino.sql.ir.JsonPathParameter;
+import io.trino.sql.ir.JsonQuery;
+import io.trino.sql.ir.JsonValue;
+import io.trino.sql.ir.LabelDereference;
+import io.trino.sql.ir.LambdaArgumentDeclaration;
+import io.trino.sql.ir.LambdaExpression;
+import io.trino.sql.ir.LikePredicate;
+import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.LongLiteral;
+import io.trino.sql.ir.NotExpression;
+import io.trino.sql.ir.NullIfExpression;
+import io.trino.sql.ir.NullLiteral;
+import io.trino.sql.ir.NumericParameter;
+import io.trino.sql.ir.QualifiedName;
+import io.trino.sql.ir.QuantifiedComparisonExpression;
+import io.trino.sql.ir.Row;
+import io.trino.sql.ir.RowDataType;
+import io.trino.sql.ir.SearchedCaseExpression;
+import io.trino.sql.ir.SimpleCaseExpression;
+import io.trino.sql.ir.StringLiteral;
+import io.trino.sql.ir.SubscriptExpression;
+import io.trino.sql.ir.SymbolReference;
+import io.trino.sql.ir.TimeLiteral;
+import io.trino.sql.ir.TimestampLiteral;
+import io.trino.sql.ir.Trim;
+import io.trino.sql.ir.TryExpression;
+import io.trino.sql.ir.TypeParameter;
+import io.trino.sql.ir.WhenClause;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.AstRowPatternFormatter.formatPattern;
-import static io.trino.sql.SqlFormatter.formatName;
-import static io.trino.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-public final class AstExpressionFormatter
+public final class IrExpressionFormatter
 {
     private static final ThreadLocal<DecimalFormat> doubleFormatter = ThreadLocal.withInitial(
             () -> new DecimalFormat("0.###################E0###", new DecimalFormatSymbols(Locale.US)));
 
-    private AstExpressionFormatter() {}
+    private IrExpressionFormatter() {}
 
     public static String formatExpression(Expression expression)
     {
@@ -144,14 +116,8 @@ public final class AstExpressionFormatter
     }
 
     public static class Formatter
-            extends AstVisitor<String, Void>
+            extends IrVisitor<String, Void>
     {
-        @Override
-        protected String visitNode(Node node, Void context)
-        {
-            throw new UnsupportedOperationException();
-        }
-
         @Override
         protected String visitRow(Row node, Void context)
         {
@@ -262,23 +228,11 @@ public final class AstExpressionFormatter
         }
 
         @Override
-        protected String visitParameter(Parameter node, Void context)
-        {
-            return "?";
-        }
-
-        @Override
-        protected String visitAllRows(AllRows node, Void context)
-        {
-            return "ALL";
-        }
-
-        @Override
         protected String visitArrayConstructor(ArrayConstructor node, Void context)
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
+                valueStrings.add(value.toString());
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -286,7 +240,7 @@ public final class AstExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Void context)
         {
-            return formatSql(node.getBase()) + "[" + formatSql(node.getIndex()) + "]";
+            return node.getBase() + "[" + node.getIndex() + "]";
         }
 
         @Override
@@ -335,7 +289,7 @@ public final class AstExpressionFormatter
         @Override
         protected String visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            String sign = (node.getSign() == IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
+            String sign = (node.getSign() == io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE) ? "- " : "";
             StringBuilder builder = new StringBuilder()
                     .append("INTERVAL ")
                     .append(sign)
@@ -346,18 +300,6 @@ public final class AstExpressionFormatter
                 builder.append(" TO ").append(node.getEndField().get());
             }
             return builder.toString();
-        }
-
-        @Override
-        protected String visitSubqueryExpression(SubqueryExpression node, Void context)
-        {
-            return "(" + formatSql(node.getQuery()) + ")";
-        }
-
-        @Override
-        protected String visitExists(ExistsPredicate node, Void context)
-        {
-            return "(EXISTS " + formatSql(node.getSubquery()) + ")";
         }
 
         @Override
@@ -406,11 +348,6 @@ public final class AstExpressionFormatter
 
             StringBuilder builder = new StringBuilder();
 
-            if (node.getProcessingMode().isPresent()) {
-                builder.append(node.getProcessingMode().get().getMode())
-                        .append(" ");
-            }
-
             String arguments = joinExpressions(node.getArguments());
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
@@ -421,10 +358,6 @@ public final class AstExpressionFormatter
 
             builder.append(formatName(node.getName()))
                     .append('(').append(arguments);
-
-            if (node.getOrderBy().isPresent()) {
-                builder.append(' ').append(formatOrderBy(node.getOrderBy().get()));
-            }
 
             builder.append(')');
 
@@ -443,17 +376,7 @@ public final class AstExpressionFormatter
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), context));
             }
 
-            if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(formatWindow(node.getWindow().get()));
-            }
-
             return builder.toString();
-        }
-
-        @Override
-        protected String visitWindowOperation(WindowOperation node, Void context)
-        {
-            return process(node.getName(), context) + " OVER " + formatWindow(node.getWindow());
         }
 
         @Override
@@ -592,29 +515,6 @@ public final class AstExpressionFormatter
         }
 
         @Override
-        protected String visitAllColumns(AllColumns node, Void context)
-        {
-            StringBuilder builder = new StringBuilder();
-            if (node.getTarget().isPresent()) {
-                builder.append(process(node.getTarget().get(), context));
-                builder.append(".*");
-            }
-            else {
-                builder.append("*");
-            }
-
-            if (!node.getAliases().isEmpty()) {
-                builder.append(" AS (");
-                Joiner.on(", ").appendTo(builder, node.getAliases().stream()
-                        .map(alias -> process(alias, context))
-                        .collect(toList()));
-                builder.append(")");
-            }
-
-            return builder.toString();
-        }
-
-        @Override
         public String visitCast(Cast node, Void context)
         {
             return (node.isSafe() ? "TRY_CAST" : "CAST") +
@@ -705,12 +605,6 @@ public final class AstExpressionFormatter
         }
 
         @Override
-        protected String visitGroupingOperation(GroupingOperation node, Void context)
-        {
-            return "GROUPING (" + joinExpressions(node.getGroupingColumns()) + ")";
-        }
-
-        @Override
         protected String visitRowDataType(RowDataType node, Void context)
         {
             return node.getFields().stream()
@@ -751,7 +645,7 @@ public final class AstExpressionFormatter
         @Override
         protected String visitTypeParameter(TypeParameter node, Void context)
         {
-            return process(node.getValue(), context);
+            return process(node.getType(), context);
         }
 
         @Override
@@ -1004,13 +898,6 @@ public final class AstExpressionFormatter
 
             builder.append(')');
 
-            if (node.getOrderBy().isPresent()) {
-                builder.append(" WITHIN GROUP ")
-                        .append('(')
-                        .append(formatOrderBy(node.getOrderBy().get()))
-                        .append(')');
-            }
-
             return builder.toString();
         }
     }
@@ -1048,168 +935,6 @@ public final class AstExpressionFormatter
         return builder.toString();
     }
 
-    public static String formatOrderBy(OrderBy orderBy)
-    {
-        return "ORDER BY " + formatSortItems(orderBy.getSortItems());
-    }
-
-    public static String formatSortItems(List<SortItem> sortItems)
-    {
-        return Joiner.on(", ").join(sortItems.stream()
-                .map(sortItemFormatterFunction())
-                .iterator());
-    }
-
-    private static String formatWindow(Window window)
-    {
-        if (window instanceof WindowReference) {
-            return formatExpression(((WindowReference) window).getName());
-        }
-
-        return formatWindowSpecification((WindowSpecification) window);
-    }
-
-    static String formatWindowSpecification(WindowSpecification windowSpecification)
-    {
-        List<String> parts = new ArrayList<>();
-
-        if (windowSpecification.getExistingWindowName().isPresent()) {
-            parts.add(formatExpression(windowSpecification.getExistingWindowName().get()));
-        }
-        if (!windowSpecification.getPartitionBy().isEmpty()) {
-            parts.add("PARTITION BY " + windowSpecification.getPartitionBy().stream()
-                    .map(AstExpressionFormatter::formatExpression)
-                    .collect(joining(", ")));
-        }
-        if (windowSpecification.getOrderBy().isPresent()) {
-            parts.add(formatOrderBy(windowSpecification.getOrderBy().get()));
-        }
-        if (windowSpecification.getFrame().isPresent()) {
-            parts.add(formatFrame(windowSpecification.getFrame().get()));
-        }
-
-        return '(' + Joiner.on(' ').join(parts) + ')';
-    }
-
-    private static String formatFrame(WindowFrame windowFrame)
-    {
-        StringBuilder builder = new StringBuilder();
-
-        if (!windowFrame.getMeasures().isEmpty()) {
-            builder.append("MEASURES ")
-                    .append(windowFrame.getMeasures().stream()
-                            .map(measure -> formatExpression(measure.getExpression()) + " AS " + formatExpression(measure.getName()))
-                            .collect(joining(", ")))
-                    .append(" ");
-        }
-
-        builder.append(windowFrame.getType().toString())
-                .append(' ');
-
-        if (windowFrame.getEnd().isPresent()) {
-            builder.append("BETWEEN ")
-                    .append(formatFrameBound(windowFrame.getStart()))
-                    .append(" AND ")
-                    .append(formatFrameBound(windowFrame.getEnd().get()));
-        }
-        else {
-            builder.append(formatFrameBound(windowFrame.getStart()));
-        }
-
-        windowFrame.getAfterMatchSkipTo().ifPresent(skipTo ->
-                builder.append(" ")
-                        .append(formatSkipTo(skipTo)));
-        windowFrame.getPatternSearchMode().ifPresent(searchMode ->
-                builder.append(" ")
-                        .append(searchMode.getMode().name()));
-        windowFrame.getPattern().ifPresent(pattern ->
-                builder.append(" PATTERN(")
-                        .append(formatPattern(pattern))
-                        .append(")"));
-        if (!windowFrame.getSubsets().isEmpty()) {
-            builder.append(" SUBSET ");
-            builder.append(windowFrame.getSubsets().stream()
-                    .map(subset -> formatExpression(subset.getName()) + " = " + subset.getIdentifiers().stream()
-                            .map(AstExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
-                    .collect(joining(", ")));
-        }
-        if (!windowFrame.getVariableDefinitions().isEmpty()) {
-            builder.append(" DEFINE ");
-            builder.append(windowFrame.getVariableDefinitions().stream()
-                    .map(variable -> formatExpression(variable.getName()) + " AS " + formatExpression(variable.getExpression()))
-                    .collect(joining(", ")));
-        }
-
-        return builder.toString();
-    }
-
-    private static String formatFrameBound(FrameBound frameBound)
-    {
-        switch (frameBound.getType()) {
-            case UNBOUNDED_PRECEDING:
-                return "UNBOUNDED PRECEDING";
-            case PRECEDING:
-                return formatExpression(frameBound.getValue().get()) + " PRECEDING";
-            case CURRENT_ROW:
-                return "CURRENT ROW";
-            case FOLLOWING:
-                return formatExpression(frameBound.getValue().get()) + " FOLLOWING";
-            case UNBOUNDED_FOLLOWING:
-                return "UNBOUNDED FOLLOWING";
-        }
-        throw new IllegalArgumentException("unhandled type: " + frameBound.getType());
-    }
-
-    public static String formatSkipTo(SkipTo skipTo)
-    {
-        switch (skipTo.getPosition()) {
-            case PAST_LAST:
-                return "AFTER MATCH SKIP PAST LAST ROW";
-            case NEXT:
-                return "AFTER MATCH SKIP TO NEXT ROW";
-            case LAST:
-                checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
-                return "AFTER MATCH SKIP TO LAST " + formatExpression(skipTo.getIdentifier().get());
-            case FIRST:
-                checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
-                return "AFTER MATCH SKIP TO FIRST " + formatExpression(skipTo.getIdentifier().get());
-            default:
-                throw new IllegalStateException("unexpected skipTo: " + skipTo);
-        }
-    }
-
-    static String formatGroupBy(List<GroupingElement> groupingElements)
-    {
-        ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
-
-        for (GroupingElement groupingElement : groupingElements) {
-            String result = "";
-            if (groupingElement instanceof SimpleGroupBy) {
-                List<Expression> columns = groupingElement.getExpressions();
-                if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns));
-                }
-                else {
-                    result = formatGroupingSet(columns);
-                }
-            }
-            else if (groupingElement instanceof GroupingSets) {
-                result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
-                        ((GroupingSets) groupingElement).getSets().stream()
-                                .map(AstExpressionFormatter::formatGroupingSet)
-                                .iterator()));
-            }
-            else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(groupingElement.getExpressions()));
-            }
-            else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(groupingElement.getExpressions()));
-            }
-            resultStrings.add(result);
-        }
-        return Joiner.on(", ").join(resultStrings.build());
-    }
-
     private static boolean isAsciiPrintable(int codePoint)
     {
         return codePoint >= 0x20 && codePoint < 0x7F;
@@ -1218,44 +943,8 @@ public final class AstExpressionFormatter
     private static String formatGroupingSet(List<Expression> groupingSet)
     {
         return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
-                .map(AstExpressionFormatter::formatExpression)
+                .map(IrExpressionFormatter::formatExpression)
                 .iterator()));
-    }
-
-    private static Function<SortItem, String> sortItemFormatterFunction()
-    {
-        return input -> {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append(formatExpression(input.getSortKey()));
-
-            switch (input.getOrdering()) {
-                case ASCENDING:
-                    builder.append(" ASC");
-                    break;
-                case DESCENDING:
-                    builder.append(" DESC");
-                    break;
-                default:
-                    throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
-            }
-
-            switch (input.getNullOrdering()) {
-                case FIRST:
-                    builder.append(" NULLS FIRST");
-                    break;
-                case LAST:
-                    builder.append(" NULLS LAST");
-                    break;
-                case UNDEFINED:
-                    // no op
-                    break;
-                default:
-                    throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
-            }
-
-            return builder.toString();
-        };
     }
 
     public static String formatJsonPathInvocation(JsonPathInvocation pathInvocation)
@@ -1274,7 +963,7 @@ public final class AstExpressionFormatter
         return builder.toString();
     }
 
-    private static String formatJsonExpression(Expression expression, Optional<JsonPathParameter.JsonFormat> format)
+    private static String formatJsonExpression(Expression expression, Optional<io.trino.sql.tree.JsonPathParameter.JsonFormat> format)
     {
         return formatExpression(expression) + format.map(jsonFormat -> " FORMAT " + jsonFormat).orElse("");
     }

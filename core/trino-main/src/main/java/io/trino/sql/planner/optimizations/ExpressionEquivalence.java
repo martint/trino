@@ -26,7 +26,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
 import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
@@ -62,10 +62,10 @@ public class ExpressionEquivalence
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private final Metadata metadata;
     private final FunctionManager functionManager;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, IrTypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");

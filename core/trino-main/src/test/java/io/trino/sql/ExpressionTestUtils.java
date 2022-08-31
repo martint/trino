@@ -46,7 +46,7 @@ import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReference
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;

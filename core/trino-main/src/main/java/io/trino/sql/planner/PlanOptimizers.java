@@ -275,7 +275,7 @@ public class PlanOptimizers
     @Inject
     public PlanOptimizers(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
@@ -306,7 +306,7 @@ public class PlanOptimizers
 
     public PlanOptimizers(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             SplitManager splitManager,

@@ -29,7 +29,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.StreamPreferredProperties;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -128,13 +128,13 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
     private static final double ANTI_SKEWNESS_MARGIN = 3;
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final TaskCountEstimator taskCountEstimator;
     private final DataSize maxPartialAggregationMemoryUsage;
 
     public AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TaskCountEstimator taskCountEstimator,
             TaskManagerConfig taskManagerConfig)
     {

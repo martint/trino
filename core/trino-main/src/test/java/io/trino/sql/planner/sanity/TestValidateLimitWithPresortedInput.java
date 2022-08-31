@@ -30,7 +30,7 @@ import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ir.LongLiteral;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -45,7 +45,7 @@ import java.util.function.Function;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -186,7 +186,7 @@ public class TestValidateLimitWithPresortedInput
         queryRunner.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(session, catalog));
-            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
+            IrTypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
             new ValidateLimitWithPresortedInput().validate(planNode, session, queryRunner.getPlannerContext(), typeAnalyzer, types, WarningCollector.NOOP);
             return null;
         });

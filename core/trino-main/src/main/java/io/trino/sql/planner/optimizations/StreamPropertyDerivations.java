@@ -29,7 +29,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -113,7 +113,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
                 .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
@@ -127,7 +127,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer);
     }
@@ -138,7 +138,7 @@ public final class StreamPropertyDerivations
             PlannerContext plannerContext,
             Session session,
             TypeProvider types,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");

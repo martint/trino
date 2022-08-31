@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.DesugarLikeRewriter;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class DesugarLike
         extends ExpressionRewriteRuleSet
 {
-    public DesugarLike(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public DesugarLike(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(metadata, typeAnalyzer));
     }
@@ -42,7 +42,7 @@ public class DesugarLike
                 patternRecognitionExpressionRewrite());
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

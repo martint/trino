@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.trino.sql.AstExpressionFormatter;
+import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Expression;
@@ -41,7 +41,7 @@ public final class ExpressionSerialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(AstExpressionFormatter.formatExpression(expression));
+            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression));
         }
     }
 

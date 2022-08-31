@@ -21,7 +21,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -102,7 +102,7 @@ public final class ValidateDependenciesChecker
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {

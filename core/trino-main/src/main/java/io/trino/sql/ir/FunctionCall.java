@@ -34,10 +34,8 @@ public class FunctionCall
     private final QualifiedName name;
     private final Optional<Window> window;
     private final Optional<Expression> filter;
-    private final Optional<OrderBy> orderBy;
     private final boolean distinct;
     private final Optional<NullTreatment> nullTreatment;
-    private final Optional<ProcessingMode> processingMode;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
@@ -50,28 +48,22 @@ public class FunctionCall
             @JsonProperty("name") QualifiedName name,
             @JsonProperty("window") Optional<Window> window,
             @JsonProperty("filter") Optional<Expression> filter,
-            @JsonProperty("orderBy") Optional<OrderBy> orderBy,
             @JsonProperty("distinct") boolean distinct,
             @JsonProperty("nullTreatment") Optional<NullTreatment> nullTreatment,
-            @JsonProperty("processingMode") Optional<ProcessingMode> processingMode,
             @JsonProperty("arguments") List<Expression> arguments)
     {
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
         window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: " + node.getClass().getSimpleName()));
         requireNonNull(filter, "filter is null");
-        requireNonNull(orderBy, "orderBy is null");
         requireNonNull(nullTreatment, "nullTreatment is null");
-        requireNonNull(processingMode, "processingMode is null");
         requireNonNull(arguments, "arguments is null");
 
         this.name = name;
         this.window = window;
         this.filter = filter;
-        this.orderBy = orderBy;
         this.distinct = distinct;
         this.nullTreatment = nullTreatment;
-        this.processingMode = processingMode;
         this.arguments = arguments;
     }
 
@@ -79,18 +71,6 @@ public class FunctionCall
     public QualifiedName getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public Optional<Window> getWindow()
-    {
-        return window;
-    }
-
-    @JsonProperty
-    public Optional<OrderBy> getOrderBy()
-    {
-        return orderBy;
     }
 
     @JsonProperty
@@ -103,12 +83,6 @@ public class FunctionCall
     public Optional<NullTreatment> getNullTreatment()
     {
         return nullTreatment;
-    }
-
-    @JsonProperty
-    public Optional<ProcessingMode> getProcessingMode()
-    {
-        return processingMode;
     }
 
     @JsonProperty
@@ -135,7 +109,6 @@ public class FunctionCall
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         window.ifPresent(window -> nodes.add((Node) window));
         filter.ifPresent(nodes::add);
-        orderBy.map(OrderBy::getSortItems).ifPresent(nodes::addAll);
         nodes.addAll(arguments);
         return nodes.build();
     }
@@ -153,17 +126,15 @@ public class FunctionCall
         return Objects.equals(name, o.name) &&
                 Objects.equals(window, o.window) &&
                 Objects.equals(filter, o.filter) &&
-                Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(distinct, o.distinct) &&
                 Objects.equals(nullTreatment, o.nullTreatment) &&
-                Objects.equals(processingMode, o.processingMode) &&
                 Objects.equals(arguments, o.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, distinct, nullTreatment, processingMode, window, filter, orderBy, arguments);
+        return Objects.hash(name, distinct, nullTreatment, window, filter, arguments);
     }
 
     // TODO: make this a proper Tree node so that we can report error
@@ -180,7 +151,6 @@ public class FunctionCall
 
         return name.equals(otherFunction.name) &&
                 distinct == otherFunction.distinct &&
-                nullTreatment.equals(otherFunction.nullTreatment) &&
-                processingMode.equals(otherFunction.processingMode);
+                nullTreatment.equals(otherFunction.nullTreatment);
     }
 }

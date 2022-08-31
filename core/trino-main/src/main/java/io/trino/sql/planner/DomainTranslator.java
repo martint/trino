@@ -295,7 +295,7 @@ public final class DomainTranslator
     public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate, TypeProvider types)
     {
         // This is a limited type analyzer for the simple expressions used in this method
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(
+        IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(
                 plannerContext);
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
@@ -308,10 +308,10 @@ public final class DomainTranslator
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final TypeCoercion typeCoercion;
 
-        private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, IrTypeAnalyzer typeAnalyzer)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.literalEncoder = new IrLiteralEncoder(plannerContext);

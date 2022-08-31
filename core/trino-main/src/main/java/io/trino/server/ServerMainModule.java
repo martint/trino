@@ -137,7 +137,7 @@ import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
@@ -369,7 +369,7 @@ public class ServerMainModule
         binder.bind(RegisterFunctionBundles.class).asEagerSingleton();
 
         // type
-        binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
+        binder.bind(IrTypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);

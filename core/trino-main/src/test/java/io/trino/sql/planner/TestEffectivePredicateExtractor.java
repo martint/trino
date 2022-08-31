@@ -105,7 +105,7 @@ import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -174,7 +174,7 @@ public class TestEffectivePredicateExtractor
     };
     private final PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
-    private final TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
+    private final IrTypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, true);
     private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(plannerContext), plannerContext, false);
 

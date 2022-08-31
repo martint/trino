@@ -46,7 +46,7 @@ import io.trino.sql.ir.SearchedCaseExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.FunctionCallBuilder;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 
 import java.util.List;
@@ -72,7 +72,7 @@ public final class CanonicalizeIrExpressionRewriter
 
     private CanonicalizeIrExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

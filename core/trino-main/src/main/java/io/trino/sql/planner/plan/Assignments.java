@@ -26,7 +26,7 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -82,7 +82,7 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
-    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, TypeAnalyzer typeAnalyzer)
+    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, IrTypeAnalyzer typeAnalyzer)
     {
         Assignments.Builder assignments = Assignments.builder();
 

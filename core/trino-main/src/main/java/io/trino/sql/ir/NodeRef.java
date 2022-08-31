@@ -17,9 +17,9 @@ import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 
-public final class NodeRef<T extends Node>
+public final class NodeRef<T extends Expression>
 {
-    public static <T extends Node> NodeRef<T> of(T node)
+    public static <T extends Expression> NodeRef<T> of(T node)
     {
         return new NodeRef<>(node);
     }

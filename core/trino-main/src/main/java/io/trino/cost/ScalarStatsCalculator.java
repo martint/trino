@@ -42,7 +42,7 @@ import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrLiteralInterpreter;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 
 import javax.inject.Inject;
@@ -65,10 +65,10 @@ import static java.util.Objects.requireNonNull;
 public class ScalarStatsCalculator
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     @Inject
-    public ScalarStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public ScalarStatsCalculator(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext cannot be null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

@@ -35,7 +35,7 @@ public final class DesugarTryExpressionRewriter
 {
     private DesugarTryExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Metadata metadata, TypeAnalyzer typeAnalyzer, Session session, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Metadata metadata, IrTypeAnalyzer typeAnalyzer, Session session, SymbolAllocator symbolAllocator)
     {
         if (expression instanceof SymbolReference) {
             return expression;

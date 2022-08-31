@@ -51,7 +51,7 @@ public class IsNotNullPredicate
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<Expression> getChildren()
     {
         return ImmutableList.of(value);
     }

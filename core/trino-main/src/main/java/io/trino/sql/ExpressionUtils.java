@@ -31,6 +31,7 @@ import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TranslationMap;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
@@ -310,7 +311,7 @@ public final class ExpressionUtils
     }
 
     /**
-     * @deprecated Use {@link io.trino.sql.planner.AstTypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
+     * @deprecated Use {@link TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
      */
     @Deprecated
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)

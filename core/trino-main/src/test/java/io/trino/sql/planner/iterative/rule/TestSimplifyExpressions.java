@@ -43,7 +43,7 @@ import static io.trino.sql.IrExpressionUtils.extractPredicates;
 import static io.trino.sql.IrExpressionUtils.logicalExpression;
 import static io.trino.sql.IrExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;

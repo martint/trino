@@ -125,7 +125,7 @@ public final class ConnectorExpressionTranslator
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
 
-    public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes, PlannerContext plannerContext)
+    public static Optional<ConnectorExpression> translate(Session session, Expression expression, IrTypeAnalyzer types, TypeProvider inputTypes, PlannerContext plannerContext)
     {
         return new SqlToConnectorExpressionTranslator(session, types.getTypes(session, inputTypes, expression), plannerContext)
                 .process(expression);

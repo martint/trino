@@ -38,7 +38,7 @@ import io.trino.spi.WarningCode;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.IrExpressionFormatter;
 import io.trino.sql.ir.DataType;
 import io.trino.sql.ir.DateTimeDataType;
 import io.trino.sql.ir.GenericDataType;
@@ -110,7 +110,7 @@ public final class ProtocolUtil
                 }
             }
 
-            return ExpressionFormatter.formatExpression(type);
+            return IrExpressionFormatter.formatExpression(type);
         }
         if (type instanceof RowDataType) {
             RowDataType rowDataType = (RowDataType) type;
@@ -137,7 +137,7 @@ public final class ProtocolUtil
                     .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
         }
         if (type instanceof IntervalDayTimeDataType) {
-            return ExpressionFormatter.formatExpression(type);
+            return IrExpressionFormatter.formatExpression(type);
         }
 
         throw new IllegalArgumentException("Unsupported data type: " + type.getClass().getName());

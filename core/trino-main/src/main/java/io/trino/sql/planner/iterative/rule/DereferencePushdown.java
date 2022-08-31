@@ -22,7 +22,7 @@ import io.trino.sql.ir.LambdaExpression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 
 import java.util.Collection;
@@ -41,7 +41,7 @@ class DereferencePushdown
 {
     private DereferencePushdown() {}
 
-    public static Set<SubscriptExpression> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Set<SubscriptExpression> extractRowSubscripts(Collection<Expression> expressions, boolean allowOverlap, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         Set<Expression> symbolReferencesAndRowSubscripts = expressions.stream()
                 .flatMap(expression -> getSymbolReferencesAndRowSubscripts(expression, session, typeAnalyzer, types).stream())
@@ -62,7 +62,7 @@ class DereferencePushdown
                 .collect(Collectors.toSet());
     }
 
-    public static boolean exclusiveDereferences(Set<Expression> projections, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static boolean exclusiveDereferences(Set<Expression> projections, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         return projections.stream()
                 .allMatch(expression -> expression instanceof SymbolReference ||
@@ -80,7 +80,7 @@ class DereferencePushdown
      * Extract the sub-expressions of type {@link SubscriptExpression} or {@link SymbolReference} from the {@param expression}
      * in a top-down manner. The expressions within the base of a valid {@link SubscriptExpression} sequence are not extracted.
      */
-    private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         ImmutableList.Builder<Expression> builder = ImmutableList.builder();
 
@@ -112,7 +112,7 @@ class DereferencePushdown
         return builder.build();
     }
 
-    private static boolean isRowSubscriptChain(SubscriptExpression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static boolean isRowSubscriptChain(SubscriptExpression expression, Session session, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         if (!(typeAnalyzer.getType(session, types, expression.getBase()) instanceof RowType)) {
             return false;

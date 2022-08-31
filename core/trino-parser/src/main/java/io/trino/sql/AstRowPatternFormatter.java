@@ -81,7 +81,7 @@ public final class AstRowPatternFormatter
         @Override
         protected String visitPatternVariable(PatternVariable node, Void context)
         {
-            return AstExpressionFormatter.formatExpression(node.getName());
+            return ExpressionFormatter.formatExpression(node.getName());
         }
 
         @Override
@@ -142,8 +142,8 @@ public final class AstRowPatternFormatter
         protected String visitRangeQuantifier(RangeQuantifier node, Void context)
         {
             String greedy = node.isGreedy() ? "" : "?";
-            String atLeast = node.getAtLeast().map(AstExpressionFormatter::formatExpression).orElse("");
-            String atMost = node.getAtMost().map(AstExpressionFormatter::formatExpression).orElse("");
+            String atLeast = node.getAtLeast().map(ExpressionFormatter::formatExpression).orElse("");
+            String atMost = node.getAtMost().map(ExpressionFormatter::formatExpression).orElse("");
             return "{" + atLeast + "," + atMost + "}" + greedy;
         }
     }

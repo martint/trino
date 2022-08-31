@@ -50,7 +50,6 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.util.AstUtils;
 import io.trino.type.JsonPath2016Type;
@@ -252,10 +251,8 @@ public class TranslationMap
                             convertQualifiedName(node.getName()),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty(),
                             false,
                             Optional.empty(),
-                            treeRewriter.copy(node.getProcessingMode(), null),
                             rewrittenArguments.build()));
                 }
 
@@ -787,7 +784,6 @@ public class TranslationMap
     private static void verifyAstExpression(Expression astExpression)
     {
         verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
-                expression instanceof SymbolReference ||
                         expression instanceof FunctionCall && ResolvedFunction.isResolved(convertQualifiedName(((FunctionCall) expression).getName()))));
     }
 

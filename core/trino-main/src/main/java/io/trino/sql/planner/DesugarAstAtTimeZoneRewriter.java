@@ -46,7 +46,7 @@ public final class DesugarAstAtTimeZoneRewriter
 
     private DesugarAstAtTimeZoneRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, AstTypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

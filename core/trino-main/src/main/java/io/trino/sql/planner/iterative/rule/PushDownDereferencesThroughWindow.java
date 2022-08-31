@@ -23,7 +23,7 @@ import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -66,9 +66,9 @@ public class PushDownDereferencesThroughWindow
         implements Rule<ProjectNode>
 {
     private static final Capture<WindowNode> CHILD = newCapture();
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushDownDereferencesThroughWindow(TypeAnalyzer typeAnalyzer)
+    public PushDownDereferencesThroughWindow(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }

@@ -25,7 +25,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.SubExpressionExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -62,7 +62,7 @@ public class DynamicFiltersChecker
             PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {

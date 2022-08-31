@@ -39,7 +39,7 @@ import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrLiteralEncoder;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -74,11 +74,11 @@ public class PushProjectionIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final IrLiteralEncoder literalEncoder;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public PushProjectionIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
+    public PushProjectionIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
         this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;

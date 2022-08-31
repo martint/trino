@@ -16,7 +16,6 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.ComparisonExpression.Operator;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -108,5 +107,70 @@ public class ComparisonExpression
         }
 
         return operator == ((ComparisonExpression) other).operator;
+    }
+    public enum Operator
+    {
+        EQUAL("="),
+        NOT_EQUAL("<>"),
+        LESS_THAN("<"),
+        LESS_THAN_OR_EQUAL("<="),
+        GREATER_THAN(">"),
+        GREATER_THAN_OR_EQUAL(">="),
+        IS_DISTINCT_FROM("IS DISTINCT FROM");
+
+        private final String value;
+
+        Operator(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        public Operator flip()
+        {
+            switch (this) {
+                case EQUAL:
+                    return EQUAL;
+                case NOT_EQUAL:
+                    return NOT_EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN_OR_EQUAL;
+                case GREATER_THAN:
+                    return LESS_THAN;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM:
+                    return IS_DISTINCT_FROM;
+            }
+            throw new IllegalArgumentException("Unsupported comparison: " + this);
+        }
+
+        public Operator negate()
+        {
+            switch (this) {
+                case EQUAL:
+                    return NOT_EQUAL;
+                case NOT_EQUAL:
+                    return EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN_OR_EQUAL;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN;
+                case GREATER_THAN:
+                    return LESS_THAN_OR_EQUAL;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN;
+                case IS_DISTINCT_FROM:
+                    // Cannot negate
+                    break;
+            }
+            throw new IllegalArgumentException("Unsupported comparison: " + this);
+        }
     }
 }

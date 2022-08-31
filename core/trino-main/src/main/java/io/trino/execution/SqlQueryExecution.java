@@ -56,7 +56,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -122,7 +122,7 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final TaskSourceFactory taskSourceFactory;
@@ -155,7 +155,7 @@ public class SqlQueryExecution
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
             TableExecuteContextManager tableExecuteContextManager,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             TaskSourceFactory taskSourceFactory,
@@ -712,7 +712,7 @@ public class SqlQueryExecution
         private final CostCalculator costCalculator;
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final TaskSourceFactory taskSourceFactory;
@@ -742,7 +742,7 @@ public class SqlQueryExecution
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
-                TypeAnalyzer typeAnalyzer,
+                IrTypeAnalyzer typeAnalyzer,
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 TaskSourceFactory taskSourceFactory,

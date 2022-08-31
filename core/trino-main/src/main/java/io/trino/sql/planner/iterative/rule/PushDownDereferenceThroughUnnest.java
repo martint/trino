@@ -22,7 +22,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -63,9 +63,9 @@ public class PushDownDereferenceThroughUnnest
         implements Rule<ProjectNode>
 {
     private static final Capture<UnnestNode> CHILD = newCapture();
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushDownDereferenceThroughUnnest(TypeAnalyzer typeAnalyzer)
+    public PushDownDereferenceThroughUnnest(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }

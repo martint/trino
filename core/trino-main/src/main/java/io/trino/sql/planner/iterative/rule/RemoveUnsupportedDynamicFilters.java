@@ -33,7 +33,7 @@ import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -79,13 +79,13 @@ public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     public RemoveUnsupportedDynamicFilters(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         // This is a limited type analyzer for the simple expressions used in dynamic filters
-        this.typeAnalyzer = new TypeAnalyzer(
+        this.typeAnalyzer = new IrTypeAnalyzer(
                 plannerContext);
     }
 

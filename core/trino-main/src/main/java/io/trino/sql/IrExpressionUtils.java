@@ -42,6 +42,7 @@ import io.trino.sql.iranalyzer.Scope;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -310,7 +311,7 @@ public final class IrExpressionUtils
     }
 
     /**
-     * @deprecated Use {@link io.trino.sql.planner.TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
+     * @deprecated Use {@link IrTypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
      */
     @Deprecated
     public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)

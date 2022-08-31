@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.RuleStatsRecorder;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -90,7 +90,7 @@ public class TestEliminateSorts
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(getQueryRunner().getPlannerContext());
+        IrTypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(getQueryRunner().getPlannerContext());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),

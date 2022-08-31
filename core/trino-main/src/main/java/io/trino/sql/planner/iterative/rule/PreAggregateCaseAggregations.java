@@ -37,7 +37,7 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -111,9 +111,9 @@ public class PreAggregateCaseAggregations
                     .with(source().matching(not(AggregationNode.class::isInstance)))));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PreAggregateCaseAggregations(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public PreAggregateCaseAggregations(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

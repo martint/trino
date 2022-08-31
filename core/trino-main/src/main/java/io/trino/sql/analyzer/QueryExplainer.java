@@ -26,7 +26,7 @@ import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -164,7 +164,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new TypeAnalyzer(plannerContext),
+                new IrTypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

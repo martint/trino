@@ -19,7 +19,7 @@ import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import java.util.List;
 import java.util.Objects;
 
-import static io.trino.sql.ExpressionFormatter.formatJsonPathInvocation;
+import static io.trino.sql.IrExpressionFormatter.formatJsonPathInvocation;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPathInvocation

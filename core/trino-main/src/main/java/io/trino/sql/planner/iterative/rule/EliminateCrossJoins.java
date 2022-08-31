@@ -24,7 +24,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.FilterNode;
@@ -56,9 +56,9 @@ public class EliminateCrossJoins
 {
     private static final Pattern<JoinNode> PATTERN = join();
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public EliminateCrossJoins(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public EliminateCrossJoins(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

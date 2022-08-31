@@ -15,19 +15,19 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.DesugarAtTimeZoneRewriter;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 
 import static java.util.Objects.requireNonNull;
 
 public class DesugarAtTimeZone
         extends ExpressionRewriteRuleSet
 {
-    public DesugarAtTimeZone(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public DesugarAtTimeZone(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(metadata, typeAnalyzer));
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

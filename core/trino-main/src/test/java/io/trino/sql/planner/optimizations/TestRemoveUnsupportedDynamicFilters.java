@@ -54,7 +54,7 @@ import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static io.trino.sql.IrExpressionUtils.combineDisjuncts;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;

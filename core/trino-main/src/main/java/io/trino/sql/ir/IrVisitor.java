@@ -17,24 +17,19 @@ import javax.annotation.Nullable;
 
 public abstract class IrVisitor<R, C>
 {
-    public R process(Node node)
+    public R process(Expression node)
     {
         return process(node, null);
     }
 
-    public R process(Node node, @Nullable C context)
+    public R process(Expression node, @Nullable C context)
     {
         return node.accept(this, context);
     }
 
-    protected R visitNode(Node node, C context)
-    {
-        return null;
-    }
-
     protected R visitExpression(Expression node, C context)
     {
-        return visitNode(node, context);
+        return null;
     }
 
     protected R visitCurrentTime(CurrentTime node, C context)
@@ -82,16 +77,6 @@ public abstract class IrVisitor<R, C>
         return visitLiteral(node, context);
     }
 
-    protected R visitStatement(Statement node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitQuery(Query node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
     protected R visitGenericLiteral(GenericLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -100,66 +85,6 @@ public abstract class IrVisitor<R, C>
     protected R visitTimeLiteral(TimeLiteral node, C context)
     {
         return visitLiteral(node, context);
-    }
-
-    protected R visitWith(With node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWithQuery(WithQuery node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitSelect(Select node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitRelation(Relation node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitQueryBody(QueryBody node, C context)
-    {
-        return visitRelation(node, context);
-    }
-
-    protected R visitOrderBy(OrderBy node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitOffset(Offset node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitFetchFirst(FetchFirst node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitLimit(Limit node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitAllRows(AllRows node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitSetOperation(SetOperation node, C context)
-    {
-        return visitQueryBody(node, context);
-    }
-
-    protected R visitIntersect(Intersect node, C context)
-    {
-        return visitSetOperation(node, context);
     }
 
     protected R visitTimestampLiteral(TimestampLiteral node, C context)
@@ -183,16 +108,6 @@ public abstract class IrVisitor<R, C>
     }
 
     protected R visitFunctionCall(FunctionCall node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitProcessingMode(ProcessingMode node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowOperation(WindowOperation node, C context)
     {
         return visitExpression(node, context);
     }
@@ -272,21 +187,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitSelectItem(SelectItem node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitSingleColumn(SingleColumn node, C context)
-    {
-        return visitSelectItem(node, context);
-    }
-
-    protected R visitAllColumns(AllColumns node, C context)
-    {
-        return visitSelectItem(node, context);
-    }
-
     protected R visitSearchedCaseExpression(SearchedCaseExpression node, C context)
     {
         return visitExpression(node, context);
@@ -322,47 +222,12 @@ public abstract class IrVisitor<R, C>
         return visitLiteral(node, context);
     }
 
-    protected R visitParameter(Parameter node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitLogicalExpression(LogicalExpression node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitSubqueryExpression(SubqueryExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitSortItem(SortItem node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitLateral(Lateral node, C context)
-    {
-        return visitRelation(node, context);
-    }
-
     protected R visitRow(Row node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitAliasedRelation(AliasedRelation node, C context)
-    {
-        return visitRelation(node, context);
-    }
-
-    protected R visitJoin(Join node, C context)
-    {
-        return visitRelation(node, context);
-    }
-
-    protected R visitExists(ExistsPredicate node, C context)
     {
         return visitExpression(node, context);
     }
@@ -382,26 +247,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitWindowReference(WindowReference node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowSpecification(WindowSpecification node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowDefinition(WindowDefinition node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitWindowFrame(WindowFrame node, C context)
-    {
-        return visitNode(node, context);
-    }
-
     protected R visitFrameBound(FrameBound node, C context)
     {
         return visitNode(node, context);
@@ -410,36 +255,6 @@ public abstract class IrVisitor<R, C>
     protected R visitAtTimeZone(AtTimeZone node, C context)
     {
         return visitExpression(node, context);
-    }
-
-    protected R visitGroupBy(GroupBy node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitGroupingElement(GroupingElement node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitCube(Cube node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
-    protected R visitGroupingSets(GroupingSets node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
-    protected R visitRollup(Rollup node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
-    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
-    {
-        return visitGroupingElement(node, context);
     }
 
     protected R visitSymbolReference(SymbolReference node, C context)
@@ -458,11 +273,6 @@ public abstract class IrVisitor<R, C>
     }
 
     protected R visitBindExpression(BindExpression node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitGroupingOperation(GroupingOperation node, C context)
     {
         return visitExpression(node, context);
     }
@@ -542,104 +352,9 @@ public abstract class IrVisitor<R, C>
         return visitNode(node, context);
     }
 
-    protected R visitSkipTo(SkipTo node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitPatternSearchMode(PatternSearchMode node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitSubsetDefinition(SubsetDefinition node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitVariableDefinition(VariableDefinition node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitPatternRecognitionRelation(PatternRecognitionRelation node, C context)
-    {
-        return visitRelation(node, context);
-    }
-
     protected R visitLabelDereference(LabelDereference node, C context)
     {
         return visitExpression(node, context);
-    }
-
-    protected R visitRowPattern(RowPattern node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitPatternAlternation(PatternAlternation node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitPatternConcatenation(PatternConcatenation node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitQuantifiedPattern(QuantifiedPattern node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitAnchorPattern(AnchorPattern node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitEmptyPattern(EmptyPattern node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitExcludedPattern(ExcludedPattern node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitPatternPermutation(PatternPermutation node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitPatternVariable(PatternVariable node, C context)
-    {
-        return visitRowPattern(node, context);
-    }
-
-    protected R visitPatternQuantifier(PatternQuantifier node, C context)
-    {
-        return visitNode(node, context);
-    }
-
-    protected R visitZeroOrMoreQuantifier(ZeroOrMoreQuantifier node, C context)
-    {
-        return visitPatternQuantifier(node, context);
-    }
-
-    protected R visitOneOrMoreQuantifier(OneOrMoreQuantifier node, C context)
-    {
-        return visitPatternQuantifier(node, context);
-    }
-
-    protected R visitZeroOrOneQuantifier(ZeroOrOneQuantifier node, C context)
-    {
-        return visitPatternQuantifier(node, context);
-    }
-
-    protected R visitRangeQuantifier(RangeQuantifier node, C context)
-    {
-        return visitPatternQuantifier(node, context);
     }
 
     protected R visitJsonExists(JsonExists node, C context)

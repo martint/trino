@@ -41,7 +41,7 @@ public final class DesugarLikeRewriter
 
     private DesugarLikeRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider typeProvider)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, IrTypeAnalyzer typeAnalyzer, TypeProvider typeProvider)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

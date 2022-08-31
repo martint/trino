@@ -25,7 +25,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +52,7 @@ public class RuleTester
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final FunctionManager functionManager;
 
     public static RuleTester defaultRuleTester()
@@ -114,7 +114,7 @@ public class RuleTester
         return pageSourceManager;
     }
 
-    public TypeAnalyzer getTypeAnalyzer()
+    public IrTypeAnalyzer getTypeAnalyzer()
     {
         return typeAnalyzer;
     }

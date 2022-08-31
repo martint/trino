@@ -22,7 +22,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -44,12 +44,12 @@ import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewr
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageFieldsToInputParametersRewriter
 {
-    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+    private static final IrTypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder()
             .setTransactionId(TransactionId.create())
             .build();

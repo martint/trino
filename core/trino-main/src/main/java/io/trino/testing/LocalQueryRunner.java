@@ -171,7 +171,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -434,7 +434,7 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext);
+        IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(plannerContext);
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -532,7 +532,7 @@ public class LocalQueryRunner
         return CatalogServiceProviderModule.createSessionPropertyManager(systemSessionProperties, connectorServicesProvider);
     }
 
-    private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
         ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
@@ -927,7 +927,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(plannerContext),
+                new IrTypeAnalyzer(plannerContext),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -1043,7 +1043,7 @@ public class LocalQueryRunner
     {
         return new PlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext),
+                new IrTypeAnalyzer(plannerContext),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -1084,7 +1084,7 @@ public class LocalQueryRunner
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(plannerContext),
+                new IrTypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

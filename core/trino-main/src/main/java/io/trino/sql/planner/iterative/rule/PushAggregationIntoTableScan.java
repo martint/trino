@@ -41,7 +41,7 @@ import io.trino.sql.planner.IrLiteralEncoder;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
@@ -83,9 +83,9 @@ public class PushAggregationIntoTableScan
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushAggregationIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public PushAggregationIntoTableScan(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -128,7 +128,7 @@ public class PushAggregationIntoTableScan
 
     public static Optional<PlanNode> pushAggregationIntoTableScan(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             Context context,
             PlanNode aggregationNode,
             TableScanNode tableScan,

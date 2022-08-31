@@ -15,13 +15,12 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.trino.sql.ExpressionFormatter;
+import io.trino.sql.IrExpressionFormatter;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = AllRows.class, name = "allRows"),
         @JsonSubTypes.Type(value = ArithmeticBinaryExpression.class, name = "arithmeticBinaryExpression"),
         @JsonSubTypes.Type(value = ArithmeticUnaryExpression.class, name = "arithmeticUnaryExpression"),
         @JsonSubTypes.Type(value = ArrayConstructor.class, name = "ArrayConstructor"),
@@ -44,13 +43,11 @@ import io.trino.sql.ExpressionFormatter;
         @JsonSubTypes.Type(value = DecimalLiteral.class, name = "decimalLiteral"),
         @JsonSubTypes.Type(value = DereferenceExpression.class, name = "dereferenceExpression"),
         @JsonSubTypes.Type(value = DoubleLiteral.class, name = "doubleLiteral"),
-        @JsonSubTypes.Type(value = ExistsPredicate.class, name = "existsPredicate"),
         @JsonSubTypes.Type(value = Extract.class, name = "extract"),
         @JsonSubTypes.Type(value = Format.class, name = "format"),
         @JsonSubTypes.Type(value = FunctionCall.class, name = "functionCall"),
         @JsonSubTypes.Type(value = GenericDataType.class, name = "genericDataType"),
         @JsonSubTypes.Type(value = GenericLiteral.class, name = "genericLiteral"),
-        @JsonSubTypes.Type(value = GroupingOperation.class, name = "groupingOperation"),
         @JsonSubTypes.Type(value = Identifier.class, name = "identifier"),
         @JsonSubTypes.Type(value = IfExpression.class, name = "ifExpression"),
         @JsonSubTypes.Type(value = InListExpression.class, name = "inListExpression"),
@@ -72,33 +69,28 @@ import io.trino.sql.ExpressionFormatter;
         @JsonSubTypes.Type(value = NotExpression.class, name = "notExpression"),
         @JsonSubTypes.Type(value = NullIfExpression.class, name = "nullIfExpression"),
         @JsonSubTypes.Type(value = NullLiteral.class, name = "nullLiteral"),
-        @JsonSubTypes.Type(value = Parameter.class, name = "parameter"),
         @JsonSubTypes.Type(value = QuantifiedComparisonExpression.class, name = "quantifiedComparisonExpression"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = RowDataType.class, name = "rowDataType"),
         @JsonSubTypes.Type(value = SearchedCaseExpression.class, name = "searchedCaseExpression"),
         @JsonSubTypes.Type(value = SimpleCaseExpression.class, name = "simpleCaseExpression"),
         @JsonSubTypes.Type(value = StringLiteral.class, name = "stringLiteral"),
-        @JsonSubTypes.Type(value = SubqueryExpression.class, name = "subqueryExpression"),
         @JsonSubTypes.Type(value = SubscriptExpression.class, name = "subscriptExpression"),
         @JsonSubTypes.Type(value = SymbolReference.class, name = "symbolReference"),
         @JsonSubTypes.Type(value = TimeLiteral.class, name = "timeLiteral"),
         @JsonSubTypes.Type(value = TimestampLiteral.class, name = "timestampLiteral"),
         @JsonSubTypes.Type(value = Trim.class, name = "trim"),
         @JsonSubTypes.Type(value = TryExpression.class, name = "tryExpression"),
-        @JsonSubTypes.Type(value = WhenClause.class, name = "whenClause"),
-        @JsonSubTypes.Type(value = WindowOperation.class, name = "windowOperation")})
+        @JsonSubTypes.Type(value = WhenClause.class, name = "whenClause")})
 public abstract class Expression
-        extends Node
 {
     protected Expression()
     {
     }
 
     /**
-     * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Node, Object)} instead.
+     * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
      */
-    @Override
     protected <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
         return visitor.visitExpression(this, context);
@@ -107,6 +99,6 @@ public abstract class Expression
     @Override
     public final String toString()
     {
-        return ExpressionFormatter.formatExpression(this);
+        return IrExpressionFormatter.formatExpression(this);
     }
 }

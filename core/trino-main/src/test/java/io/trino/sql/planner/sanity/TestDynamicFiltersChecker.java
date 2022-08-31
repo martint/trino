@@ -43,7 +43,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.IrExpressionUtils.combineConjuncts;
 import static io.trino.sql.IrExpressionUtils.combineDisjuncts;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.sql.planner.IrTypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
