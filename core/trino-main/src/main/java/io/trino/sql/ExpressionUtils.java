@@ -28,23 +28,16 @@ import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LogicalExpression.Operator;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -259,7 +252,7 @@ public final class ExpressionUtils
                     && constantExpressionEvaluatesSuccessfully(plannerContext, session, expression);
         }
         if (expression instanceof FunctionCall) {
-            io.trino.sql.ir.QualifiedName functionName = TranslationMap.convertQualifiedName(((FunctionCall) expression).getName());
+            QualifiedName functionName = ((FunctionCall) expression).getName();
             if (isResolved(functionName)) {
                 ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(functionName);
                 return LITERAL_FUNCTION_NAME.equals(resolvedFunction.getSignature().getName());
@@ -316,37 +309,5 @@ public final class ExpressionUtils
         }
 
         return result.build();
-    }
-
-    public static Expression rewriteIdentifiersToSymbolReferences(Expression expression)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
-        {
-            @Override
-            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                return new SymbolReference(node.getValue());
-            }
-
-            @Override
-            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                return new LambdaExpression(node.getArguments(), treeRewriter.rewrite(node.getBody(), context));
-            }
-
-            @Override
-            public Expression rewriteGenericDataType(GenericDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers within type parameters
-                return node;
-            }
-
-            @Override
-            public Expression rewriteRowDataType(RowDataType node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // do not rewrite identifiers in field names
-                return node;
-            }
-        }, expression);
     }
 }
