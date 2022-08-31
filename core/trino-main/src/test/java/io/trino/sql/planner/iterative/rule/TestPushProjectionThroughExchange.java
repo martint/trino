@@ -61,8 +61,8 @@ public class TestPushProjectionThroughExchange
 
                     return p.project(
                             Assignments.builder()
-                                    .put(a, a.toIrSymbolReference())
-                                    .put(b, b.toIrSymbolReference())
+                                    .put(a, a.toSymbolReference())
+                                    .put(b, b.toSymbolReference())
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))
@@ -154,7 +154,7 @@ public class TestPushProjectionThroughExchange
                     return p.project(
                             Assignments.of(
                                     aTimes5, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")),
-                                    a, a.toIrSymbolReference()),
+                                    a, a.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)
@@ -180,7 +180,7 @@ public class TestPushProjectionThroughExchange
                     return p.project(
                             Assignments.of(
                                     bTimes5, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5")),
-                                    b, b.toIrSymbolReference()),
+                                    b, b.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)
@@ -209,7 +209,7 @@ public class TestPushProjectionThroughExchange
                     return p.project(
                             Assignments.of(
                                     aTimes5, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("a"), new LongLiteral("5")),
-                                    a, a.toIrSymbolReference()),
+                                    a, a.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)
@@ -235,7 +235,7 @@ public class TestPushProjectionThroughExchange
                     return p.project(
                             Assignments.of(
                                     bTimes5, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new SymbolReference("b"), new LongLiteral("5")),
-                                    b, b.toIrSymbolReference()),
+                                    b, b.toSymbolReference()),
                             p.exchange(e -> e
                                     .addSource(p.values(a))
                                     .addInputsSet(a)

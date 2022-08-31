@@ -97,7 +97,7 @@ public class PushProjectionThroughExchange
             partitioningColumns.stream()
                     .map(outputToInputMap::get)
                     .forEach(inputSymbol -> {
-                        projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
+                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
                         inputs.add(inputSymbol);
                     });
 
@@ -105,7 +105,7 @@ public class PushProjectionThroughExchange
             exchange.getPartitioningScheme().getHashColumn()
                     .map(outputToInputMap::get)
                     .ifPresent(inputSymbol -> {
-                        projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
+                        projections.put(inputSymbol, inputSymbol.toSymbolReference());
                         inputs.add(inputSymbol);
                     });
 
@@ -116,7 +116,7 @@ public class PushProjectionThroughExchange
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
                         .forEach(inputSymbol -> {
-                            projections.put(inputSymbol, inputSymbol.toIrSymbolReference());
+                            projections.put(inputSymbol, inputSymbol.toSymbolReference());
                             inputs.add(inputSymbol);
                         });
             }
@@ -128,7 +128,7 @@ public class PushProjectionThroughExchange
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
             Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
             for (Map.Entry<Symbol, Expression> projection : project.getAssignments().entrySet()) {
                 // Skip identity projection if symbol is in outputs already

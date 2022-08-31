@@ -88,7 +88,7 @@ public class ImplementIntersectDistinctAsUnion
 
         // intersect predicate: the row must be present in every source
         Expression predicate = and(result.getCountSymbols().stream()
-                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toIrSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
                 .collect(toImmutableList()));
 
         return Result.ofPlanNode(

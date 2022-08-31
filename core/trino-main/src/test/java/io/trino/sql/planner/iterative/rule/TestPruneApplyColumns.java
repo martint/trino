@@ -47,11 +47,11 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -76,12 +76,12 @@ public class TestPruneApplyColumns
                             Assignments.identity(a, inResult1),
                             p.apply(
                                     Assignments.of(
-                                            inResult1, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference()),
-                                            inResult2, new InPredicate(b.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                            inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference()),
+                                            inResult2, new InPredicate(b.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, b, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -110,12 +110,12 @@ public class TestPruneApplyColumns
                             Assignments.identity(a, inResult1),
                             p.apply(
                                     Assignments.of(
-                                            inResult1, new InPredicate(a.toIrSymbolReference(), subquerySymbol1.toIrSymbolReference()),
-                                            inResult2, new InPredicate(a.toIrSymbolReference(), subquerySymbol2.toIrSymbolReference())),
+                                            inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference()),
+                                            inResult2, new InPredicate(a.toSymbolReference(), subquerySymbol2.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol1.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol1.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol1, subquerySymbol2))));
                 })
                 .matches(
@@ -145,11 +145,11 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, unreferenced.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, unreferenced.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(unreferenced, subquerySymbol))));
                 })
                 .matches(
@@ -179,11 +179,11 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, unreferenced, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -212,11 +212,11 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .doesNotFire();
@@ -234,7 +234,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.values(subquerySymbol)));
@@ -254,11 +254,11 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .doesNotFire();

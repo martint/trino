@@ -78,7 +78,7 @@ public class ImplementOffset
                 rowNumberNode,
                 new ComparisonExpression(
                         io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
-                        rowNumberSymbol.toIrSymbolReference(),
+                        rowNumberSymbol.toSymbolReference(),
                         new GenericLiteral("BIGINT", Long.toString(parent.getCount()))));
 
         ProjectNode projectNode = new ProjectNode(

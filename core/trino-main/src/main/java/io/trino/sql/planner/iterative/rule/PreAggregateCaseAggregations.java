@@ -193,7 +193,7 @@ public class PreAggregateCaseAggregations
                                 entry -> entry.getKey().getAggregationSymbol(),
                                 entry -> new Aggregation(
                                         entry.getKey().getCumulativeFunction(),
-                                        ImmutableList.of(entry.getValue().toIrSymbolReference()),
+                                        ImmutableList.of(entry.getValue().toSymbolReference()),
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
@@ -220,7 +220,7 @@ public class PreAggregateCaseAggregations
                 new SearchedCaseExpression(ImmutableList.of(
                         new WhenClause(
                                 aggregation.getOperand(),
-                                preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toIrSymbolReference())),
+                                preAggregations.get(new PreAggregationKey(aggregation)).getAggregationSymbol().toSymbolReference())),
                         aggregation.getCumulativeAggregationDefaultValue())));
         return new ProjectNode(projectNode.getId(), source, assignments.build());
     }
@@ -248,7 +248,7 @@ public class PreAggregateCaseAggregations
                                 entry -> entry.getValue().getAggregationSymbol(),
                                 entry -> new Aggregation(
                                         entry.getKey().getFunction(),
-                                        ImmutableList.of(entry.getValue().getProjectionSymbol().toIrSymbolReference()),
+                                        ImmutableList.of(entry.getValue().getProjectionSymbol().toSymbolReference()),
                                         false,
                                         Optional.empty(),
                                         Optional.empty(),
@@ -422,7 +422,7 @@ public class PreAggregateCaseAggregations
     {
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), context.getSymbolAllocator().getTypes(), expression);
         IrExpressionInterpreter expressionInterpreter = new IrExpressionInterpreter(expression, plannerContext, context.getSession(), expressionTypes);
-        return expressionInterpreter.optimize(Symbol::toIrSymbolReference);
+        return expressionInterpreter.optimize(Symbol::toSymbolReference);
     }
 
     private static class CaseAggregation

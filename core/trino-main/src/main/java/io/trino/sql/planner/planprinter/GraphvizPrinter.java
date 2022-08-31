@@ -338,7 +338,7 @@ public final class GraphvizPrinter
         public Void visitExchange(ExchangeNode node, Void context)
         {
             List<ArgumentBinding> symbols = node.getOutputSymbols().stream()
-                    .map(Symbol::toIrSymbolReference)
+                    .map(Symbol::toSymbolReference)
                     .map(ArgumentBinding::expressionBinding)
                     .collect(toImmutableList());
             if (node.getType() == REPARTITION) {
@@ -575,8 +575,8 @@ public final class GraphvizPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
-                        clause.getProbe().toIrSymbolReference(),
-                        clause.getIndex().toIrSymbolReference()));
+                        clause.getProbe().toSymbolReference(),
+                        clause.getIndex().toSymbolReference()));
             }
 
             String criteria = Joiner.on(" AND ").join(joinExpressions);

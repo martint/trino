@@ -126,13 +126,13 @@ public class TestEffectivePredicateExtractor
     private static final Symbol F = new Symbol("f");
     private static final Symbol G = new Symbol("g");
     private static final Symbol R = new Symbol("r");
-    private static final Expression AE = A.toIrSymbolReference();
-    private static final Expression BE = B.toIrSymbolReference();
-    private static final Expression CE = C.toIrSymbolReference();
-    private static final Expression DE = D.toIrSymbolReference();
-    private static final Expression EE = E.toIrSymbolReference();
-    private static final Expression FE = F.toIrSymbolReference();
-    private static final Expression GE = G.toIrSymbolReference();
+    private static final Expression AE = A.toSymbolReference();
+    private static final Expression BE = B.toSymbolReference();
+    private static final Expression CE = C.toSymbolReference();
+    private static final Expression DE = D.toSymbolReference();
+    private static final Expression EE = E.toSymbolReference();
+    private static final Expression FE = F.toSymbolReference();
+    private static final Expression GE = G.toSymbolReference();
     private static final Session SESSION = TestingSession.testSessionBuilder().build();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();

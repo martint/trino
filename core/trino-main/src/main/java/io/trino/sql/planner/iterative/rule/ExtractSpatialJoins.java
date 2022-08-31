@@ -555,7 +555,7 @@ public class ExtractSpatialJoins
 
     private static Expression toExpression(Optional<Symbol> optionalSymbol, Expression defaultExpression)
     {
-        return optionalSymbol.map(symbol -> (Expression) symbol.toIrSymbolReference()).orElse(defaultExpression);
+        return optionalSymbol.map(symbol -> (Expression) symbol.toSymbolReference()).orElse(defaultExpression);
     }
 
     private static Optional<Symbol> newGeometrySymbol(Context context, Expression expression, TypeManager typeManager)

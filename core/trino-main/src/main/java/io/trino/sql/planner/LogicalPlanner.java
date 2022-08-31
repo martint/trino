@@ -460,10 +460,10 @@ public class LogicalPlanner
                 Type queryType = symbolAllocator.getTypes().get(input);
 
                 if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    expression = input.toIrSymbolReference();
+                    expression = input.toSymbolReference();
                 }
                 else {
-                    expression = noTruncationCast(input.toIrSymbolReference(), queryType, tableType);
+                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
                 }
             }
             if (!column.isNullable()) {

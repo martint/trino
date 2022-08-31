@@ -109,7 +109,7 @@ public class TestPushProjectionIntoTableScan
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
-                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toIrSymbolReference(), new LongLiteral("1"))),
+                                Assignments.of(p.symbol("symbol_dereference", BIGINT), new SubscriptExpression(symbol.toSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(TEST_TABLE_HANDLE, ImmutableList.of(symbol), ImmutableMap.of(symbol, inputColumnHandle)));
                     })
                     .withSession(MOCK_SESSION)
@@ -145,8 +145,8 @@ public class TestPushProjectionIntoTableScan
 
             // Prepare project node assignments
             ImmutableMap<Symbol, Expression> inputProjections = ImmutableMap.of(
-                    identity, baseColumn.toIrSymbolReference(),
-                    dereference, new SubscriptExpression(baseColumn.toIrSymbolReference(), new LongLiteral("1")),
+                    identity, baseColumn.toSymbolReference(),
+                    dereference, new SubscriptExpression(baseColumn.toSymbolReference(), new LongLiteral("1")),
                     constant, new LongLiteral("5"),
                     call, new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(new StringLiteral("abc"), new StringLiteral("ab"))));
 

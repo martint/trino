@@ -161,10 +161,10 @@ final class JoinMatcher
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toIrSymbolReference()));
+                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
             }
             else {
-                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toIrSymbolReference());
+                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
             }
             actual.add(expression);
         }

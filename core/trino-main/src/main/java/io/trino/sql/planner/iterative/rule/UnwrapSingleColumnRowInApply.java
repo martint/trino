@@ -108,7 +108,7 @@ public class UnwrapSingleColumnRowInApply
                         context,
                         predicate.getValue(),
                         predicate.getValueList(),
-                        (value, list) -> new InPredicate(value.toIrSymbolReference(), list.toIrSymbolReference()));
+                        (value, list) -> new InPredicate(value.toSymbolReference(), list.toSymbolReference()));
             }
             else if (expression instanceof QuantifiedComparisonExpression) {
                 QuantifiedComparisonExpression comparison = (QuantifiedComparisonExpression) expression;
@@ -117,7 +117,7 @@ public class UnwrapSingleColumnRowInApply
                         context,
                         comparison.getValue(),
                         comparison.getSubquery(),
-                        (value, list) -> new QuantifiedComparisonExpression(comparison.getOperator(), comparison.getQuantifier(), value.toIrSymbolReference(), list.toIrSymbolReference()));
+                        (value, list) -> new QuantifiedComparisonExpression(comparison.getOperator(), comparison.getQuantifier(), value.toSymbolReference(), list.toSymbolReference()));
             }
 
             if (unwrapped.isPresent()) {

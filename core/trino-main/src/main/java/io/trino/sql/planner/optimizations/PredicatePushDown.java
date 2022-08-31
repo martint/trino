@@ -220,7 +220,7 @@ public class PredicatePushDown
                 for (int index = 0; index < node.getInputs().get(i).size(); index++) {
                     outputsToInputs.put(
                             node.getOutputSymbols().get(index),
-                            node.getInputs().get(i).get(index).toIrSymbolReference());
+                            node.getInputs().get(i).get(index).toSymbolReference());
                 }
 
                 Expression sourcePredicate = inlineSymbols(outputsToInputs, context.get());
@@ -341,7 +341,7 @@ public class PredicatePushDown
         {
             Map<Symbol, SymbolReference> commonGroupingSymbolMapping = node.getGroupingColumns().entrySet().stream()
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
             Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(extractUnique(conjunct));
 
@@ -492,12 +492,12 @@ public class PredicatePushDown
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
                     .getOutputSymbols().stream()
-                    .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
             Assignments.Builder rightProjections = Assignments.builder();
             rightProjections.putAll(node.getRight()
                     .getOutputSymbols().stream()
-                    .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
+                    .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
             // Create new projections for the new join clauses
             List<JoinNode.EquiJoinClause> equiJoinClauses = new ArrayList<>();
@@ -616,7 +616,7 @@ public class PredicatePushDown
                             equiJoinClauses
                                     .stream()
                                     .map(clause -> new DynamicFilterExpression(
-                                            new ComparisonExpression(EQUAL, clause.getLeft().toIrSymbolReference(), clause.getRight().toIrSymbolReference()))),
+                                            new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
                             joinFilterClauses.stream()
                                     .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
@@ -803,12 +803,12 @@ public class PredicatePushDown
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
-                        .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
                 Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
-                        .collect(toImmutableMap(key -> key, Symbol::toIrSymbolReference)));
+                        .collect(toImmutableMap(key -> key, Symbol::toSymbolReference)));
 
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
@@ -1238,7 +1238,7 @@ public class PredicatePushDown
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             return new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes)
-                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toIrSymbolReference());
+                    .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
@@ -1298,7 +1298,7 @@ public class PredicatePushDown
         public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Expression> context)
         {
             Expression inheritedPredicate = context.get();
-            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toIrSymbolReference())) {
+            if (!extractConjuncts(inheritedPredicate).contains(node.getSemiJoinOutput().toSymbolReference())) {
                 return visitNonFilteringSemiJoin(node, context);
             }
             return visitFilteringSemiJoin(node, context);
@@ -1364,8 +1364,8 @@ public class PredicatePushDown
             Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(metadata, effectivePredicateExtractor.extract(session, node.getFilteringSource(), types, typeAnalyzer));
             Expression joinExpression = new ComparisonExpression(
                     EQUAL,
-                    node.getSourceJoinSymbol().toIrSymbolReference(),
-                    node.getFilteringSourceJoinSymbol().toIrSymbolReference());
+                    node.getSourceJoinSymbol().toSymbolReference(),
+                    node.getFilteringSourceJoinSymbol().toSymbolReference());
 
             List<Symbol> sourceSymbols = node.getSource().getOutputSymbols();
             List<Symbol> filteringSourceSymbols = node.getFilteringSource().getOutputSymbols();
@@ -1430,7 +1430,7 @@ public class PredicatePushDown
                         metadata,
                         dynamicFilterId.get(),
                         symbolAllocator.getTypes().get(sourceSymbol),
-                        sourceSymbol.toIrSymbolReference(),
+                        sourceSymbol.toSymbolReference(),
                         EQUAL));
             }
 

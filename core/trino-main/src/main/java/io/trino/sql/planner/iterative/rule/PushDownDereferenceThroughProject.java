@@ -92,7 +92,7 @@ public class PushDownDereferenceThroughProject
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
                 .inverse()
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
         Assignments assignments = node.getAssignments().rewrite(expression -> replaceExpression(expression, mappings));
 
         return Result.ofPlanNode(

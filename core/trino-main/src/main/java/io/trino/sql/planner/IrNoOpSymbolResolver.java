@@ -21,6 +21,6 @@ public class IrNoOpSymbolResolver
     @Override
     public Object getValue(Symbol symbol)
     {
-        return symbol.toIrSymbolReference();
+        return symbol.toSymbolReference();
     }
 }

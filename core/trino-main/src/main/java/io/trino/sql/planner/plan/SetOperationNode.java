@@ -110,7 +110,7 @@ public abstract class SetOperationNode
     {
         ImmutableMap.Builder<Symbol, SymbolReference> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
-            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toIrSymbolReference());
+            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
         }
 
         return builder.buildOrThrow();
@@ -125,7 +125,7 @@ public abstract class SetOperationNode
         return Multimaps.transformValues(FluentIterable.from(getOutputSymbols())
                 .toMap(outputToSourceSymbolFunction(sourceIndex))
                 .asMultimap()
-                .inverse(), Symbol::toIrSymbolReference);
+                .inverse(), Symbol::toSymbolReference);
     }
 
     private Function<Symbol, Symbol> outputToSourceSymbolFunction(int sourceIndex)

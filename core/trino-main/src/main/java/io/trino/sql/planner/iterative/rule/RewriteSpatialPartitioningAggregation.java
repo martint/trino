@@ -114,7 +114,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 spatialPartitioningFunction,
-                                ImmutableList.of(envelopeSymbol.toIrSymbolReference(), partitionCountSymbol.toIrSymbolReference()),
+                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),

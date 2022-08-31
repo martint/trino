@@ -95,7 +95,7 @@ public class ExtractDereferencesFromFilterAboveScan
         Map<Expression, SymbolReference> mappings = HashBiMap.create(assignments.getMap())
                 .inverse()
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
         PlanNode source = node.getSource();
         return Result.ofPlanNode(new ProjectNode(

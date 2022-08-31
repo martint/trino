@@ -70,15 +70,15 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        a3, new ArithmeticUnaryExpression(MINUS, a2.toIrSymbolReference()),
-                        b2, new ArithmeticUnaryExpression(PLUS, b1.toIrSymbolReference())),
+                        a3, new ArithmeticUnaryExpression(MINUS, a2.toSymbolReference()),
+                        b2, new ArithmeticUnaryExpression(PLUS, b1.toSymbolReference())),
                 p.join(
                         INNER,
                         // intermediate non-identity projections should be fully inlined
                         p.project(
                                 Assignments.of(
-                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toIrSymbolReference()),
-                                        a1, a1.toIrSymbolReference()),
+                                        a2, new ArithmeticUnaryExpression(PLUS, a0.toSymbolReference()),
+                                        a1, a1.toSymbolReference()),
                                 p.project(
                                         Assignments.builder()
                                                 .putIdentity(a0)
@@ -125,7 +125,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticBinaryExpression(ADD, a.toIrSymbolReference(), b.toIrSymbolReference())),
+                        c, new ArithmeticBinaryExpression(ADD, a.toSymbolReference(), b.toSymbolReference())),
                 p.join(
                         INNER,
                         p.values(a),
@@ -145,7 +145,7 @@ public class TestPushProjectionThroughJoin
 
         ProjectNode planNode = p.project(
                 Assignments.of(
-                        c, new ArithmeticUnaryExpression(MINUS, a.toIrSymbolReference())),
+                        c, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
                 p.join(
                         LEFT,
                         p.values(a),

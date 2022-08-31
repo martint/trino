@@ -224,7 +224,7 @@ public class PushAggregationIntoTableScan
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
                     ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.getName());
                     ColumnHandle groupByColumnHandle = result.getGroupingColumnMapping().getOrDefault(originalColumnHandle, originalColumnHandle);
-                    assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toIrSymbolReference());
+                    assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
                 });
 
         return Optional.of(

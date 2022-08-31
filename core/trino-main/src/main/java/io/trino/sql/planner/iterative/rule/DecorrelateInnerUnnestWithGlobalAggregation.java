@@ -193,7 +193,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 rewrittenUnnest,
                 Assignments.builder()
                         .putIdentities(rewrittenUnnest.getOutputSymbols())
-                        .put(mask, new IsNotNullPredicate(ordinalitySymbol.toIrSymbolReference()))
+                        .put(mask, new IsNotNullPredicate(ordinalitySymbol.toSymbolReference()))
                         .build());
 
         // restore all projections, grouped aggregations and global aggregations from the subquery
@@ -319,7 +319,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
             AggregationNode.Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = symbolAllocator.newSymbol("mask", BOOLEAN);
-                Expression expression = and(aggregation.getMask().get().toIrSymbolReference(), mask.toIrSymbolReference());
+                Expression expression = and(aggregation.getMask().get().toSymbolReference(), mask.toSymbolReference());
                 assignmentsBuilder.put(newMask, expression);
                 masks.put(entry.getKey(), newMask);
             }

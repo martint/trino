@@ -234,8 +234,8 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         Symbol rightSymbol = symbolForExpression(context, rightExpression);
         newConjuncts.add(new ComparisonExpression(
                 comparison.getOperator(),
-                alignedComparison ? leftExpression : rightSymbol.toIrSymbolReference(),
-                alignedComparison ? rightSymbol.toIrSymbolReference() : leftExpression));
+                alignedComparison ? leftExpression : rightSymbol.toSymbolReference(),
+                alignedComparison ? rightSymbol.toSymbolReference() : leftExpression));
         newProjections.put(rightSymbol, rightExpression);
     }
 

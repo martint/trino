@@ -41,7 +41,7 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.values(subquerySymbol));
@@ -64,11 +64,11 @@ public class TestPruneApplyCorrelation
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol.toIrSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
                             ImmutableList.of(inputSymbol),
                             p.values(a, inputSymbol),
                             p.filter(
-                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), inputSymbol.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), inputSymbol.toSymbolReference()),
                                     p.values(subquerySymbol)));
                 })
                 .doesNotFire();

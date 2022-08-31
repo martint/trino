@@ -138,7 +138,7 @@ public class LogicalIndexExtractor
                 labels = ImmutableSet.of(irLabel(node.getLabel()));
             }
             valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), referenced));
-            return reallocated.toIrSymbolReference();
+            return reallocated.toSymbolReference();
         }
 
         @Override
@@ -149,7 +149,7 @@ public class LogicalIndexExtractor
             Symbol reallocated = symbolAllocator.newSymbol(Symbol.from(node));
             layout.add(reallocated);
             valuePointers.add(new ScalarValuePointer(context.withLabels(ImmutableSet.of()).toLogicalIndexPointer(), Symbol.from(node)));
-            return reallocated.toIrSymbolReference();
+            return reallocated.toSymbolReference();
         }
 
         @Override
@@ -194,7 +194,7 @@ public class LogicalIndexExtractor
 
                 valuePointers.add(descriptor);
 
-                return aggregationSymbol.toIrSymbolReference();
+                return aggregationSymbol.toSymbolReference();
             }
 
             return super.rewriteFunctionCall(node, context, treeRewriter);
@@ -284,7 +284,7 @@ public class LogicalIndexExtractor
             // pass the new symbol as input symbol. It will be used to identify classifier function.
             valuePointers.add(new ScalarValuePointer(context.withLabels(labels).toLogicalIndexPointer(), classifierSymbol));
             classifierSymbols.add(classifierSymbol);
-            return classifierSymbol.toIrSymbolReference();
+            return classifierSymbol.toSymbolReference();
         }
 
         private Expression rewriteMatchNumberFunction()
@@ -295,7 +295,7 @@ public class LogicalIndexExtractor
             // pass the new symbol as input symbol. It will be used to identify match number function.
             valuePointers.add(new ScalarValuePointer(LogicalIndexContext.DEFAULT.toLogicalIndexPointer(), matchNumberSymbol));
             matchNumberSymbols.add(matchNumberSymbol);
-            return matchNumberSymbol.toIrSymbolReference();
+            return matchNumberSymbol.toSymbolReference();
         }
 
         private IrLabel irLabel(String label)

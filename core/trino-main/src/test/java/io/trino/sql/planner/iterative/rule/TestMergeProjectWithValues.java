@@ -275,8 +275,8 @@ public class TestMergeProjectWithValues
                     Symbol f = p.symbol("f");
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
-                    assignments.put(d, b.toIrSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toIrSymbolReference())); // expression involving input symbol
+                    assignments.put(d, b.toSymbolReference()); // renaming assignment
+                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
                     assignments.put(f, new LongLiteral("1")); // constant expression
                     return p.project(
                             assignments.build(),
@@ -305,8 +305,8 @@ public class TestMergeProjectWithValues
                     Symbol f = p.symbol("f");
                     Assignments.Builder assignments = Assignments.builder();
                     assignments.putIdentity(a); // identity assignment
-                    assignments.put(d, b.toIrSymbolReference()); // renaming assignment
-                    assignments.put(e, new IsNullPredicate(a.toIrSymbolReference())); // expression involving input symbol
+                    assignments.put(d, b.toSymbolReference()); // renaming assignment
+                    assignments.put(e, new IsNullPredicate(a.toSymbolReference())); // expression involving input symbol
                     assignments.put(f, new LongLiteral("1")); // constant expression
                     return p.project(
                             assignments.build(),

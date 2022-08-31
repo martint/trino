@@ -102,7 +102,7 @@ public class PushDownDereferencesThroughMarkDistinct
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
                 .inverse()
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
         Assignments newAssignments = projectNode.getAssignments().rewrite(expression -> replaceExpression(expression, mappings));
 
         return Result.ofPlanNode(

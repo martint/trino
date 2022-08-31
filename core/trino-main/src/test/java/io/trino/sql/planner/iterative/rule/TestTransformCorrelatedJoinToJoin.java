@@ -48,8 +48,8 @@ public class TestTransformCorrelatedJoinToJoin
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toIrSymbolReference(),
-                                            a.toIrSymbolReference()),
+                                            b.toSymbolReference(),
+                                            a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -72,13 +72,13 @@ public class TestTransformCorrelatedJoinToJoin
                             INNER,
                             new ComparisonExpression(
                                     LESS_THAN,
-                                    b.toIrSymbolReference(),
+                                    b.toSymbolReference(),
                                     new LongLiteral("3")),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toIrSymbolReference(),
-                                            a.toIrSymbolReference()),
+                                            b.toSymbolReference(),
+                                            a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -107,8 +107,8 @@ public class TestTransformCorrelatedJoinToJoin
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toIrSymbolReference(),
-                                            a.toIrSymbolReference()),
+                                            b.toSymbolReference(),
+                                            a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -131,13 +131,13 @@ public class TestTransformCorrelatedJoinToJoin
                             LEFT,
                             new ComparisonExpression(
                                     LESS_THAN,
-                                    b.toIrSymbolReference(),
+                                    b.toSymbolReference(),
                                     new LongLiteral("3")),
                             p.filter(
                                     new ComparisonExpression(
                                             GREATER_THAN,
-                                            b.toIrSymbolReference(),
-                                            a.toIrSymbolReference()),
+                                            b.toSymbolReference(),
+                                            a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(

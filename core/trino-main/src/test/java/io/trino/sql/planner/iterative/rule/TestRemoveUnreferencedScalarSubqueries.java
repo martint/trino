@@ -96,7 +96,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             p.filter(
                                     new ComparisonExpression(
                                             LESS_THAN,
-                                            b.toIrSymbolReference(),
+                                            b.toSymbolReference(),
                                             new LongLiteral("3")),
                                     p.values(2, b)));
                 })
@@ -113,7 +113,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                             p.filter(
                                     new ComparisonExpression(
                                             LESS_THAN,
-                                            b.toIrSymbolReference(),
+                                            b.toSymbolReference(),
                                             new LongLiteral("3")),
                                     p.values(2, b)));
                 })

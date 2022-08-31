@@ -592,7 +592,7 @@ public class TestPushDownDereferencesRules
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
                                                         createTestMetadataManager().resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(ROW_TYPE)),
-                                                        ImmutableList.of(p.symbol("msg3", ROW_TYPE).toIrSymbolReference()),
+                                                        ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         new WindowNode.Frame(
                                                                 io.trino.sql.tree.WindowFrame.Type.RANGE,
                                                                 io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING,

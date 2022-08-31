@@ -265,9 +265,9 @@ public class DecorrelateUnnest
                 assignments.put(
                         subquerySymbol,
                         new IfExpression(
-                                new IsNullPredicate(ordinalitySymbol.toIrSymbolReference()),
+                                new IsNullPredicate(ordinalitySymbol.toSymbolReference()),
                                 new Cast(new NullLiteral(), toSqlType(context.getSymbolAllocator().getTypes().get(subquerySymbol))),
-                                subquerySymbol.toIrSymbolReference()));
+                                subquerySymbol.toSymbolReference()));
             }
             rewrittenPlan = new ProjectNode(
                     context.getIdAllocator().getNextId(),
@@ -410,7 +410,7 @@ public class DecorrelateUnnest
             Expression predicate = new IfExpression(
                     new ComparisonExpression(
                             GREATER_THAN,
-                            rowNumberSymbol.toIrSymbolReference(),
+                            rowNumberSymbol.toSymbolReference(),
                             new GenericLiteral("BIGINT", "1")),
                     new Cast(
                             failFunction(metadata, session, SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
@@ -454,7 +454,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             sourceNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toIrSymbolReference(), new GenericLiteral("BIGINT", Long.toString(node.getCount())))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new GenericLiteral("BIGINT", Long.toString(node.getCount())))),
                     Optional.of(rowNumberSymbol));
         }
 
@@ -483,7 +483,7 @@ public class DecorrelateUnnest
                     new FilterNode(
                             idAllocator.getNextId(),
                             windowNode,
-                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toIrSymbolReference(), new GenericLiteral("BIGINT", Long.toString(node.getCount())))),
+                            new ComparisonExpression(LESS_THAN_OR_EQUAL, rowNumberSymbol.toSymbolReference(), new GenericLiteral("BIGINT", Long.toString(node.getCount())))),
                     Optional.of(rowNumberSymbol));
         }
 

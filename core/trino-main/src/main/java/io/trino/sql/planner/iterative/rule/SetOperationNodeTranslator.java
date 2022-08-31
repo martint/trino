@@ -174,7 +174,7 @@ public class SetOperationNodeTranslator
             Symbol output = aggregationOutputs.get(i);
             aggregations.put(output, new AggregationNode.Aggregation(
                     countFunction,
-                    ImmutableList.of(markers.get(i).toIrSymbolReference()),
+                    ImmutableList.of(markers.get(i).toSymbolReference()),
                     false,
                     Optional.empty(),
                     Optional.empty(),
@@ -196,7 +196,7 @@ public class SetOperationNodeTranslator
             Symbol output = countOutputs.get(i);
             functions.put(output, new WindowNode.Function(
                     countFunction,
-                    ImmutableList.of(markers.get(i).toIrSymbolReference()),
+                    ImmutableList.of(markers.get(i).toSymbolReference()),
                     defaultFrame,
                     false));
         }

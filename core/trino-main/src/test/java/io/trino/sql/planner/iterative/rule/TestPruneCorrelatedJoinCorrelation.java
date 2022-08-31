@@ -56,7 +56,7 @@ public class TestPruneCorrelatedJoinCorrelation
                             ImmutableList.of(inputSymbol),
                             p.values(inputSymbol),
                             p.filter(
-                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toIrSymbolReference(), inputSymbol.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, subquerySymbol.toSymbolReference(), inputSymbol.toSymbolReference()),
                                     p.values(subquerySymbol)));
                 })
                 .doesNotFire();

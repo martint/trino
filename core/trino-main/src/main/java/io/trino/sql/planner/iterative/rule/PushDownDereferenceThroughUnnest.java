@@ -106,7 +106,7 @@ public class PushDownDereferenceThroughUnnest
         Map<Expression, SymbolReference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
                 .inverse()
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toIrSymbolReference()));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
         Assignments newAssignments = projectNode.getAssignments().rewrite(expression -> replaceExpression(expression, mappings));
 
         // Create a new ProjectNode (above the original source) adding dereference projections on replicated symbols

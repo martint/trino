@@ -154,7 +154,7 @@ public class TransformCorrelatedScalarSubquery
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
                 new SimpleCaseExpression(
-                        isDistinct.toIrSymbolReference(),
+                        isDistinct.toSymbolReference(),
                         ImmutableList.of(
                                 new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                         Optional.of(new Cast(

@@ -210,7 +210,7 @@ public class TranslationMap
                 }
 
                 return getSymbolForColumn(node)
-                        .map(Symbol::toIrSymbolReference)
+                        .map(Symbol::toSymbolReference)
                         .orElseThrow(() -> new IllegalStateException(format("No symbol mapping for node '%s' (%s)", node, node.getFieldIndex())));
             }
 
@@ -225,11 +225,11 @@ public class TranslationMap
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
                     Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
-                    return coerceIfNecessary(node, symbol.toIrSymbolReference());
+                    return coerceIfNecessary(node, symbol.toSymbolReference());
                 }
 
                 return getSymbolForColumn(node)
-                        .map(symbol -> coerceIfNecessary(node, symbol.toIrSymbolReference()))
+                        .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(coerceIfNecessary(node, treeRewriter.copy(node, context)));
             }
 
@@ -303,7 +303,7 @@ public class TranslationMap
                     return coerceIfNecessary(
                             node,
                             getSymbolForColumn(node)
-                                    .map(Symbol::toIrSymbolReference)
+                                    .map(Symbol::toSymbolReference)
                                     .orElseThrow(() -> new IllegalStateException(format("No mapping for %s", node))));
                 }
 

@@ -96,13 +96,13 @@ public class ImplementIntersectAll
         checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
         ResolvedFunction least = metadata.resolveFunction(context.getSession(), QualifiedName.of("least"), fromTypes(BIGINT, BIGINT));
 
-        Expression minCount = result.getCountSymbols().get(0).toIrSymbolReference();
+        Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
-            minCount = new FunctionCall(least.toQualifiedName(), ImmutableList.of(minCount, result.getCountSymbols().get(i).toIrSymbolReference()));
+            minCount = new FunctionCall(least.toQualifiedName(), ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toIrSymbolReference(), minCount);
+        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

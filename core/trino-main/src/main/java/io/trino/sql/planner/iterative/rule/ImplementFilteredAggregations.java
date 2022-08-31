@@ -105,18 +105,18 @@ public class ImplementFilteredAggregations
                 Symbol filter = aggregation.getFilter().get();
                 if (mask.isPresent()) {
                     Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
-                    Expression expression = and(mask.get().toIrSymbolReference(), filter.toIrSymbolReference());
+                    Expression expression = and(mask.get().toSymbolReference(), filter.toSymbolReference());
                     newAssignments.put(newMask, expression);
                     mask = Optional.of(newMask);
-                    maskSymbols.add(newMask.toIrSymbolReference());
+                    maskSymbols.add(newMask.toSymbolReference());
                 }
                 else {
                     mask = Optional.of(filter);
-                    maskSymbols.add(filter.toIrSymbolReference());
+                    maskSymbols.add(filter.toSymbolReference());
                 }
             }
             else if (mask.isPresent()) {
-                maskSymbols.add(mask.get().toIrSymbolReference());
+                maskSymbols.add(mask.get().toSymbolReference());
             }
             else {
                 aggregateWithoutFilterOrMaskPresent = true;

@@ -144,7 +144,7 @@ public class PushDownProjectionsFromPatternRecognition
                     else {
                         Symbol symbol = context.getSymbolAllocator().newSymbol(argument, argumentTypes.get(i));
                         assignments.put(symbol, argument);
-                        rewrittenArguments.add(symbol.toIrSymbolReference());
+                        rewrittenArguments.add(symbol.toSymbolReference());
                     }
                 }
 

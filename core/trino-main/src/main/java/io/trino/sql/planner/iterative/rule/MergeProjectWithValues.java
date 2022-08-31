@@ -177,7 +177,7 @@ public class MergeProjectWithValues
     {
         ImmutableMap.Builder<SymbolReference, Expression> mappingBuilder = ImmutableMap.builder();
         for (int i = 0; i < row.getItems().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toIrSymbolReference(), row.getItems().get(i));
+            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.getItems().get(i));
         }
         return mappingBuilder.buildOrThrow();
     }

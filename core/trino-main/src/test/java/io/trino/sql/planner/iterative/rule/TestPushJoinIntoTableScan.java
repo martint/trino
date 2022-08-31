@@ -170,7 +170,7 @@ public class TestPushJoinIntoTableScan
                                 joinType,
                                 left,
                                 right,
-                                new ComparisonExpression(filterComparisonOperator.get(), columnA1Symbol.toIrSymbolReference(), columnB1Symbol.toIrSymbolReference()));
+                                new ComparisonExpression(filterComparisonOperator.get(), columnA1Symbol.toSymbolReference(), columnB1Symbol.toSymbolReference()));
                     })
                     .withSession(MOCK_SESSION)
                     .matches(
@@ -251,8 +251,8 @@ public class TestPushJoinIntoTableScan
                                 right,
                                 new ComparisonExpression(
                                         io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
-                                        new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toIrSymbolReference()),
-                                        columnB1Symbol.toIrSymbolReference()));
+                                        new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, new GenericLiteral("BIGINT", "44"), columnA1Symbol.toSymbolReference()),
+                                        columnB1Symbol.toSymbolReference()));
                     })
                     .withSession(MOCK_SESSION)
                     .doesNotFire();

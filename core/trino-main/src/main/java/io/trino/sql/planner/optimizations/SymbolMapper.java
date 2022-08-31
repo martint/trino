@@ -131,7 +131,7 @@ public class SymbolMapper
             public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Symbol canonical = map(Symbol.from(node));
-                return canonical.toIrSymbolReference();
+                return canonical.toSymbolReference();
             }
         }, expression);
     }

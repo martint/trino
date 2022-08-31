@@ -135,7 +135,7 @@ public class TestPushLimitThroughProject
                     Symbol a = p.symbol("a");
                     return p.limit(1,
                             p.project(
-                                    Assignments.of(a, a.toIrSymbolReference()),
+                                    Assignments.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }
@@ -151,8 +151,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")),
-                                            p.symbol("c"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("2"))),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2"))),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -214,8 +214,8 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")),
-                                            p.symbol("c", rowType), a.toIrSymbolReference()),
+                                            p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")),
+                                            p.symbol("c", rowType), a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(

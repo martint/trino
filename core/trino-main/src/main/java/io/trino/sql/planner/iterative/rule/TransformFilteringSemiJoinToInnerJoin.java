@@ -104,7 +104,7 @@ public class TransformFilteringSemiJoinToInnerJoin
         }
 
         Symbol semiJoinSymbol = semiJoin.getSemiJoinOutput();
-        Predicate<Expression> isSemiJoinSymbol = expression -> expression.equals(semiJoinSymbol.toIrSymbolReference());
+        Predicate<Expression> isSemiJoinSymbol = expression -> expression.equals(semiJoinSymbol.toSymbolReference());
 
         List<Expression> conjuncts = extractConjuncts(filterNode.getPredicate());
         if (conjuncts.stream().noneMatch(isSemiJoinSymbol)) {
@@ -118,7 +118,7 @@ public class TransformFilteringSemiJoinToInnerJoin
             if (symbol.equals(semiJoinSymbol)) {
                 return TRUE_LITERAL;
             }
-            return symbol.toIrSymbolReference();
+            return symbol.toSymbolReference();
         }, filteredPredicate);
 
         Optional<Expression> joinFilter = simplifiedPredicate.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(simplifiedPredicate);

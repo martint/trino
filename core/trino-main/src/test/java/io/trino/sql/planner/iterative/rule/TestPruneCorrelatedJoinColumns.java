@@ -69,7 +69,7 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                     p.values(1, b)));
                 })
                 .matches(
@@ -105,7 +105,7 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(),
                                     p.values(1, a),
                                     RIGHT,
-                                    new ComparisonExpression(GREATER_THAN, b.toIrSymbolReference(), a.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
                                     p.values(b)));
                 })
                 .matches(
@@ -129,9 +129,9 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toIrSymbolReference(), a.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), a.toSymbolReference()),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN, b.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(5, b, c))));
                 })
                 .matches(
@@ -161,9 +161,9 @@ public class TestPruneCorrelatedJoinColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(b))));
                 })
                 .matches(
@@ -215,7 +215,7 @@ public class TestPruneCorrelatedJoinColumns
                                     LEFT,
                                     TRUE_LITERAL,
                                     p.filter(
-                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toIrSymbolReference(), correlationSymbol.toIrSymbolReference()),
+                                            new ComparisonExpression(GREATER_THAN_OR_EQUAL, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(b))));
                 })
                 .doesNotFire();

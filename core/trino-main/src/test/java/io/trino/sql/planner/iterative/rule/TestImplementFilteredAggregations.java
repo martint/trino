@@ -173,11 +173,11 @@ public class TestImplementFilteredAggregations
         return new FunctionCall(
                 QualifiedName.of(name),
                 Optional.empty(),
-                filter.map(Symbol::toIrSymbolReference),
+                filter.map(Symbol::toSymbolReference),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(argument.toIrSymbolReference()));
+                ImmutableList.of(argument.toSymbolReference()));
     }
 }

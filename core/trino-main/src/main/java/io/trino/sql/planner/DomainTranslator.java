@@ -118,7 +118,7 @@ public final class DomainTranslator
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .map(entry -> toPredicate(session, entry.getValue(), entry.getKey().toIrSymbolReference()))
+                .map(entry -> toPredicate(session, entry.getValue(), entry.getKey().toSymbolReference()))
                 .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(plannerContext.getMetadata(), expressions)));
     }
 

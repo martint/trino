@@ -55,7 +55,7 @@ public final class Partitioning
     public static Partitioning create(PartitioningHandle handle, List<Symbol> columns)
     {
         return new Partitioning(handle, columns.stream()
-                .map(Symbol::toIrSymbolReference)
+                .map(Symbol::toSymbolReference)
                 .map(ArgumentBinding::expressionBinding)
                 .collect(toImmutableList()));
     }
@@ -351,7 +351,7 @@ public final class Partitioning
             if (isConstant()) {
                 return this;
             }
-            return expressionBinding(translator.apply(Symbol.from(expression)).toIrSymbolReference());
+            return expressionBinding(translator.apply(Symbol.from(expression)).toSymbolReference());
         }
 
         public Optional<ArgumentBinding> translate(Translator translator)
@@ -362,12 +362,12 @@ public final class Partitioning
 
             if (!isVariable()) {
                 return translator.expressionTranslator.apply(expression)
-                        .map(Symbol::toIrSymbolReference)
+                        .map(Symbol::toSymbolReference)
                         .map(ArgumentBinding::expressionBinding);
             }
 
             Optional<ArgumentBinding> newColumn = translator.columnTranslator.apply(Symbol.from(expression))
-                    .map(Symbol::toIrSymbolReference)
+                    .map(Symbol::toSymbolReference)
                     .map(ArgumentBinding::expressionBinding);
             if (newColumn.isPresent()) {
                 return newColumn;

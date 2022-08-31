@@ -158,7 +158,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new ArithmeticUnaryExpression(MINUS, a.toIrSymbolReference())),
+                        Assignments.of(d, new ArithmeticUnaryExpression(MINUS, a.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -204,7 +204,7 @@ public class TestJoinNodeFlattener
         JoinNode joinNode = p.join(
                 INNER,
                 p.project(
-                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT, a.toIrSymbolReference(), b.toIrSymbolReference())),
+                        Assignments.of(d, new ArithmeticBinaryExpression(SUBTRACT, a.toSymbolReference(), b.toSymbolReference())),
                         p.join(
                                 INNER,
                                 valuesA,
@@ -282,13 +282,13 @@ public class TestJoinNodeFlattener
         ValuesNode valuesB = p.values(b1, b2);
         ValuesNode valuesC = p.values(c1, c2);
         Expression bcFilter = and(
-                new ComparisonExpression(GREATER_THAN, c2.toIrSymbolReference(), new LongLiteral("0")),
-                new ComparisonExpression(NOT_EQUAL, c2.toIrSymbolReference(), new LongLiteral("7")),
-                new ComparisonExpression(GREATER_THAN, b2.toIrSymbolReference(), c2.toIrSymbolReference()));
+                new ComparisonExpression(GREATER_THAN, c2.toSymbolReference(), new LongLiteral("0")),
+                new ComparisonExpression(NOT_EQUAL, c2.toSymbolReference(), new LongLiteral("7")),
+                new ComparisonExpression(GREATER_THAN, b2.toSymbolReference(), c2.toSymbolReference()));
         ComparisonExpression abcFilter = new ComparisonExpression(
                 LESS_THAN,
-                new ArithmeticBinaryExpression(ADD, a1.toIrSymbolReference(), c1.toIrSymbolReference()),
-                b1.toIrSymbolReference());
+                new ArithmeticBinaryExpression(ADD, a1.toSymbolReference(), c1.toSymbolReference()),
+                b1.toSymbolReference());
         JoinNode joinNode = p.join(
                 INNER,
                 valuesA,
@@ -306,7 +306,7 @@ public class TestJoinNodeFlattener
                 Optional.of(abcFilter));
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
-                and(new ComparisonExpression(EQUAL, b1.toIrSymbolReference(), c1.toIrSymbolReference()), new ComparisonExpression(EQUAL, a1.toIrSymbolReference(), b1.toIrSymbolReference()), bcFilter, abcFilter),
+                and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
         assertEquals(
@@ -434,7 +434,7 @@ public class TestJoinNodeFlattener
 
     private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)
     {
-        return new ComparisonExpression(EQUAL, left.toIrSymbolReference(), right.toIrSymbolReference());
+        return new ComparisonExpression(EQUAL, left.toSymbolReference(), right.toSymbolReference());
     }
 
     private EquiJoinClause equiJoinClause(Symbol symbol1, Symbol symbol2)

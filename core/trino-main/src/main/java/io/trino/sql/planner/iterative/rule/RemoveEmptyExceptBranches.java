@@ -90,7 +90,7 @@ public class RemoveEmptyExceptBranches
             Assignments.Builder assignments = Assignments.builder();
 
             outputsToInputs.entries().stream()
-                    .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toIrSymbolReference()));
+                    .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toSymbolReference()));
 
             if (node.isDistinct()) {
                 return Result.ofPlanNode(

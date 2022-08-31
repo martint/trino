@@ -120,7 +120,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toIrSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
@@ -153,7 +153,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toIrSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))

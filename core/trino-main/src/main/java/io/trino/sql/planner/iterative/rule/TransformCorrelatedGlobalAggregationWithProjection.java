@@ -237,7 +237,7 @@ public class TransformCorrelatedGlobalAggregationWithProjection
             Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
-                Expression expression = and(aggregation.getMask().get().toIrSymbolReference(), nonNull.toIrSymbolReference());
+                Expression expression = and(aggregation.getMask().get().toSymbolReference(), nonNull.toSymbolReference());
                 assignmentsBuilder.put(newMask, expression);
                 masks.put(entry.getKey(), newMask);
             }

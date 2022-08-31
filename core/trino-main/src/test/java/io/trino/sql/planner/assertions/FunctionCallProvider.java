@@ -107,13 +107,13 @@ class FunctionCallProvider
         if (!orderBy.isEmpty()) {
             orderByClause = Optional.of(new OrderBy(orderBy.stream()
                     .map(item -> new SortItem(
-                            Symbol.from(aliases.get(item.getField())).toIrSymbolReference(),
+                            Symbol.from(aliases.get(item.getField())).toSymbolReference(),
                             item.getOrdering(),
                             item.getNullOrdering()))
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toIrSymbolReference()), orderByClause, distinct, Optional.empty(), Optional.empty(), symbolReferences);
+        return new FunctionCall(name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toSymbolReference()), orderByClause, distinct, Optional.empty(), Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall

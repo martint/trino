@@ -215,7 +215,7 @@ public class TestPruneWindowColumns
                                 output1,
                                 new WindowNode.Function(
                                         MIN_FUNCTION,
-                                        ImmutableList.of(input1.toIrSymbolReference()),
+                                        ImmutableList.of(input1.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 io.trino.sql.tree.WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -228,7 +228,7 @@ public class TestPruneWindowColumns
                                 output2,
                                 new WindowNode.Function(
                                         MIN_FUNCTION,
-                                        ImmutableList.of(input2.toIrSymbolReference()),
+                                        ImmutableList.of(input2.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 io.trino.sql.tree.WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,

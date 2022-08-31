@@ -91,7 +91,7 @@ public class TransformUncorrelatedSubqueryToJoin
             for (Symbol inputSymbol : Sets.intersection(
                     ImmutableSet.copyOf(correlatedJoinNode.getInput().getOutputSymbols()),
                     ImmutableSet.copyOf(correlatedJoinNode.getOutputSymbols()))) {
-                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toIrSymbolReference(), new NullLiteral()));
+                assignments.put(inputSymbol, new IfExpression(correlatedJoinNode.getFilter(), inputSymbol.toSymbolReference(), new NullLiteral()));
             }
             ProjectNode projectNode = new ProjectNode(
                     context.getIdAllocator().getNextId(),

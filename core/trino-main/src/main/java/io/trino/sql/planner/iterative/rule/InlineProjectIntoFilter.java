@@ -129,7 +129,7 @@ public class InlineProjectIntoFilter
                 .collect(toImmutableSet());
 
         Set<Expression> complexConjunctSymbols = IrSymbolsExtractor.extractUnique(complexConjuncts).stream()
-                .map(Symbol::toIrSymbolReference)
+                .map(Symbol::toSymbolReference)
                 .collect(toImmutableSet());
 
         // Do not inline expression if the symbol is used in complex conjuncts.

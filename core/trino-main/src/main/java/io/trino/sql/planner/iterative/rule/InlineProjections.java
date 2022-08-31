@@ -159,7 +159,7 @@ public class InlineProjections
                 return result;
             }
 
-            return symbol.toIrSymbolReference();
+            return symbol.toSymbolReference();
         };
 
         return inlineSymbols(mapping, expression);

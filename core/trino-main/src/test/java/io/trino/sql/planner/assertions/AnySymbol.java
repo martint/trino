@@ -32,7 +32,7 @@ class AnySymbol
     }
 
     @Override
-    public SymbolReference toIrSymbolReference()
+    public SymbolReference toSymbolReference()
     {
         return new AnySymbolReference();
     }

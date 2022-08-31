@@ -179,7 +179,7 @@ public class AddIntermediateAggregations
                     output,
                     new AggregationNode.Aggregation(
                             aggregation.getResolvedFunction(),
-                            ImmutableList.of(output.toIrSymbolReference()),
+                            ImmutableList.of(output.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),

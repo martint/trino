@@ -60,7 +60,7 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle column = new TestingColumnHandle("column");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toIrSymbolReference())),
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
@@ -95,7 +95,7 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle column = new TestingColumnHandle("column");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toIrSymbolReference(), toSqlType(BIGINT)))),
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), toSqlType(BIGINT)))),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
@@ -130,7 +130,7 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle column = new TestingColumnHandle("column");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toIrSymbolReference())),
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
@@ -169,8 +169,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(filterId, symbol1.toIrSymbolReference()),
-                        new DynamicFilters.Descriptor(filterId, symbol2.toIrSymbolReference())),
+                        new DynamicFilters.Descriptor(filterId, symbol1.toSymbolReference()),
+                        new DynamicFilters.Descriptor(filterId, symbol2.toSymbolReference())),
                 ImmutableMap.of(symbol1, column1, symbol2, column2),
                 symbolAllocator.getTypes());
 
@@ -207,8 +207,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(filterId1, symbol.toIrSymbolReference(), GREATER_THAN),
-                        new DynamicFilters.Descriptor(filterId2, symbol.toIrSymbolReference(), LESS_THAN)),
+                        new DynamicFilters.Descriptor(filterId1, symbol.toSymbolReference(), GREATER_THAN),
+                        new DynamicFilters.Descriptor(filterId2, symbol.toSymbolReference(), LESS_THAN)),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
@@ -248,8 +248,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(filterId1, symbol1.toIrSymbolReference(), EQUAL, true),
-                        new DynamicFilters.Descriptor(filterId2, symbol2.toIrSymbolReference(), EQUAL, true)),
+                        new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true),
+                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true)),
                 ImmutableMap.of(symbol1, column1, symbol2, column2),
                 symbolAllocator.getTypes());
 
@@ -289,8 +289,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(filter1, symbol.toIrSymbolReference()),
-                        new DynamicFilters.Descriptor(filter2, symbol.toIrSymbolReference())),
+                        new DynamicFilters.Descriptor(filter1, symbol.toSymbolReference()),
+                        new DynamicFilters.Descriptor(filter2, symbol.toSymbolReference())),
                 ImmutableMap.of(symbol, column),
                 symbolAllocator.getTypes());
 
@@ -345,7 +345,7 @@ public class TestLocalDynamicFiltersCollector
         ColumnHandle usedColumn = new TestingColumnHandle("used");
         DynamicFilter filter = createDynamicFilter(
                 collector,
-                ImmutableList.of(new DynamicFilters.Descriptor(usedFilterId, usedSymbol.toIrSymbolReference())),
+                ImmutableList.of(new DynamicFilters.Descriptor(usedFilterId, usedSymbol.toSymbolReference())),
                 ImmutableMap.of(usedSymbol, usedColumn),
                 symbolAllocator.getTypes());
 
@@ -389,8 +389,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(registeredFilterId, registeredSymbol.toIrSymbolReference()),
-                        new DynamicFilters.Descriptor(unregisteredFilterId, unregisteredSymbol.toIrSymbolReference())),
+                        new DynamicFilters.Descriptor(registeredFilterId, registeredSymbol.toSymbolReference()),
+                        new DynamicFilters.Descriptor(unregisteredFilterId, unregisteredSymbol.toSymbolReference())),
                 ImmutableMap.of(registeredSymbol, registeredColumn, unregisteredSymbol, unregisteredColumn),
                 symbolAllocator.getTypes());
 

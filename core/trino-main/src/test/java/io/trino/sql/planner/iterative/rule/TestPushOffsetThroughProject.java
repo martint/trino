@@ -55,7 +55,7 @@ public class TestPushOffsetThroughProject
                     return p.offset(
                             5,
                             p.project(
-                                    Assignments.of(a, a.toIrSymbolReference()),
+                                    Assignments.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }

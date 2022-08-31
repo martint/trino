@@ -149,7 +149,7 @@ public class TransformExistsApplyToCorrelatedJoin
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(applyNode.getInput().getOutputSymbols())
-                .put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toIrSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
+                .put(exists, new CoalesceExpression(ImmutableList.of(subqueryTrue.toSymbolReference(), BooleanLiteral.FALSE_LITERAL)));
 
         return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
@@ -185,7 +185,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty())),
                                 globalAggregation()),
-                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toIrSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
+                        Assignments.of(exists, new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT))))),
                 applyNode.getCorrelation(),
                 INNER,
                 TRUE_LITERAL,

@@ -139,7 +139,7 @@ public class ImplementLimitWithTies
                 windowNode,
                 new ComparisonExpression(
                         io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
-                        rankSymbol.toIrSymbolReference(),
+                        rankSymbol.toSymbolReference(),
                         new GenericLiteral("BIGINT", Long.toString(limitNode.getCount()))));
     }
 }

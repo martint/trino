@@ -66,7 +66,7 @@ public class MarkDistinctMatcher
             return NO_MATCH;
         }
 
-        return match(markerSymbol.toString(), markDistinctNode.getMarkerSymbol().toIrSymbolReference());
+        return match(markerSymbol.toString(), markDistinctNode.getMarkerSymbol().toSymbolReference());
     }
 
     @Override

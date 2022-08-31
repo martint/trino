@@ -86,7 +86,7 @@ final class UnnestMatcher
         if (!IntStream.range(0, unnestMappings.size()).boxed().allMatch(index -> {
             Mapping nodeMapping = unnestNode.getMappings().get(index);
             PlanMatchPattern.UnnestMapping patternMapping = unnestMappings.get(index);
-            return nodeMapping.getInput().toIrSymbolReference().equals(symbolAliases.get(patternMapping.getInput())) &&
+            return nodeMapping.getInput().toSymbolReference().equals(symbolAliases.get(patternMapping.getInput())) &&
                     patternMapping.getOutputs().size() == nodeMapping.getOutputs().size();
         })) {
             return NO_MATCH;

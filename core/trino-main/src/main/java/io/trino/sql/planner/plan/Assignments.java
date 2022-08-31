@@ -294,7 +294,7 @@ public class Assignments
 
         public Builder putIdentity(Symbol symbol)
         {
-            put(symbol, symbol.toIrSymbolReference());
+            put(symbol, symbol.toSymbolReference());
             return this;
         }
 

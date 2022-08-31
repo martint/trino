@@ -204,8 +204,8 @@ public class TestHttpRemoteTask
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
-        SymbolReference df1 = symbol1.toIrSymbolReference();
-        SymbolReference df2 = symbol2.toIrSymbolReference();
+        SymbolReference df1 = symbol1.toSymbolReference();
+        SymbolReference df2 = symbol2.toSymbolReference();
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         ColumnHandle handle2 = new TestingColumnHandle("column2");
         QueryId queryId = new QueryId("test");
@@ -284,8 +284,8 @@ public class TestHttpRemoteTask
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("DF_SYMBOL2", BIGINT);
-        SymbolReference df1 = symbol1.toIrSymbolReference();
-        SymbolReference df2 = symbol2.toIrSymbolReference();
+        SymbolReference df1 = symbol1.toSymbolReference();
+        SymbolReference df2 = symbol2.toSymbolReference();
         ColumnHandle handle1 = new TestingColumnHandle("column1");
         ColumnHandle handle2 = new TestingColumnHandle("column2");
         QueryId queryId = new QueryId("test");

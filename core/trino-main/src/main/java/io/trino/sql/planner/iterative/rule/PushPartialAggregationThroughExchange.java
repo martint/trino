@@ -167,7 +167,7 @@ public class PushPartialAggregationThroughExchange
 
             for (Symbol output : aggregation.getOutputSymbols()) {
                 Symbol input = symbolMapper.map(output);
-                assignments.put(output, input.toIrSymbolReference());
+                assignments.put(output, input.toSymbolReference());
             }
             partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
         }
@@ -227,7 +227,7 @@ public class PushPartialAggregationThroughExchange
                     new AggregationNode.Aggregation(
                             resolvedFunction,
                             ImmutableList.<Expression>builder()
-                                    .add(intermediateSymbol.toIrSymbolReference())
+                                    .add(intermediateSymbol.toSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()
                                             .filter(LambdaExpression.class::isInstance)
                                             .collect(toImmutableList()))

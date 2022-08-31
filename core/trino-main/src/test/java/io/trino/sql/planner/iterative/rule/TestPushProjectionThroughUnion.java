@@ -59,7 +59,7 @@ public class TestPushProjectionThroughUnion
                     Symbol unioned = p.symbol("unioned");
                     Symbol renamed = p.symbol("renamed");
                     return p.project(
-                            Assignments.of(renamed, unioned.toIrSymbolReference()),
+                            Assignments.of(renamed, unioned.toSymbolReference()),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(unioned, left)
@@ -87,7 +87,7 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, c.toIrSymbolReference(), new LongLiteral("3")),
+                                    cTimes3, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY, c.toSymbolReference(), new LongLiteral("3")),
                                     dX, PlanBuilder.expression("d.x")),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()

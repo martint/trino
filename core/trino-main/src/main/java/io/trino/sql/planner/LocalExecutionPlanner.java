@@ -2490,7 +2490,7 @@ public class LocalExecutionPlanner
 
         private Set<SymbolReference> getSymbolReferences(Collection<Symbol> symbols)
         {
-            return symbols.stream().map(Symbol::toIrSymbolReference).collect(toImmutableSet());
+            return symbols.stream().map(Symbol::toSymbolReference).collect(toImmutableSet());
         }
 
         private PhysicalOperation createNestedLoopJoin(JoinNode node, Set<DynamicFilterId> localDynamicFilters, LocalExecutionPlanContext context)

@@ -147,7 +147,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr_2", VARCHAR),
-                                    orderStatusSymbol.toIrSymbolReference()),
+                                    orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
                                             TEST_CATALOG_HANDLE,
@@ -184,7 +184,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr_2", VARCHAR),
-                                    orderStatusSymbol.toIrSymbolReference()),
+                                    orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
                                     inputTableHandle,
                                     ImmutableList.of(orderStatusSymbol),
@@ -214,7 +214,7 @@ public class TestThriftProjectionPushdown
                     return p.project(
                             Assignments.of(
                                     p.symbol("expr", VARCHAR),
-                                    nationKey.toIrSymbolReference()),
+                                    nationKey.toSymbolReference()),
                             p.tableScan(
                                     NATION_TABLE,
                                     ImmutableList.of(nationKey, name),

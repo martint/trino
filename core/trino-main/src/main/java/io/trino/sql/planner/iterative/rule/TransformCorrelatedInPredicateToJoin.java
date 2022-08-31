@@ -188,9 +188,9 @@ public class TransformCorrelatedInPredicateToJoin
 
         Expression joinExpression = and(
                 or(
-                        new IsNullPredicate(probeSideSymbol.toIrSymbolReference()),
-                        new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, probeSideSymbol.toIrSymbolReference(), buildSideSymbol.toIrSymbolReference()),
-                        new IsNullPredicate(buildSideSymbol.toIrSymbolReference())),
+                        new IsNullPredicate(probeSideSymbol.toSymbolReference()),
+                        new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, probeSideSymbol.toSymbolReference(), buildSideSymbol.toSymbolReference()),
+                        new IsNullPredicate(buildSideSymbol.toSymbolReference())),
                 correlationCondition);
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
@@ -276,7 +276,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new ComparisonExpression(
                 io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
-                symbol.toIrSymbolReference(),
+                symbol.toSymbolReference(),
                 bigint(value));
     }
 
@@ -287,7 +287,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static Expression isNotNull(Symbol symbol)
     {
-        return new IsNotNullPredicate(symbol.toIrSymbolReference());
+        return new IsNotNullPredicate(symbol.toSymbolReference());
     }
 
     private static Expression bigint(long value)

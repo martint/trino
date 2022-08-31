@@ -51,8 +51,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             INNER,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toIrSymbolReference(),
-                                    a.toIrSymbolReference()),
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -77,8 +77,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             LEFT,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toIrSymbolReference(),
-                                    a.toIrSymbolReference()),
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -122,8 +122,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             RIGHT,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toIrSymbolReference(),
-                                    a.toIrSymbolReference()),
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
                             p.values(b));
                 })
                 .matches(
@@ -171,8 +171,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             FULL,
                             new ComparisonExpression(
                                     GREATER_THAN,
-                                    b.toIrSymbolReference(),
-                                    a.toIrSymbolReference()),
+                                    b.toSymbolReference(),
+                                    a.toSymbolReference()),
                             p.values(b));
                 })
                 .doesNotFire();

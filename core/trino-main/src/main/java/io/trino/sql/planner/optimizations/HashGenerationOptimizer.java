@@ -641,7 +641,7 @@ public class HashGenerationOptimizer
                     hashExpression = hashComputation.getHashExpression(session, metadata, types);
                 }
                 else {
-                    hashExpression = hashSymbol.toIrSymbolReference();
+                    hashExpression = hashSymbol.toSymbolReference();
                 }
                 newAssignments.put(hashSymbol, hashExpression);
                 for (HashComputation sourceHashComputation : sourceContext.lookup(hashComputation)) {
@@ -744,7 +744,7 @@ public class HashGenerationOptimizer
             for (Symbol symbol : planWithProperties.getNode().getOutputSymbols()) {
                 HashComputation partitionSymbols = resultHashSymbols.get(symbol);
                 if (partitionSymbols == null || requiredHashes.getHashes().contains(partitionSymbols)) {
-                    assignments.put(symbol, symbol.toIrSymbolReference());
+                    assignments.put(symbol, symbol.toSymbolReference());
 
                     if (partitionSymbols != null) {
                         outputHashSymbols.put(partitionSymbols, symbol);
@@ -933,7 +933,7 @@ public class HashGenerationOptimizer
         {
             FunctionCall functionCall = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of(HASH_CODE))
-                    .addArgument(types.get(symbol), symbol.toIrSymbolReference())
+                    .addArgument(types.get(symbol), symbol.toSymbolReference())
                     .build();
 
             return FunctionCallBuilder.resolve(session, metadata)

@@ -174,7 +174,7 @@ public class TestConnectorPushdownRulesWithHive
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toIrSymbolReference()),
+                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -191,7 +191,7 @@ public class TestConnectorPushdownRulesWithHive
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
-                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toIrSymbolReference()),
+                                Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
                                 p.tableScan(
                                         new TableHandle(
                                                 TEST_CATALOG_HANDLE,
@@ -206,7 +206,7 @@ public class TestConnectorPushdownRulesWithHive
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(p.symbol("struct_of_int", baseType).toIrSymbolReference(), new LongLiteral("1"))),
+                                        p.symbol("expr_deref", BIGINT), new SubscriptExpression(p.symbol("struct_of_int", baseType).toSymbolReference(), new LongLiteral("1"))),
                                 p.tableScan(
                                         table,
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
@@ -272,7 +272,7 @@ public class TestConnectorPushdownRulesWithHive
                     Symbol symbolA = p.symbol("a", INTEGER);
                     Symbol symbolB = p.symbol("b", INTEGER);
                     return p.project(
-                            Assignments.of(p.symbol("x"), symbolA.toIrSymbolReference()),
+                            Assignments.of(p.symbol("x"), symbolA.toSymbolReference()),
                             p.tableScan(
                                     table,
                                     ImmutableList.of(symbolA, symbolB),
@@ -324,7 +324,7 @@ public class TestConnectorPushdownRulesWithHive
         // Test projection pushdown with duplicate column references
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SymbolReference column = p.symbol("just_bigint", BIGINT).toIrSymbolReference();
+                    SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
                     Expression negation = new ArithmeticUnaryExpression(MINUS, column);
                     return p.project(
                             Assignments.of(
@@ -348,7 +348,7 @@ public class TestConnectorPushdownRulesWithHive
         // Test Dereference pushdown
         tester().assertThat(pushProjectionIntoTableScan)
                 .on(p -> {
-                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toIrSymbolReference(), new LongLiteral("1"));
+                    SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new LongLiteral("1"));
                     Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new LongLiteral("2"));
                     return p.project(
                             Assignments.of(

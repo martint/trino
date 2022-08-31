@@ -53,7 +53,7 @@ public class OutputMatcher
             boolean found = false;
             while (i < node.getOutputSymbols().size()) {
                 Symbol outputSymbol = node.getOutputSymbols().get(i++);
-                if (expression.equals(outputSymbol.toIrSymbolReference())) {
+                if (expression.equals(outputSymbol.toSymbolReference())) {
                     found = true;
                     break;
                 }

@@ -139,7 +139,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
-            List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toIrSymbolReference());
+            List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
 
             subqueryPlan = singleAggregation(
                     idAllocator.getNextId(),
@@ -206,7 +206,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
             return new SimpleCaseExpression(
-                    countAllValue.toIrSymbolReference(),
+                    countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
                             new GenericLiteral("bigint", "0"),
                             emptySetResult)),
@@ -215,7 +215,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                             new SearchedCaseExpression(
                                     ImmutableList.of(
                                             new WhenClause(
-                                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toIrSymbolReference(), countNonNullValue.toIrSymbolReference()),
+                                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
                                                     new Cast(new NullLiteral(), toSqlType(BOOLEAN)))),
                                     Optional.of(emptySetResult))))));
         }
@@ -226,8 +226,8 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
                         metadata,
-                        new ComparisonExpression(EQUAL, minValue.toIrSymbolReference(), maxValue.toIrSymbolReference()),
-                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toIrSymbolReference()));
+                        new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
+                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
             }
 
             if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getOperator())) {
@@ -236,7 +236,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                 // A < ANY B <=> A < max B
                 // A > ANY B <=> A > min B
                 Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
-                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toIrSymbolReference());
+                return new ComparisonExpression(quantifiedComparison.getOperator(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
             }
             throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
         }

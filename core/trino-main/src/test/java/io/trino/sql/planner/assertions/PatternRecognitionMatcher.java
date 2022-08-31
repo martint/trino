@@ -149,7 +149,7 @@ public class PatternRecognitionMatcher
             if (!ExpressionAndValuePointersEquivalence.equivalent(
                     actual,
                     expected,
-                    (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toIrSymbolReference(), expectedSymbol.toIrSymbolReference()))) {
+                    (actualSymbol, expectedSymbol) -> verifier.process(actualSymbol.toSymbolReference(), expectedSymbol.toSymbolReference()))) {
                 return NO_MATCH;
             }
         }

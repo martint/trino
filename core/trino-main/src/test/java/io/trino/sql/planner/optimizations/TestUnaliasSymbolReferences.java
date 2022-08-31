@@ -91,7 +91,7 @@ public class TestUnaliasSymbolReferences
                                                             probeColumn1, new TpchColumnHandle("nationkey", BIGINT),
                                                             probeColumn2, new TpchColumnHandle("suppkey", BIGINT))))),
                             p.project(
-                                    Assignments.of(buildAlias1, buildColumnSymbol.toIrSymbolReference(), buildAlias2, buildColumnSymbol.toIrSymbolReference()),
+                                    Assignments.of(buildAlias1, buildColumnSymbol.toSymbolReference(), buildAlias2, buildColumnSymbol.toSymbolReference()),
                                     p.tableScan(tableHandle(buildTable), ImmutableList.of(buildColumnSymbol), ImmutableMap.of(buildColumnSymbol, column))),
                             ImmutableList.of(),
                             ImmutableList.of(),
@@ -143,7 +143,7 @@ public class TestUnaliasSymbolReferences
 
     private Expression dynamicFilterExpression(Metadata metadata, Session session, Symbol symbol, DynamicFilterId id)
     {
-        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toIrSymbolReference());
+        return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
     private static TableHandle tableHandle(String tableName)

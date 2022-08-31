@@ -190,7 +190,7 @@ public final class ConnectorExpressionTranslator
         {
             if (expression instanceof Variable) {
                 String name = ((Variable) expression).getName();
-                return Optional.of(variableMappings.get(name).toIrSymbolReference());
+                return Optional.of(variableMappings.get(name).toSymbolReference());
             }
 
             if (expression instanceof Constant) {

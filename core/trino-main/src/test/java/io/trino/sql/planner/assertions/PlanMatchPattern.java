@@ -1110,7 +1110,7 @@ public final class PlanMatchPattern
     {
         return aliases
                 .stream()
-                .map(arg -> arg.toSymbol(symbolAliases).toIrSymbolReference())
+                .map(arg -> arg.toSymbol(symbolAliases).toSymbolReference())
                 .collect(toImmutableList());
     }
 
@@ -1254,12 +1254,12 @@ public final class PlanMatchPattern
                         new ComparisonExpression(
                                 IS_DISTINCT_FROM,
                                 probeMapped,
-                                build.toSymbol(aliases).toIrSymbolReference()));
+                                build.toSymbol(aliases).toSymbolReference()));
             }
             return new ComparisonExpression(
                     operator,
                     probeMapped,
-                    build.toSymbol(aliases).toIrSymbolReference());
+                    build.toSymbol(aliases).toSymbolReference());
         }
 
         private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)

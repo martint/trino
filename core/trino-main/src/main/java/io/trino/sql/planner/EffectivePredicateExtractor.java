@@ -87,11 +87,11 @@ import static java.util.Objects.requireNonNull;
 public class EffectivePredicateExtractor
 {
     private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
-            entry -> entry.getValue().equals(entry.getKey().toIrSymbolReference());
+            entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
 
     private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
             entry -> {
-                SymbolReference reference = entry.getKey().toIrSymbolReference();
+                SymbolReference reference = entry.getKey().toSymbolReference();
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
@@ -180,7 +180,7 @@ public class EffectivePredicateExtractor
                 for (int i = 0; i < node.getInputs().get(source).size(); i++) {
                     mappings.put(
                             node.getOutputSymbols().get(i),
-                            node.getInputs().get(source).get(i).toIrSymbolReference());
+                            node.getInputs().get(source).get(i).toSymbolReference());
                 }
                 return mappings.entrySet();
             });

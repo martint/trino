@@ -102,7 +102,7 @@ public class TestPushTopNThroughProject
                     return p.topN(1,
                             ImmutableList.of(a),
                             p.project(
-                                    Assignments.of(a, a.toIrSymbolReference()),
+                                    Assignments.of(a, a.toSymbolReference()),
                                     p.values(a)));
                 }).doesNotFire();
     }
@@ -153,8 +153,8 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(p.symbol("c")),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")))
-                                            .put(p.symbol("c"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("2")))
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
+                                            .put(p.symbol("c"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("2")))
                                             .build(),
                                     p.values(a)));
                 }).doesNotFire();
@@ -172,9 +172,9 @@ public class TestPushTopNThroughProject
                             ImmutableList.of(d),
                             p.project(
                                     Assignments.builder()
-                                            .put(p.symbol("b"), new SubscriptExpression(a.toIrSymbolReference(), new LongLiteral("1")))
-                                            .put(p.symbol("c", rowType), a.toIrSymbolReference())
-                                            .put(d, d.toIrSymbolReference())
+                                            .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
+                                            .put(p.symbol("c", rowType), a.toSymbolReference())
+                                            .put(d, d.toSymbolReference())
                                             .build(),
                                     p.values(a, d)));
                 })

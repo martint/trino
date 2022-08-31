@@ -85,7 +85,7 @@ public class StatisticAggregations
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
                             resolvedFunction,
-                            ImmutableList.of(partialSymbol.toIrSymbolReference()),
+                            ImmutableList.of(partialSymbol.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),

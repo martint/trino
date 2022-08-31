@@ -309,7 +309,7 @@ class RelationPlanner
 
                 Map<Symbol, io.trino.sql.ir.Expression> assignments = new LinkedHashMap<>();
                 for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
-                    assignments.put(symbol, symbol.toIrSymbolReference());
+                    assignments.put(symbol, symbol.toSymbolReference());
                 }
                 assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
 
@@ -665,8 +665,8 @@ class RelationPlanner
                 else {
                     postInnerJoinConditions.add(
                             new io.trino.sql.ir.ComparisonExpression(joinConditionComparisonOperators.get(i),
-                                    leftCoercions.get(leftComparisonExpressions.get(i)).toIrSymbolReference(),
-                                    rightCoercions.get(rightComparisonExpressions.get(i)).toIrSymbolReference()));
+                                    leftCoercions.get(leftComparisonExpressions.get(i)).toSymbolReference(),
+                                    rightCoercions.get(rightComparisonExpressions.get(i)).toSymbolReference()));
                 }
             }
         }
@@ -799,7 +799,7 @@ class RelationPlanner
             Symbol leftOutput = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(identifier), type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
             leftCoercions.put(leftOutput, new io.trino.sql.ir.Cast(
-                    left.getSymbol(leftField).toIrSymbolReference(),
+                    left.getSymbol(leftField).toSymbolReference(),
                     toSqlType(type),
                     false,
                     typeCoercion.isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type)));
@@ -809,7 +809,7 @@ class RelationPlanner
             Symbol rightOutput = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(identifier), type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
             rightCoercions.put(rightOutput, new io.trino.sql.ir.Cast(
-                    right.getSymbol(rightField).toIrSymbolReference(),
+                    right.getSymbol(rightField).toSymbolReference(),
                     toSqlType(type),
                     false,
                     typeCoercion.isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type)));
@@ -847,20 +847,20 @@ class RelationPlanner
             Symbol output = symbolAllocator.newSymbol(TranslationMap.copyAstExpressionToIrExpression(column), analysis.getType(column));
             outputs.add(output);
             assignments.put(output, new io.trino.sql.ir.CoalesceExpression(
-                    leftJoinColumns.get(column).toIrSymbolReference(),
-                    rightJoinColumns.get(column).toIrSymbolReference()));
+                    leftJoinColumns.get(column).toSymbolReference(),
+                    rightJoinColumns.get(column).toSymbolReference()));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {
             Symbol symbol = left.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toIrSymbolReference());
+            assignments.put(symbol, symbol.toSymbolReference());
         }
 
         for (int field : joinAnalysis.getOtherRightFields()) {
             Symbol symbol = right.getFieldMappings().get(field);
             outputs.add(symbol);
-            assignments.put(symbol, symbol.toIrSymbolReference());
+            assignments.put(symbol, symbol.toSymbolReference());
         }
 
         return new RelationPlan(

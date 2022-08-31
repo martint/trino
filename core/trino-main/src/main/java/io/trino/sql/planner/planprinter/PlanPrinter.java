@@ -576,8 +576,8 @@ public class PlanPrinter
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
-                        clause.getProbe().toIrSymbolReference(),
-                        clause.getIndex().toIrSymbolReference()));
+                        clause.getProbe().toSymbolReference(),
+                        clause.getIndex().toSymbolReference()));
             }
 
             addNode(node,

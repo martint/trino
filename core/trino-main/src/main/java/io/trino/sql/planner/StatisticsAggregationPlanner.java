@@ -112,22 +112,22 @@ public class StatisticsAggregationPlanner
     {
         switch (statisticType) {
             case MIN_VALUE:
-                return createAggregation(QualifiedName.of("min"), input.toIrSymbolReference(), inputType, inputType);
+                return createAggregation(QualifiedName.of("min"), input.toSymbolReference(), inputType, inputType);
             case MAX_VALUE:
-                return createAggregation(QualifiedName.of("max"), input.toIrSymbolReference(), inputType, inputType);
+                return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
             case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation(QualifiedName.of("approx_distinct"), input.toIrSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_DISTINCT_VALUES_SUMMARY:
                 // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                return createAggregation(QualifiedName.of("$approx_set"), input.toIrSymbolReference(), inputType, HYPER_LOG_LOG);
+                return createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
             case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation(QualifiedName.of("count"), input.toIrSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
-                return createAggregation(QualifiedName.of("count_if"), input.toIrSymbolReference(), BOOLEAN, BIGINT);
+                return createAggregation(QualifiedName.of("count_if"), input.toSymbolReference(), BOOLEAN, BIGINT);
             case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toIrSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of(SumDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
             case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toIrSymbolReference(), inputType, BIGINT);
+                return createAggregation(QualifiedName.of(MaxDataSizeForStats.NAME), input.toSymbolReference(), inputType, BIGINT);
         }
         throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
     }

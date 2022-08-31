@@ -280,7 +280,7 @@ public class ApplyTableScanRedirection
         }
 
         return new Cast(
-                destinationSymbol.toIrSymbolReference(),
+                destinationSymbol.toSymbolReference(),
                 toSqlType(sourceType),
                 false,
                 typeCoercion.isTypeOnlyCoercion(destinationType, sourceType));

@@ -41,7 +41,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol2 = p.symbol("subquery_symbol_2");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), subquerySymbol1.toIrSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -68,8 +68,8 @@ public class TestPruneApplySourceColumns
                     Symbol inResult2 = p.symbol("in_result_2");
                     return p.apply(
                             Assignments.of(
-                                    inResult1, new InPredicate(a.toIrSymbolReference(), subquerySymbol1.toIrSymbolReference()),
-                                    inResult2, new InPredicate(a.toIrSymbolReference(), subquerySymbol2.toIrSymbolReference())),
+                                    inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference()),
+                                    inResult2, new InPredicate(a.toSymbolReference(), subquerySymbol2.toSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol1, subquerySymbol2));
@@ -86,7 +86,7 @@ public class TestPruneApplySourceColumns
                     Symbol subquerySymbol = p.symbol("subquery_symbol");
                     Symbol inResult = p.symbol("in_result");
                     return p.apply(
-                            Assignments.of(inResult, new InPredicate(a.toIrSymbolReference(), a.toIrSymbolReference())),
+                            Assignments.of(inResult, new InPredicate(a.toSymbolReference(), a.toSymbolReference())),
                             ImmutableList.of(),
                             p.values(a),
                             p.values(subquerySymbol));

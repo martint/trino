@@ -390,7 +390,7 @@ public class JoinNode
 
         public ComparisonExpression toExpression()
         {
-            return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, left.toIrSymbolReference(), right.toIrSymbolReference());
+            return new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()

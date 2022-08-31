@@ -97,9 +97,9 @@ public class AggregateArgumentsRewriter
                 String functionName = name.getSuffix().toUpperCase(ENGLISH);
                 switch (functionName) {
                     case "CLASSIFIER":
-                        return classifierSymbol.toIrSymbolReference();
+                        return classifierSymbol.toSymbolReference();
                     case "MATCH_NUMBER":
-                        return matchNumberSymbol.toIrSymbolReference();
+                        return matchNumberSymbol.toSymbolReference();
                 }
                 throw new UnsupportedOperationException("unexpected pattern recognition function: " + node.getName());
             }

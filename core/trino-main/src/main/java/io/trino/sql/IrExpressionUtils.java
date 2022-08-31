@@ -42,10 +42,10 @@ import io.trino.sql.iranalyzer.Scope;
 import io.trino.sql.planner.IrDeterminismEvaluator;
 import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.IrNoOpSymbolResolver;
+import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.IrSymbolsExtractor;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.LogicalExpression.Operator;
 
@@ -266,7 +266,7 @@ public final class IrExpressionUtils
 
                 ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
                 for (Symbol symbol : symbols) {
-                    nullConjuncts.add(new IsNullPredicate(symbol.toIrSymbolReference()));
+                    nullConjuncts.add(new IsNullPredicate(symbol.toSymbolReference()));
                 }
 
                 resultDisjunct.add(and(nullConjuncts.build()));

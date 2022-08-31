@@ -217,8 +217,8 @@ class SubqueryPlanner
                         valuePlan.getSubPlan().getRoot(),
                         subqueryPlan.getSubPlan().getRoot(),
                         Assignments.of(output, new io.trino.sql.ir.InPredicate(
-                                valuePlan.get(value).toIrSymbolReference(),
-                                subqueryPlan.get(subquery).toIrSymbolReference())),
+                                valuePlan.get(value).toSymbolReference(),
+                                subqueryPlan.get(subquery).toSymbolReference())),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         originalExpression));
     }
@@ -249,7 +249,7 @@ class SubqueryPlanner
             for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
                 Field field = descriptor.getFieldByIndex(i);
                 if (!field.isHidden()) {
-                    fields.add(fieldMappings.get(i).toIrSymbolReference());
+                    fields.add(fieldMappings.get(i).toSymbolReference());
                 }
             }
 
@@ -398,7 +398,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putIdentities(subPlan.getRoot().getOutputSymbols())
-                                .put(output, new io.trino.sql.ir.NotExpression(input.toIrSymbolReference()))
+                                .put(output, new io.trino.sql.ir.NotExpression(input.toSymbolReference()))
                                 .build()));
     }
 
@@ -423,8 +423,8 @@ class SubqueryPlanner
                         Assignments.of(assignment, new io.trino.sql.ir.QuantifiedComparisonExpression(
                                 operator,
                                 quantifier,
-                                valuePlan.get(value).toIrSymbolReference(),
-                                subqueryPlan.get(subquery).toIrSymbolReference())),
+                                valuePlan.get(value).toSymbolReference(),
+                                subqueryPlan.get(subquery).toSymbolReference())),
                         valuePlan.getSubPlan().getRoot().getOutputSymbols(),
                         subquery));
     }
@@ -441,7 +441,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(wrapped, new io.trino.sql.ir.Row(ImmutableList.of(column.toIrSymbolReference())))
+                    .put(wrapped, new io.trino.sql.ir.Row(ImmutableList.of(column.toSymbolReference())))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
@@ -472,7 +472,7 @@ class SubqueryPlanner
         for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
             Field field = descriptor.getFieldByIndex(i);
             if (!field.isHidden()) {
-                fields.add(relationPlan.getFieldMappings().get(i).toIrSymbolReference());
+                fields.add(relationPlan.getFieldMappings().get(i).toSymbolReference());
             }
         }
 
@@ -495,7 +495,7 @@ class SubqueryPlanner
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
                     .put(coerced, new io.trino.sql.ir.Cast(
-                            symbol.toIrSymbolReference(),
+                            symbol.toSymbolReference(),
                             toSqlType(coercion.get()),
                             false,
                             typeCoercion.isTypeOnlyCoercion(type, coercion.get())))

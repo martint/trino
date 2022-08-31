@@ -105,8 +105,8 @@ public class TestTypeValidator
     @Test
     public void testValidProject()
     {
-        Expression expression1 = new Cast(columnB.toIrSymbolReference(), toSqlType(BIGINT));
-        Expression expression2 = new Cast(columnC.toIrSymbolReference(), toSqlType(BIGINT));
+        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
+        Expression expression2 = new Cast(columnC.toSymbolReference(), toSqlType(BIGINT));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1)
                 .put(symbolAllocator.newSymbol(expression2, BIGINT), expression2)
@@ -152,7 +152,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toIrSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
@@ -178,7 +178,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
-                        ImmutableList.of(columnC.toIrSymbolReference()),
+                        ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
@@ -191,10 +191,10 @@ public class TestTypeValidator
     @Test
     public void testValidTypeOnlyCoercion()
     {
-        Expression expression = new Cast(columnB.toIrSymbolReference(), toSqlType(BIGINT));
+        Expression expression = new Cast(columnB.toSymbolReference(), toSqlType(BIGINT));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression, BIGINT), expression)
-                .put(symbolAllocator.newSymbol(columnE.toIrSymbolReference(), VARCHAR), columnE.toIrSymbolReference()) // implicit coercion from varchar(3) to varchar
+                .put(symbolAllocator.newSymbol(columnE.toSymbolReference(), VARCHAR), columnE.toSymbolReference()) // implicit coercion from varchar(3) to varchar
                 .build();
         PlanNode node = new ProjectNode(newId(), baseTableScan, assignments);
 
@@ -204,8 +204,8 @@ public class TestTypeValidator
     @Test
     public void testInvalidProject()
     {
-        Expression expression1 = new Cast(columnB.toIrSymbolReference(), toSqlType(INTEGER));
-        Expression expression2 = new Cast(columnA.toIrSymbolReference(), toSqlType(INTEGER));
+        Expression expression1 = new Cast(columnB.toSymbolReference(), toSqlType(INTEGER));
+        Expression expression2 = new Cast(columnA.toSymbolReference(), toSqlType(INTEGER));
         Assignments assignments = Assignments.builder()
                 .put(symbolAllocator.newSymbol(expression1, BIGINT), expression1) // should be INTEGER
                 .put(symbolAllocator.newSymbol(expression1, INTEGER), expression2)
@@ -230,7 +230,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
-                        ImmutableList.of(columnA.toIrSymbolReference()),
+                        ImmutableList.of(columnA.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
@@ -252,7 +252,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         functionResolution.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)),
-                        ImmutableList.of(columnC.toIrSymbolReference()),
+                        ImmutableList.of(columnC.toSymbolReference()),
                         false,
                         Optional.empty(),
                         Optional.empty(),
@@ -279,7 +279,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toIrSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
@@ -312,7 +312,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toIrSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 

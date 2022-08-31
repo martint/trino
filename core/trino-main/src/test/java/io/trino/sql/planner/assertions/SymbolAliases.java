@@ -87,9 +87,9 @@ public final class SymbolAliases
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
-                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toIrSymbolReference());
+                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
                 }
-                else if (assignment.getKey().toIrSymbolReference().equals(existingAlias.getValue())) {
+                else if (assignment.getKey().toSymbolReference().equals(existingAlias.getValue())) {
                     /*
                      * Special case for nodes that can alias symbols in the node's assignment map.
                      * In this case, we've already added the alias in the map, but we won't include it

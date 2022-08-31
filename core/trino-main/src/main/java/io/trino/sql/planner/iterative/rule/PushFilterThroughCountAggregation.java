@@ -201,7 +201,7 @@ public class PushFilterThroughCountAggregation
         FilterNode source = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 aggregationNode.getSource(),
-                aggregation.getMask().get().toIrSymbolReference());
+                aggregation.getMask().get().toSymbolReference());
 
         // Remove mask from the aggregation.
         Aggregation newAggregation = new Aggregation(

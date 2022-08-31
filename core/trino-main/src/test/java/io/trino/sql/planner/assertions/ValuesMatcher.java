@@ -74,7 +74,7 @@ public class ValuesMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.getOutputSymbols().get(index).toIrSymbolReference()))
+                .putAll(Maps.transformValues(outputSymbolAliases, index -> valuesNode.getOutputSymbols().get(index).toSymbolReference()))
                 .build());
     }
 

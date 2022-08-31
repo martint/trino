@@ -146,7 +146,7 @@ public class TestIrExpressionInterpreter
                 return Int128.valueOf("12345678901234567890123");
         }
 
-        return symbol.toIrSymbolReference();
+        return symbol.toSymbolReference();
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();

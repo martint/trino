@@ -99,17 +99,17 @@ public class ImplementExceptAll
         checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
         ResolvedFunction greatest = metadata.resolveFunction(context.getSession(), QualifiedName.of("greatest"), fromTypes(BIGINT, BIGINT));
 
-        Expression count = result.getCountSymbols().get(0).toIrSymbolReference();
+        Expression count = result.getCountSymbols().get(0).toSymbolReference();
         for (int i = 1; i < result.getCountSymbols().size(); i++) {
             count = new FunctionCall(
                     greatest.toQualifiedName(),
                     ImmutableList.of(
-                            new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toIrSymbolReference()),
+                            new ArithmeticBinaryExpression(SUBTRACT, count, result.getCountSymbols().get(i).toSymbolReference()),
                             new GenericLiteral("BIGINT", "0")));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toIrSymbolReference(), count);
+        Expression removeExtraRows = new ComparisonExpression(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 result.getPlanNode(),

@@ -162,7 +162,7 @@ public class OptimizeMixedDistinctAggregations
                 if (aggregation.getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
                             aggregation.getResolvedFunction(),
-                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toIrSymbolReference()),
+                            ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
@@ -174,7 +174,7 @@ public class OptimizeMixedDistinctAggregations
                     QualifiedName functionName = QualifiedName.of("arbitrary");
                     Aggregation newAggregation = new Aggregation(
                             metadata.resolveFunction(session, functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
-                            ImmutableList.of(argument.toIrSymbolReference()),
+                            ImmutableList.of(argument.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
@@ -209,7 +209,7 @@ public class OptimizeMixedDistinctAggregations
             Assignments.Builder outputSymbols = Assignments.builder();
             for (Symbol symbol : aggregationNode.getOutputSymbols()) {
                 if (coalesceSymbols.containsKey(symbol)) {
-                    Expression expression = new CoalesceExpression(symbol.toIrSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
+                    Expression expression = new CoalesceExpression(symbol.toSymbolReference(), new Cast(new LongLiteral("0"), toSqlType(BIGINT)));
                     outputSymbols.put(coalesceSymbols.get(symbol), expression);
                 }
                 else {
@@ -331,10 +331,10 @@ public class OptimizeMixedDistinctAggregations
                     aggregateInfo.setNewDistinctAggregateSymbol(newSymbol);
 
                     Expression expression = createIfExpression(
-                            groupSymbol.toIrSymbolReference(),
+                            groupSymbol.toSymbolReference(),
                             new Cast(new LongLiteral("1"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
-                            symbol.toIrSymbolReference(),
+                            symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
                 }
@@ -343,17 +343,17 @@ public class OptimizeMixedDistinctAggregations
                     // key of outputNonDistinctAggregateSymbols is key of an aggregation in AggrNode above, it will now aggregate on this Map's value
                     outputNonDistinctAggregateSymbols.put(aggregationOutputSymbolsMap.get(symbol), newSymbol);
                     Expression expression = createIfExpression(
-                            groupSymbol.toIrSymbolReference(),
+                            groupSymbol.toSymbolReference(),
                             new Cast(new LongLiteral("0"), toSqlType(BIGINT)), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
                             io.trino.sql.tree.ComparisonExpression.Operator.EQUAL,
-                            symbol.toIrSymbolReference(),
+                            symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
                 }
 
                 // A symbol can appear both in groupBy and distinct/non-distinct aggregation
                 if (groupBySymbols.contains(symbol)) {
-                    Expression expression = symbol.toIrSymbolReference();
+                    Expression expression = symbol.toSymbolReference();
                     outputSymbols.put(symbol, expression);
                 }
             }
@@ -426,16 +426,16 @@ public class OptimizeMixedDistinctAggregations
             for (Map.Entry<Symbol, Aggregation> entry : aggregateInfo.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 if (aggregation.getMask().isEmpty()) {
-                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toIrSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
+                    Symbol newSymbol = symbolAllocator.newSymbol(entry.getKey().toSymbolReference(), symbolAllocator.getTypes().get(entry.getKey()));
                     aggregationOutputSymbolsMapBuilder.put(newSymbol, entry.getKey());
                     if (!duplicatedDistinctSymbol.equals(distinctSymbol)) {
                         // Handling for cases when mask symbol appears in non distinct aggregations too
                         // Now the aggregation should happen over the duplicate symbol added before
-                        if (aggregation.getArguments().contains(distinctSymbol.toIrSymbolReference())) {
+                        if (aggregation.getArguments().contains(distinctSymbol.toSymbolReference())) {
                             ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
                             for (Expression argument : aggregation.getArguments()) {
-                                if (distinctSymbol.toIrSymbolReference().equals(argument)) {
-                                    arguments.add(duplicatedDistinctSymbol.toIrSymbolReference());
+                                if (distinctSymbol.toSymbolReference().equals(argument)) {
+                                    arguments.add(duplicatedDistinctSymbol.toSymbolReference());
                                 }
                                 else {
                                     arguments.add(argument);
