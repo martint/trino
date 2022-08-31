@@ -23,16 +23,16 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static SortItem.NullOrdering.UNDEFINED;
+import static SortItem.Ordering.ASCENDING;
+import static SortItem.Ordering.DESCENDING;
+import static Trim.Specification.BOTH;
+import static Trim.Specification.LEADING;
+import static Trim.Specification.TRAILING;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.negative;
 import static io.trino.sql.ir.ArithmeticUnaryExpression.positive;
 import static io.trino.sql.ir.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
-import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
-import static io.trino.sql.tree.Trim.Specification.BOTH;
-import static io.trino.sql.tree.Trim.Specification.LEADING;
-import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static org.testng.Assert.assertEquals;
 
 public class TestIrExpressionSerialization
@@ -110,8 +110,8 @@ public class TestIrExpressionSerialization
     public void testLiterals()
     {
         assertJsonRoundTrip(codec, new TimeLiteral("abc"));
-        assertJsonRoundTrip(codec, new IntervalLiteral("33", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.DAY, Optional.empty()));
-        assertJsonRoundTrip(codec, new IntervalLiteral("33", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.DAY, Optional.of(io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND)));
+        assertJsonRoundTrip(codec, new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.empty()));
+        assertJsonRoundTrip(codec, new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.of(IntervalLiteral.IntervalField.SECOND)));
         assertJsonRoundTrip(codec, CharLiteral.of("abc"));
     }
 
@@ -243,7 +243,7 @@ public class TestIrExpressionSerialization
     {
         assertJsonRoundTrip(codec,
                 new LogicalExpression(
-                        io.trino.sql.tree.LogicalExpression.Operator.AND,
+                        LogicalExpression.Operator.AND,
                         ImmutableList.of(
                                 new LongLiteral("1"),
                                 new LongLiteral("2"),
@@ -252,7 +252,7 @@ public class TestIrExpressionSerialization
 
         assertJsonRoundTrip(codec,
                 new LogicalExpression(
-                        io.trino.sql.tree.LogicalExpression.Operator.OR,
+                        LogicalExpression.Operator.OR,
                         ImmutableList.of(
                                 new LongLiteral("1"),
                                 new LongLiteral("2"),
@@ -261,22 +261,22 @@ public class TestIrExpressionSerialization
 
         assertJsonRoundTrip(codec,
                 new LogicalExpression(
-                        io.trino.sql.tree.LogicalExpression.Operator.OR,
+                        LogicalExpression.Operator.OR,
                         ImmutableList.of(
                                 new LogicalExpression(
-                                        io.trino.sql.tree.LogicalExpression.Operator.AND,
+                                        LogicalExpression.Operator.AND,
                                         ImmutableList.of(
                                                 new LongLiteral("1"),
                                                 new LongLiteral("2"),
                                                 new LongLiteral("3"))),
                                 new LogicalExpression(
-                                        io.trino.sql.tree.LogicalExpression.Operator.AND,
+                                        LogicalExpression.Operator.AND,
                                         ImmutableList.of(
                                                 new LongLiteral("4"),
                                                 new LongLiteral("5"),
                                                 new LongLiteral("6"))),
                                 new LogicalExpression(
-                                        io.trino.sql.tree.LogicalExpression.Operator.AND,
+                                        LogicalExpression.Operator.AND,
                                         ImmutableList.of(
                                                 new LongLiteral("7"),
                                                 new LongLiteral("8"),
@@ -302,25 +302,25 @@ public class TestIrExpressionSerialization
                 new NotExpression(new LongLiteral("1")),
                 new LongLiteral("2")));
 
-        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD,
+        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 new LongLiteral("-1"),
                 new LongLiteral("2")));
 
-        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT,
-                new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.SUBTRACT,
+        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE,
+        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
                         new LongLiteral("1"),
                         new LongLiteral("2")),
                 new LongLiteral("3")));
 
-        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD,
+        assertJsonRoundTrip(codec, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
                 new LongLiteral("1"),
-                new ArithmeticBinaryExpression(io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY,
+                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
                         new LongLiteral("2"),
                         new LongLiteral("3"))));
     }
@@ -328,13 +328,13 @@ public class TestIrExpressionSerialization
     @Test
     public void testInterval()
     {
-        assertJsonRoundTrip(codec, new IntervalLiteral("123", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.YEAR));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123-3", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.YEAR, Optional.of(io.trino.sql.tree.IntervalLiteral.IntervalField.MONTH)));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123 23:58:53.456", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.DAY, Optional.of(io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND)));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.DAY));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND));
-        assertJsonRoundTrip(codec, new IntervalLiteral("123", io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE, io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.YEAR));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123-3", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.YEAR, Optional.of(IntervalLiteral.IntervalField.MONTH)));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123 23:58:53.456", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.of(IntervalLiteral.IntervalField.SECOND)));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.HOUR));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.SECOND));
+        assertJsonRoundTrip(codec, new IntervalLiteral("123", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.MINUTE));
     }
 
     @Test
@@ -364,7 +364,7 @@ public class TestIrExpressionSerialization
     @Test
     public void testCurrentTimestamp()
     {
-        assertJsonRoundTrip(codec, new CurrentTime(io.trino.sql.tree.CurrentTime.Function.TIMESTAMP));
+        assertJsonRoundTrip(codec, new CurrentTime(CurrentTime.Function.TIMESTAMP));
     }
 
     @Test
@@ -413,10 +413,10 @@ public class TestIrExpressionSerialization
                 new SearchedCaseExpression(
                         ImmutableList.of(
                                 new WhenClause(
-                                        new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN, new Identifier("a"), new LongLiteral("3")),
+                                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, new Identifier("a"), new LongLiteral("3")),
                                         new LongLiteral("23")),
                                 new WhenClause(
-                                        new ComparisonExpression(io.trino.sql.tree.ComparisonExpression.Operator.EQUAL, new Identifier("b"), new Identifier("a")),
+                                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("b"), new Identifier("a")),
                                         new LongLiteral("33"))),
                         Optional.empty()));
     }
@@ -453,7 +453,7 @@ public class TestIrExpressionSerialization
                                 QualifiedName.of("SUM"),
                                 Optional.empty(),
                                 Optional.of(new ComparisonExpression(
-                                        io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN,
+                                        ComparisonExpression.Operator.GREATER_THAN,
                                         new Identifier("x"),
                                         new LongLiteral("4"))),
                                 Optional.empty(),
