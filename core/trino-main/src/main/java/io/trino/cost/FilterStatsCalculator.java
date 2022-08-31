@@ -387,7 +387,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            io.trino.sql.tree.ComparisonExpression.Operator operator = node.getOperator();
+            ComparisonExpression.Operator operator = node.getOperator();
             Expression left = node.getLeft();
             Expression right = node.getRight();
 
