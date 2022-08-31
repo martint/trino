@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Identifier;
-import io.trino.sql.iranalyzer.ExpressionTreeUtils;
+import io.trino.sql.ir.analyzer.ExpressionTreeUtils;
 import io.trino.sql.planner.ExpressionExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;

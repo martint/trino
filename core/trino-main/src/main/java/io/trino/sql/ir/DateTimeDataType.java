@@ -16,7 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.DateTimeDataType.Type;
+import io.trino.sql.ir.DateTimeDataType.Type;
 
 import javax.annotation.concurrent.Immutable;
 

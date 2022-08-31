@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.iranalyzer;
+package io.trino.sql.ir.analyzer;
 
 import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.DereferenceExpression;
@@ -23,7 +23,7 @@ import io.trino.sql.ir.NodeRef;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.analyzer.SemanticExceptions.semanticException;
 
 public final class ConstantExpressionVerifier
 {

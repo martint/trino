@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.iranalyzer;
+package io.trino.sql.ir.analyzer;
 
 import java.util.Objects;
 

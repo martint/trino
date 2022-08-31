@@ -69,7 +69,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;

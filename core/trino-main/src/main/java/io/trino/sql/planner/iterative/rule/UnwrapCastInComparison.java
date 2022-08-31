@@ -74,7 +74,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.sql.IrExpressionUtils.and;
 import static io.trino.sql.IrExpressionUtils.or;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;

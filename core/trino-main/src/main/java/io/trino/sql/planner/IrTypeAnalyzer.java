@@ -26,7 +26,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 
-import static io.trino.sql.iranalyzer.ExpressionAnalyzer.analyzeExpressions;
+import static io.trino.sql.ir.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static java.util.Objects.requireNonNull;
 
 /**

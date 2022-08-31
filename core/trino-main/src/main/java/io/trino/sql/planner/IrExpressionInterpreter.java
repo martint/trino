@@ -88,8 +88,9 @@ import io.trino.sql.ir.SubqueryExpression;
 import io.trino.sql.ir.SubscriptExpression;
 import io.trino.sql.ir.SymbolReference;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.iranalyzer.ExpressionAnalyzer;
-import io.trino.sql.iranalyzer.Scope;
+import io.trino.sql.ir.analyzer.IrCoercer;
+import io.trino.sql.ir.analyzer.ExpressionAnalyzer;
+import io.trino.sql.ir.analyzer.Scope;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.trino.sql.tree.ComparisonExpression.Operator;
@@ -138,11 +139,11 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.IrExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.ir.DereferenceExpression.isQualifiedAllFieldsReference;
-import static io.trino.sql.iranalyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
-import static io.trino.sql.iranalyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.ir.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
+import static io.trino.sql.ir.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static io.trino.sql.ir.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.IrDeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedIrFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeIrExpressionRewriter.canonicalizeExpression;
@@ -226,7 +227,7 @@ public class IrExpressionInterpreter
         verifyExpressionIsConstant(columnReferences, expression);
 
         // add coercions
-        Expression rewrite = io.trino.sql.iranalyzer.IrCoercer.addCoercions(expression, coercions, typeOnlyCoercions);
+        Expression rewrite = IrCoercer.addCoercions(expression, coercions, typeOnlyCoercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
         ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);

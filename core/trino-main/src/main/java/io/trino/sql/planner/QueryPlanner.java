@@ -48,6 +48,7 @@ import io.trino.sql.ir.GenericLiteral;
 import io.trino.sql.ir.IsNotNullPredicate;
 import io.trino.sql.ir.IsNullPredicate;
 import io.trino.sql.ir.LogicalExpression;
+import io.trino.sql.ir.analyzer.TypeSignatureTranslator;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -146,7 +147,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.ir.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
@@ -1915,7 +1916,7 @@ class QueryPlanner
 
         return new io.trino.sql.ir.Cast(
                 rewritten,
-                io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType(coercion),
+                TypeSignatureTranslator.toSqlType(coercion),
                 false,
                 analysis.isTypeOnlyCoercion(original));
     }

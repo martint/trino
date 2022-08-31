@@ -16,8 +16,8 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.ComparisonExpression.Operator;
-import io.trino.sql.tree.QuantifiedComparisonExpression.Quantifier;
+import io.trino.sql.ir.ComparisonExpression.Operator;
+import io.trino.sql.ir.QuantifiedComparisonExpression.Quantifier;
 
 import javax.annotation.concurrent.Immutable;
 

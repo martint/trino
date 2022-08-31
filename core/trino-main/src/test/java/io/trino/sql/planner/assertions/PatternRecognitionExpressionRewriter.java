@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.iranalyzer.ExpressionTreeUtils.extractExpressions;
+import static io.trino.sql.ir.analyzer.ExpressionTreeUtils.extractExpressions;
 
 public class PatternRecognitionExpressionRewriter
 {

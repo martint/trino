@@ -15,8 +15,8 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.sql.tree.IntervalLiteral.IntervalField;
-import io.trino.sql.tree.IntervalLiteral.Sign;
+import io.trino.sql.ir.IntervalLiteral.IntervalField;
+import io.trino.sql.ir.IntervalLiteral.Sign;
 
 import javax.annotation.concurrent.Immutable;
 

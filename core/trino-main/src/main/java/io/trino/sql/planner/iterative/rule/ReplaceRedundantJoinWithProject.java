@@ -28,7 +28,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.trino.sql.planner.plan.Patterns.join;
 

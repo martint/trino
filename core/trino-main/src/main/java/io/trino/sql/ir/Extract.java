@@ -16,7 +16,7 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Extract.Field;
+import io.trino.sql.ir.Extract.Field;
 
 import javax.annotation.concurrent.Immutable;
 

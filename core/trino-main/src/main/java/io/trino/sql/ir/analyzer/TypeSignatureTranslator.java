@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.iranalyzer;
+package io.trino.sql.ir.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
@@ -51,11 +51,9 @@ import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
-import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field;
+import static io.trino.sql.ir.analyzer.SemanticExceptions.semanticException;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static java.lang.String.format;
 
 public class TypeSignatureTranslator
 {
@@ -222,47 +220,47 @@ public class TypeSignatureTranslator
                 return new IntervalDayTimeDataType(Field.DAY, Field.SECOND);
             case StandardTypes.TIMESTAMP_WITH_TIME_ZONE: {
                 if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP, true, Optional.empty());
+                    return new DateTimeDataType(DateTimeDataType.Type.TIMESTAMP, true, Optional.empty());
                 }
 
                 Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
                         .map(TypeSignatureTranslator::toTypeParameter)
                         .findAny();
 
-                return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP, true, argument);
+                return new DateTimeDataType(DateTimeDataType.Type.TIMESTAMP, true, argument);
             }
             case StandardTypes.TIMESTAMP: {
                 if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
+                    return new DateTimeDataType(DateTimeDataType.Type.TIMESTAMP, false, Optional.empty());
                 }
 
                 Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
                         .map(TypeSignatureTranslator::toTypeParameter)
                         .findAny();
 
-                return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP, false, argument);
+                return new DateTimeDataType(DateTimeDataType.Type.TIMESTAMP, false, argument);
             }
             case StandardTypes.TIME_WITH_TIME_ZONE: {
                 if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIME, true, Optional.empty());
+                    return new DateTimeDataType(DateTimeDataType.Type.TIME, true, Optional.empty());
                 }
 
                 Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
                         .map(TypeSignatureTranslator::toTypeParameter)
                         .findAny();
 
-                return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIME, true, argument);
+                return new DateTimeDataType(DateTimeDataType.Type.TIME, true, argument);
             }
             case StandardTypes.TIME: {
                 if (typeSignature.getParameters().isEmpty()) {
-                    return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIME, false, Optional.empty());
+                    return new DateTimeDataType(DateTimeDataType.Type.TIME, false, Optional.empty());
                 }
 
                 Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
                         .map(TypeSignatureTranslator::toTypeParameter)
                         .findAny();
 
-                return new DateTimeDataType(io.trino.sql.tree.DateTimeDataType.Type.TIME, false, argument);
+                return new DateTimeDataType(DateTimeDataType.Type.TIME, false, argument);
             }
             case StandardTypes.ROW:
                 return new RowDataType(

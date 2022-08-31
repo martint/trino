@@ -14,7 +14,7 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.FrameBound.Type;
+import io.trino.sql.ir.FrameBound.Type;
 
 import java.util.List;
 import java.util.Objects;

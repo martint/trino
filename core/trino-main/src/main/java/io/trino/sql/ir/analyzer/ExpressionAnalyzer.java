@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.iranalyzer;
+package io.trino.sql.ir.analyzer;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -98,6 +98,7 @@ import io.trino.sql.ir.JsonArray;
 import io.trino.sql.ir.JsonArrayElement;
 import io.trino.sql.ir.JsonObject;
 import io.trino.sql.ir.JsonObjectMember;
+import io.trino.sql.ir.JsonPathParameter.JsonFormat;
 import io.trino.sql.ir.JsonQuery;
 import io.trino.sql.ir.LambdaArgumentDeclaration;
 import io.trino.sql.ir.LambdaExpression;
@@ -134,7 +135,6 @@ import io.trino.sql.ir.WindowOperation;
 import io.trino.sql.planner.IrLiteralInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 
@@ -214,11 +214,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.sql.ir.DereferenceExpression.isQualifiedAllFieldsReference;
-import static io.trino.sql.iranalyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
-import static io.trino.sql.iranalyzer.ExpressionTreeUtils.extractExpressions;
-import static io.trino.sql.iranalyzer.SemanticExceptions.missingAttributeException;
-import static io.trino.sql.iranalyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.iranalyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.ir.analyzer.SemanticExceptions.missingAttributeException;
+import static io.trino.sql.ir.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.DateTimes.extractTimePrecision;
 import static io.trino.type.DateTimes.extractTimestampPrecision;
@@ -1431,7 +1429,7 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             // It is allowed to nest FIRST and LAST functions within PREV and NEXT functions. Only immediate nesting is supported
-            List<FunctionCall> nestedNavigationFunctions = extractExpressions(ImmutableList.of(node.getArguments().get(0)), FunctionCall.class).stream()
+            List<FunctionCall> nestedNavigationFunctions = ExpressionTreeUtils.extractExpressions(ImmutableList.of(node.getArguments().get(0)), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .collect(toImmutableList());
             if (!nestedNavigationFunctions.isEmpty()) {
@@ -1499,14 +1497,14 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             List<Expression> unlabeledInputColumns = Streams.concat(
-                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
-                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
+                            ExpressionTreeUtils.extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
+                            ExpressionTreeUtils.extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
                     .filter(expression -> columnReferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
-            List<Expression> labeledInputColumns = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream()
+            List<Expression> labeledInputColumns = ExpressionTreeUtils.extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream()
                     .filter(expression -> labelDereferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
-            List<FunctionCall> classifiers = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), FunctionCall.class).stream()
+            List<FunctionCall> classifiers = ExpressionTreeUtils.extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), FunctionCall.class).stream()
                     .filter(this::isClassifierFunction)
                     .collect(toImmutableList());
 
@@ -1632,7 +1630,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedAggregations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            ExpressionTreeUtils.extractExpressions(node.getArguments(), FunctionCall.class).stream()
                     .filter(function -> plannerContext.getMetadata().isAggregationFunction(session, function.getName()))
                     .findFirst()
                     .ifPresent(aggregation -> {
@@ -1647,7 +1645,7 @@ public class ExpressionAnalyzer
 
         private void checkNoNestedNavigations(FunctionCall node)
         {
-            extractExpressions(node.getArguments(), FunctionCall.class).stream()
+            ExpressionTreeUtils.extractExpressions(node.getArguments(), FunctionCall.class).stream()
                     .filter(this::isPatternNavigationFunction)
                     .findFirst()
                     .ifPresent(navigation -> {
@@ -1787,7 +1785,7 @@ public class ExpressionAnalyzer
         protected Type visitExtract(Extract node, StackableAstVisitorContext<Context> context)
         {
             Type type = process(node.getExpression(), context);
-            io.trino.sql.tree.Extract.Field field = node.getField();
+            Extract.Field field = node.getField();
 
             switch (field) {
                 case YEAR:
@@ -1978,7 +1976,6 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
             }
 
-            verifyNoAggregateWindowOrGroupingFunctions(session, plannerContext.getMetadata(), node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
             }

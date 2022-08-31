@@ -24,7 +24,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.iranalyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
+import static io.trino.sql.ir.analyzer.ExpressionAnalyzer.isPatternRecognitionFunction;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
