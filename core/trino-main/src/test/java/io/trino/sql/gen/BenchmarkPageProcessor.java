@@ -231,7 +231,7 @@ public class BenchmarkPageProcessor
         shipDatePositions[positions] = currentShipDatePosition;
     }
 
-    //    @Benchmark
+    @Benchmark
     public Page handCoded()
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
@@ -240,7 +240,7 @@ public class BenchmarkPageProcessor
         return pageBuilder.build();
     }
 
-    //    @Benchmark
+//    @Benchmark
     public Page handCoded2()
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
@@ -297,6 +297,10 @@ public class BenchmarkPageProcessor
     private int processHandCoded2(PageBuilder pageBuilder)
     {
         Block discountBlock = inputPage.getBlock(DISCOUNT);
+        Block shipDateBlock = inputPage.getBlock(SHIP_DATE);
+        Block quantityBlock = inputPage.getBlock(QUANTITY);
+        Block extendedPriceBlock = inputPage.getBlock(EXTENDED_PRICE);
+
         int position = 0;
         for (; position < inputPage.getPositionCount(); position++) {
             // where shipdate >= '1994-01-01'
@@ -304,19 +308,16 @@ public class BenchmarkPageProcessor
             //    and discount >= 0.05
             //    and discount <= 0.07
             //    and quantity < 24;
-            boolean res = false;
-            Block shipDateBlock = inputPage.getBlock(SHIP_DATE);
-            Block quantityBlock = inputPage.getBlock(QUANTITY);
+            boolean matches = false;
             if (!shipDateBlock.isNull(position) && !discountBlock.isNull(position) && !quantityBlock.isNull(position)) {
-                res = BIGINT.getLong(discountBlock, position) >= 5
+                matches = BIGINT.getLong(discountBlock, position) >= 5
                         && BIGINT.getLong(discountBlock, position) <= 7
                         && BIGINT.getLong(quantityBlock, position) < 24
                         && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0
                         && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0;
             }
 
-            if (res) {
-                Block extendedPriceBlock = inputPage.getBlock(EXTENDED_PRICE);
+            if (matches) {
                 pageBuilder.declarePosition();
                 if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
                     pageBuilder.getBlockBuilder(0).appendNull();
@@ -470,7 +471,7 @@ public class BenchmarkPageProcessor
         return new Object[] {result, resultNull, resultMask};
     }
 
-    @Benchmark
+    //    @Benchmark
     public Object[] rowOrientedArraysFlatSimple()
     {
         doRowOrientedArraysFlatByteSimple(shipDate, shipDatePositions, shipDateNullByte, discount, discountNullByte, quantity, quantityNullByte, extendedPrice, extendedPriceNullByte, result, resultMaskByte, resultNullByte);
@@ -478,7 +479,7 @@ public class BenchmarkPageProcessor
         return new Object[] {result, resultNullByte, resultMaskByte};
     }
 
-//    @Benchmark
+    //    @Benchmark
     public Object[] rowOrientedArraysFlatSimpleInlined()
     {
         long[] result = this.result;
@@ -695,7 +696,7 @@ public class BenchmarkPageProcessor
         return new Object[] {outputMask, selectedPositions};
     }
 
-    @Benchmark
+    //    @Benchmark
     public Object[] columnarByte()
     {
         Arrays.fill(resultMaskByte, (byte) 1);
@@ -1227,6 +1228,9 @@ public class BenchmarkPageProcessor
         public static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
+            Block shipDate = page.getBlock(SHIP_DATE);
+            Block quantity = page.getBlock(QUANTITY);
+            Block extendedPrice = page.getBlock(EXTENDED_PRICE);
             int position = start;
             for (; position < end; position++) {
                 // where shipdate >= '1994-01-01'
@@ -1234,8 +1238,8 @@ public class BenchmarkPageProcessor
                 //    and discount >= 0.05
                 //    and discount <= 0.07
                 //    and quantity < 24;
-                if (filter(position, discountBlock, page.getBlock(SHIP_DATE), page.getBlock(QUANTITY))) {
-                    project(position, pageBuilder, page.getBlock(EXTENDED_PRICE), discountBlock);
+                if (filter(position, discountBlock, shipDate, quantity)) {
+                    project(position, pageBuilder, extendedPrice, discountBlock);
                 }
             }
 
@@ -1257,8 +1261,8 @@ public class BenchmarkPageProcessor
         {
             return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
                     !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountBlock.isNull(position) && BIGINT.getLong(discountBlock, position) >= 0.05 &&
-                    !discountBlock.isNull(position) && BIGINT.getLong(discountBlock, position) <= 0.07 &&
+                    !discountBlock.isNull(position) && BIGINT.getLong(discountBlock, position) >= 5L &&
+                    !discountBlock.isNull(position) && BIGINT.getLong(discountBlock, position) <= 7L &&
                     !quantityBlock.isNull(position) && BIGINT.getLong(quantityBlock, position) < 24;
         }
     }
