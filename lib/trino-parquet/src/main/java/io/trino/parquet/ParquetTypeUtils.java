@@ -256,15 +256,26 @@ public final class ParquetTypeUtils
     public static long getShortDecimalValue(byte[] bytes, int startOffset, int length)
     {
         long value = 0;
-        if (bytes[startOffset] < 0) {
-            for (int i = 0; i < 8 - length; ++i) {
-                value |= 0xFFL << (8 * (7 - i));
-            }
+        switch (length) {
+            case 8:
+                value |= bytes[startOffset + 7] & 0xFFL;
+            case 7:
+                value |= (bytes[startOffset + 6] & 0xFFL) << 8;
+            case 6:
+                value |= (bytes[startOffset + 5] & 0xFFL) << 16;
+            case 5:
+                value |= (bytes[startOffset + 4] & 0xFFL) << 24;
+            case 4:
+                value |= (bytes[startOffset + 3] & 0xFFL) << 32;
+            case 3:
+                value |= (bytes[startOffset + 2] & 0xFFL) << 40;
+            case 2:
+                value |= (bytes[startOffset + 1] & 0xFFL) << 48;
+            case 1:
+                value |= (bytes[startOffset] & 0xFFL) << 56;
         }
 
-        for (int i = 0; i < length; i++) {
-            value |= (bytes[startOffset + length - i - 1] & 0xFFL) << (8 * i);
-        }
+        value = value >> ((8 - length) * 8);
 
         return value;
     }
