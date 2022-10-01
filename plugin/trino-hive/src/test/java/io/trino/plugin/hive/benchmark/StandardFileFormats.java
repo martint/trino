@@ -178,7 +178,7 @@ public final class StandardFileFormats
             return Optional.of(new ParquetPageSourceFactory(
                     new HdfsFileSystemFactory(hdfsEnvironment),
                     new FileFormatDataSourceStats(),
-                    new ParquetReaderConfig(),
+                    new ParquetReaderConfig().setOptimizedReaderEnabled(false),
                     new HiveConfig()));
         }
 
@@ -192,6 +192,49 @@ public final class StandardFileFormats
                 throws IOException
         {
             return new PrestoParquetFormatWriter(targetFile, columnNames, columnTypes, compressionCodec);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "TRINO_PARQUET";
+        }
+    };
+
+    public static final FileFormat TRINO_OPTIMIZED_PARQUET = new AbstractFileFormat()
+    {
+        @Override
+        public HiveStorageFormat getFormat()
+        {
+            return HiveStorageFormat.PARQUET;
+        }
+
+        @Override
+        public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
+        {
+            return Optional.of(new ParquetPageSourceFactory(
+                    new HdfsFileSystemFactory(hdfsEnvironment),
+                    new FileFormatDataSourceStats(),
+                    new ParquetReaderConfig().setOptimizedReaderEnabled(true),
+                    new HiveConfig()));
+        }
+
+        @Override
+        public FormatWriter createFileFormatWriter(
+                ConnectorSession session,
+                File targetFile,
+                List<String> columnNames,
+                List<Type> columnTypes,
+                HiveCompressionCodec compressionCodec)
+                throws IOException
+        {
+            return new PrestoParquetFormatWriter(targetFile, columnNames, columnTypes, compressionCodec);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "TRINO_OPTIMIZED_PARQUET";
         }
     };
 
@@ -320,6 +363,7 @@ public final class StandardFileFormats
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
                     "test-version",
+                    false,
                     Optional.of(DateTimeZone.getDefault()),
                     Optional.empty());
         }

@@ -158,8 +158,14 @@ public class ParquetTester
 {
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
-    public static final ConnectorSession SESSION = getHiveSession(createHiveConfig(false));
-    public static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
+    private static final ConnectorSession SESSION = getHiveSession(
+            createHiveConfig(false), new ParquetReaderConfig().setOptimizedReaderEnabled(false));
+
+    private static final ConnectorSession SESSION_OPTIMIZED_READER = getHiveSession(
+            createHiveConfig(false), new ParquetReaderConfig().setOptimizedReaderEnabled(true));
+
+    private static final ConnectorSession SESSION_USE_NAME = getHiveSession(createHiveConfig(true));
+
     public static final List<String> TEST_COLUMN = singletonList("test");
 
     private final Set<CompressionCodecName> compressions;
@@ -182,13 +188,23 @@ public class ParquetTester
                 StandardFileFormats.TRINO_PARQUET);
     }
 
+    public static ParquetTester quickOptimizedParquetTester()
+    {
+        return new ParquetTester(
+                ImmutableSet.of(GZIP),
+                ImmutableSet.of(GZIP),
+                ImmutableSet.of(PARQUET_1_0),
+                ImmutableSet.of(SESSION_OPTIMIZED_READER),
+                StandardFileFormats.TRINO_PARQUET);
+    }
+
     public static ParquetTester fullParquetTester()
     {
         return new ParquetTester(
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
-                ImmutableSet.of(SESSION, SESSION_USE_NAME),
+                ImmutableSet.of(SESSION, SESSION_USE_NAME, SESSION_OPTIMIZED_READER),
                 StandardFileFormats.TRINO_PARQUET);
     }
 
@@ -759,6 +775,7 @@ public class ParquetTester
                         .build(),
                 compressionCodecName,
                 "test-version",
+                false,
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.of(new ParquetWriteValidationBuilder(types, columnNames)));
 

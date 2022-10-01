@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.benchmark.FileFormat;
 import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -48,6 +49,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,7 +57,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTimestampMicros
 {
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, FileFormat fileFormat)
             throws Exception
     {
         ConnectorSession session = getHiveSession(new HiveConfig()
@@ -64,7 +66,7 @@ public class TestTimestampMicros
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
 
-        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
+        try (ConnectorPageSource pageSource = createPageSource(fileFormat, session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
             MaterializedResult result = materializeSourceDataStream(session, pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected)));
@@ -72,7 +74,7 @@ public class TestTimestampMicros
     }
 
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, FileFormat fileFormat)
             throws Exception
     {
         ConnectorSession session = getHiveSession(new HiveConfig()
@@ -81,7 +83,7 @@ public class TestTimestampMicros
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
 
-        try (ConnectorPageSource pageSource = createPageSource(session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
+        try (ConnectorPageSource pageSource = createPageSource(fileFormat, session, parquetFile, "created", HIVE_TIMESTAMP, columnType)) {
             MaterializedResult result = materializeSourceDataStream(session, pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected.atZone(ZoneId.of("UTC")))));
@@ -91,19 +93,21 @@ public class TestTimestampMicros
     @DataProvider
     public static Object[][] testTimestampMicrosDataProvider()
     {
-        return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
-                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-        };
+        return cartesianProduct(
+                new Object[][] {
+                        {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
+                        {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
+                        {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
+                },
+                new Object[][] {{StandardFileFormats.TRINO_OPTIMIZED_PARQUET}, {StandardFileFormats.TRINO_PARQUET}});
     }
 
-    private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)
+    private ConnectorPageSource createPageSource(FileFormat fileFormat, ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)
     {
         // TODO after https://github.com/trinodb/trino/pull/5283, replace the method with
         //  return FileFormat.PRESTO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, parquetFile, columnNames, columnTypes);
 
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
+        HivePageSourceFactory pageSourceFactory = fileFormat.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
 
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());

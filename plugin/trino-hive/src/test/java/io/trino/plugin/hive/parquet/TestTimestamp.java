@@ -18,6 +18,7 @@ import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.benchmark.FileFormat;
 import io.trino.plugin.hive.benchmark.StandardFileFormats;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -30,6 +31,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -54,8 +56,14 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTimestamp
 {
-    @Test
-    public void testTimestampBackedByInt64()
+    @DataProvider
+    public static Object[][] parquetReaderProvider()
+    {
+        return new Object[][] {{StandardFileFormats.TRINO_PARQUET}, {StandardFileFormats.TRINO_OPTIMIZED_PARQUET}};
+    }
+
+    @Test(dataProvider = "parquetReaderProvider")
+    public void testTimestampBackedByInt64(FileFormat fileFormat)
             throws Exception
     {
         MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
@@ -87,16 +95,16 @@ public class TestTimestamp
                     false,
                     DateTimeZone.getDefault());
 
-            testReadingAs(TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
-            testReadingAs(BIGINT, session, tempFile, columnNames, bigints.build());
+            testReadingAs(fileFormat, TIMESTAMP_MILLIS, session, tempFile, columnNames, timestampsMillis.build());
+            testReadingAs(fileFormat, BIGINT, session, tempFile, columnNames, bigints.build());
         }
     }
 
-    private void testReadingAs(Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, List<?> expectedValues)
+    private void testReadingAs(FileFormat fileFormat, Type type, ConnectorSession session, ParquetTester.TempFile tempFile, List<String> columnNames, List<?> expectedValues)
              throws IOException
     {
         Iterator<?> expected = expectedValues.iterator();
-        try (ConnectorPageSource pageSource = StandardFileFormats.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
+        try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
             // skip a page to exercise the decoder's skip() logic
             Page firstPage = pageSource.getNextPage();
             assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
