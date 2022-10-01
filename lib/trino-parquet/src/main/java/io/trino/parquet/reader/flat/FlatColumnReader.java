@@ -104,7 +104,11 @@ public abstract class FlatColumnReader<BufferType>
         int remainingInBatch = readOffset;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
-                if (!readNextPage()) {
+                remainingInBatch = seekToNextPage(remainingInBatch);
+                if (remainingInBatch == 0) {
+                    break;
+                }
+                if (remainingPageValueCount == 0) {
                     throwEndOfBatchException(remainingInBatch);
                 }
             }
@@ -237,11 +241,36 @@ public abstract class FlatColumnReader<BufferType>
 
     private boolean readNextPage()
     {
-        DataPage page = pageReader.readPage();
-        if (page == null) {
+        if (!pageReader.hasNext()) {
             return false;
         }
+        DataPage page = readPage();
+        rowRanges.resetForNewPage(page.getFirstRowIndex());
+        return true;
+    }
 
+    // When a large enough number of rows are skipped due to `seek` operation,
+    // it is possible to skip decompressing and decoding parquet pages entirely.
+    private int seekToNextPage(int remainingInBatch)
+    {
+        while (remainingInBatch > 0 && pageReader.hasNext()) {
+            DataPage page = pageReader.getNextPage();
+            rowRanges.resetForNewPage(page.getFirstRowIndex());
+            if (remainingInBatch < page.getValueCount() || !rowRanges.isPageFullyConsumed(page.getValueCount())) {
+                readPage();
+                return remainingInBatch;
+            }
+            remainingInBatch -= page.getValueCount();
+            remainingPageValueCount = 0;
+            pageReader.skipNextPage();
+        }
+        return remainingInBatch;
+    }
+
+    private DataPage readPage()
+    {
+        DataPage page = pageReader.readPage();
+        requireNonNull(page, "page is null");
         if (page instanceof DataPageV1) {
             readFlatPageV1((DataPageV1) page);
         }
@@ -250,8 +279,7 @@ public abstract class FlatColumnReader<BufferType>
         }
 
         remainingPageValueCount = page.getValueCount();
-        rowRanges.resetForNewPage(page.getFirstRowIndex());
-        return true;
+        return page;
     }
 
     private void readFlatPageV1(DataPageV1 page)
