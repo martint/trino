@@ -99,7 +99,7 @@ public class BenchmarkShortDecimalColumnReader
         this.field = new PrimitiveField(
                 DecimalType.createDecimalType(precision),
                 true,
-                new ColumnDescriptor(new String[] {}, parquetType, 0, 0),
+                new ColumnDescriptor(new String[] {"test"}, parquetType, 0, 0),
                 0);
 
         ValuesWriter writer = createValuesWriter(OUTPUT_BUFFER_SIZE);

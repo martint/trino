@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.spi.type.Type;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 
@@ -24,6 +25,8 @@ import java.nio.ByteBuffer;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -204,6 +207,36 @@ public abstract class ApacheParquetValueDecoder<T>
         {
             for (int i = offset; i < offset + length; i++) {
                 values[i] = castToByte(delegate.readBoolean());
+            }
+        }
+    }
+
+    public static final class ShortDecimalApacheParquetValueDecoder
+            extends ApacheParquetValueDecoder<long[]>
+    {
+        private final int typeLength;
+        private final Type trinoType;
+
+        public ShortDecimalApacheParquetValueDecoder(ValuesReader delegate, int typeLength, Type trinoType)
+        {
+            super(delegate);
+            this.typeLength = typeLength;
+            this.trinoType = requireNonNull(trinoType, "trinoType is null");
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int bytesOffset = 0;
+            int bytesLength = typeLength;
+            if (typeLength > Long.BYTES) {
+                bytesOffset = typeLength - Long.BYTES;
+                bytesLength = Long.BYTES;
+            }
+            for (int i = offset; i < offset + length; i++) {
+                byte[] bytes = delegate.readBytes().getBytes();
+                checkBytesFitInShortDecimal(bytes, 0, bytesOffset, trinoType, typeLength);
+                values[i] = getShortDecimalValue(bytes, bytesOffset, bytesLength);
             }
         }
     }

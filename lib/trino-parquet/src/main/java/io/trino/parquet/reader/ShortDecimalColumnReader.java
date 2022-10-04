@@ -75,7 +75,7 @@ public class ShortDecimalColumnReader
             }
             else {
                 int startOffset = bytes.length - Long.BYTES;
-                checkBytesFitInShortDecimal(bytes, startOffset, trinoType, typeLength);
+                checkBytesFitInShortDecimal(bytes, 0, startOffset, trinoType, typeLength);
                 value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }
