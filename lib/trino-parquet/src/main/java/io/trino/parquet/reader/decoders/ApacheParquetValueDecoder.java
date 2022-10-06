@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.ValuesReader;
@@ -237,6 +238,26 @@ public abstract class ApacheParquetValueDecoder<T>
                 byte[] bytes = delegate.readBytes().getBytes();
                 checkBytesFitInShortDecimal(bytes, 0, bytesOffset, trinoType, typeLength);
                 values[i] = getShortDecimalValue(bytes, bytesOffset, bytesLength);
+            }
+        }
+    }
+
+    public static final class LongDecimalApacheParquetValueDecoder
+            extends ApacheParquetValueDecoder<long[]>
+    {
+        public LongDecimalApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            super(delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int endOffset = (offset + length) * 2;
+            for (int currentOutputOffset = offset * 2; currentOutputOffset < endOffset; currentOutputOffset += 2) {
+                Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
+                values[currentOutputOffset] = value.getHigh();
+                values[currentOutputOffset + 1] = value.getLow();
             }
         }
     }

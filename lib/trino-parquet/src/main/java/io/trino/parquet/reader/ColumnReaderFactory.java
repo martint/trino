@@ -17,6 +17,7 @@ import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.BooleanFlatColumnReader;
 import io.trino.parquet.reader.flat.ByteFlatColumnReader;
+import io.trino.parquet.reader.flat.Int128FlatColumnReader;
 import io.trino.parquet.reader.flat.IntFlatColumnReader;
 import io.trino.parquet.reader.flat.LongFlatColumnReader;
 import io.trino.parquet.reader.flat.ShortFlatColumnReader;
@@ -52,6 +53,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -109,6 +111,12 @@ public final class ColumnReaderFactory
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
                     return new LongFlatColumnReader(field, ValueDecoders::getShortDecimalDecoder);
+                }
+            }
+            if (type instanceof DecimalType decimalType && !decimalType.isShort()
+                    && (primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
+                if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
+                    return new Int128FlatColumnReader(field, ValueDecoders::getLongDecimalDecoder);
                 }
             }
         }

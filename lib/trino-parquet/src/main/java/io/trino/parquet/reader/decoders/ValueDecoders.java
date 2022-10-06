@@ -33,6 +33,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.FloatAp
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.IntApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.IntToLongApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.LongApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.LongDecimalApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.ShortApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.ShortDecimalApacheParquetValueDecoder;
 import static java.util.Objects.requireNonNull;
@@ -71,6 +72,16 @@ public final class ValueDecoders
             case INT64 -> getLongDecoder(encoding, field, dictionary);
             case INT32 -> getIntToLongDecoder(encoding, field, dictionary);
             case FIXED_LEN_BYTE_ARRAY -> getFixedWidthShortDecimalDecoder(encoding, field, dictionary, field.getType(), primitiveType.getTypeLength());
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<long[]> getLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        PrimitiveType primitiveType = field.getDescriptor().getPrimitiveType();
+        return switch (primitiveType.getPrimitiveTypeName()) {
+            case FIXED_LEN_BYTE_ARRAY -> getFixedWidthLongDecimalDecoder(encoding, field, dictionary);
+            case BINARY -> getBinaryLongDecimalDecoder(encoding, field, dictionary);
             default -> throw wrongEncoding(encoding, field);
         };
     }
@@ -125,6 +136,24 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN, RLE, BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    private static ValueDecoder<long[]> getFixedWidthLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new LongDecimalApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    private static ValueDecoder<long[]> getBinaryLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new LongDecimalApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
             default -> throw wrongEncoding(encoding, field);
         };
     }
