@@ -13,9 +13,16 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.Varchars;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 
@@ -258,6 +265,47 @@ public abstract class ApacheParquetValueDecoder<T>
                 Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
                 values[currentOutputOffset] = value.getHigh();
                 values[currentOutputOffset + 1] = value.getLow();
+            }
+        }
+    }
+
+    public static final class BinaryApacheParquetValueDecoder
+            extends ApacheParquetValueDecoder<BinaryBuffer>
+    {
+        private final Type trinoType;
+
+        public BinaryApacheParquetValueDecoder(ValuesReader delegate, Type trinoType)
+        {
+            super(delegate);
+            this.trinoType = requireNonNull(trinoType, "trinoType is null");
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offsetsIndex, int length)
+        {
+            // A dedicated loop for every case bring significant performance benefit
+            if (trinoType instanceof VarcharType && !((VarcharType) trinoType).isUnbounded()) {
+                for (int i = 0; i < length; i++) {
+                    byte[] value = delegate.readBytes().getBytes();
+                    Slice slice = Varchars.truncateToLength(Slices.wrappedBuffer(value), trinoType);
+
+                    values.add(slice, i + offsetsIndex);
+                }
+            }
+            else if (trinoType instanceof CharType) {
+                for (int i = 0; i < length; i++) {
+                    byte[] value = delegate.readBytes().getBytes();
+                    Slice slice = Chars.truncateToLengthAndTrimSpaces(Slices.wrappedBuffer(value), trinoType);
+
+                    values.add(slice, i + offsetsIndex);
+                }
+            }
+            else {
+                for (int i = 0; i < length; i++) {
+                    byte[] value = delegate.readBytes().getBytes();
+
+                    values.add(value, i + offsetsIndex);
+                }
             }
         }
     }

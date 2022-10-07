@@ -16,6 +16,7 @@ package io.trino.parquet.reader.decoders;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
+import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.schema.PrimitiveType;
@@ -26,6 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ValuesType.VALUES;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.BinaryApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.BooleanApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.ByteApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.DoubleApacheParquetValueDecoder;
@@ -136,6 +138,15 @@ public final class ValueDecoders
     {
         return switch (encoding) {
             case PLAIN, RLE, BIT_PACKED -> new BooleanApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<BinaryBuffer> getBinaryDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_LENGTH_BYTE_ARRAY, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new BinaryApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary), field.getType());
             default -> throw wrongEncoding(encoding, field);
         };
     }

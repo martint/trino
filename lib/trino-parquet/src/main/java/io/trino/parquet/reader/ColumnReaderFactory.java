@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
+import io.trino.parquet.reader.flat.BinaryFlatColumnReader;
 import io.trino.parquet.reader.flat.BooleanFlatColumnReader;
 import io.trino.parquet.reader.flat.ByteFlatColumnReader;
 import io.trino.parquet.reader.flat.Int128FlatColumnReader;
@@ -24,8 +25,11 @@ import io.trino.parquet.reader.flat.ShortFlatColumnReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -118,6 +122,9 @@ public final class ColumnReaderFactory
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
                     return new Int128FlatColumnReader(field, ValueDecoders::getLongDecimalDecoder);
                 }
+            }
+            if ((type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) && primitiveType == BINARY) {
+                return new BinaryFlatColumnReader(field, ValueDecoders::getBinaryDecoder);
             }
         }
 

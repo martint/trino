@@ -75,7 +75,7 @@ public abstract class FlatColumnReader<BufferType>
     /**
      * Temporary buffer used for null unpacking
      */
-    private BufferType createTemporaryBuffer(int size)
+    protected BufferType createTemporaryBuffer(int currentOffset, int size, BufferType buffer)
     {
         return createBuffer(size);
     }
@@ -88,7 +88,7 @@ public abstract class FlatColumnReader<BufferType>
 
     protected abstract Block createNonNullBlock(int size, BufferType values);
 
-    private void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount)
+    protected void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
     {
         int srcOffset = 0;
         while (srcOffset < nonNullCount) {
@@ -150,16 +150,22 @@ public abstract class FlatColumnReader<BufferType>
             int nonNullCount = definitionLevelDecoder.readNext(isNull, offset, chunkSize);
             totalNonNullCount += nonNullCount;
 
-            if (nonNullCount > 0) {
-                if (nonNullCount < chunkSize) {
-                    // Read to a temporary array and unpack the nulls to the actual destination
-                    BufferType tmpBuffer = createTemporaryBuffer(nonNullCount);
-                    valueDecoder.read(tmpBuffer, 0, nonNullCount);
-                    unpackNullValues(tmpBuffer, values, isNull, offset, nonNullCount);
-                }
-                else {
-                    valueDecoder.read(values, offset, nonNullCount);
-                }
+            // Only nulls
+            if (nonNullCount == 0) {
+                // Unpack empty null table. This is almost always a no-op. However, in binary type
+                // the last position offset needs to be propagated
+                BufferType tmpBuffer = createTemporaryBuffer(offset, 0, values);
+                unpackNullValues(tmpBuffer, values, isNull, offset, 0, chunkSize);
+            }
+            // No nulls
+            else if (nonNullCount == chunkSize) {
+                valueDecoder.read(values, offset, nonNullCount);
+            }
+            else {
+                // Read to a temporary array and unpack the nulls to the actual destination
+                BufferType tmpBuffer = createTemporaryBuffer(offset, nonNullCount, values);
+                valueDecoder.read(tmpBuffer, 0, nonNullCount);
+                unpackNullValues(tmpBuffer, values, isNull, offset, nonNullCount, chunkSize);
             }
 
             offset += chunkSize;
