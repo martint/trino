@@ -100,10 +100,14 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
-            if (type instanceof AbstractLongType && primitiveType == INT64) {
+            if (type instanceof AbstractLongType && (primitiveType == INT32 || primitiveType == INT64)) {
                 if (isIntegerAnnotation(annotation)) {
+                    if (primitiveType == INT32) {
+                        return new LongFlatColumnReader(field, ValueDecoders::getIntToLongDecoder);
+                    }
                     return new LongFlatColumnReader(field, ValueDecoders::getLongDecoder);
                 }
+                throw unsupportedException(type, field);
             }
             if (REAL.equals(type) && primitiveType == FLOAT) {
                 return new IntFlatColumnReader(field, ValueDecoders::getRealDecoder);
