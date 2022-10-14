@@ -27,6 +27,7 @@ import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -97,6 +98,12 @@ public final class ColumnReaderFactory
             if (type instanceof AbstractIntType && primitiveType == INT32) {
                 if (isIntegerAnnotation(annotation)) {
                     return new IntFlatColumnReader(field, ValueDecoders::getIntDecoder);
+                }
+                throw unsupportedException(type, field);
+            }
+            if (type instanceof TimeType && primitiveType == INT64) {
+                if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
+                    return new LongFlatColumnReader(field, ValueDecoders::getTimeMicrosDecoder);
                 }
                 throw unsupportedException(type, field);
             }
