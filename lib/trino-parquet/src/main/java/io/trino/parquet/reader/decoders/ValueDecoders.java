@@ -38,6 +38,7 @@ import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.LongApa
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.LongDecimalApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.ShortApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.ShortDecimalApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoder.UuidApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.DelegateDecoders.timeMicrosDecoder;
 import static java.util.Objects.requireNonNull;
 
@@ -90,6 +91,15 @@ public final class ValueDecoders
         return switch (primitiveType.getPrimitiveTypeName()) {
             case FIXED_LEN_BYTE_ARRAY -> getFixedWidthLongDecimalDecoder(encoding, field, dictionary);
             case BINARY -> getBinaryLongDecimalDecoder(encoding, field, dictionary);
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<long[]> getUuidDecoder(ParquetEncoding encoding, PrimitiveField field, @Nullable Dictionary dictionary)
+    {
+        return switch (encoding) {
+            case PLAIN, DELTA_BYTE_ARRAY, PLAIN_DICTIONARY, RLE_DICTIONARY ->
+                    new UuidApacheParquetValueDecoder(getApacheParquetReader(encoding, field, dictionary));
             default -> throw wrongEncoding(encoding, field);
         };
     }

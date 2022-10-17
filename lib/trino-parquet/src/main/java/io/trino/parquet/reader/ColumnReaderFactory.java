@@ -39,6 +39,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.LogicalTypeAnnotationVisi
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
@@ -51,13 +52,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
@@ -136,6 +137,14 @@ public final class ColumnReaderFactory
             }
             if ((type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) && primitiveType == BINARY) {
                 return new BinaryFlatColumnReader(field, ValueDecoders::getBinaryDecoder);
+            }
+            if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+                // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
+                // To support such files, we bet on the logical type to be UUID based on the Trino UUID type check.
+                if (annotation == null || isLogicalUuid(annotation)) {
+                    return new Int128FlatColumnReader(field, ValueDecoders::getUuidDecoder);
+                }
+                throw unsupportedException(type, field);
             }
         }
 

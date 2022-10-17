@@ -28,7 +28,10 @@ import org.apache.parquet.column.values.ValuesReader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
@@ -265,6 +268,28 @@ public abstract class ApacheParquetValueDecoder<T>
                 Int128 value = Int128.fromBigEndian(delegate.readBytes().getBytes());
                 values[currentOutputOffset] = value.getHigh();
                 values[currentOutputOffset + 1] = value.getLow();
+            }
+        }
+    }
+
+    public static final class UuidApacheParquetValueDecoder
+            extends ApacheParquetValueDecoder<long[]>
+    {
+        private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+        public UuidApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            super(delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            int endOffset = (offset + length) * 2;
+            for (int currentOutputOffset = offset * 2; currentOutputOffset < endOffset; currentOutputOffset += 2) {
+                byte[] data = delegate.readBytes().getBytes();
+                values[currentOutputOffset] = (long) LONG_ARRAY_HANDLE.get(data, 0);
+                values[currentOutputOffset + 1] = (long) LONG_ARRAY_HANDLE.get(data, Long.BYTES);
             }
         }
     }
