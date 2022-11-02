@@ -296,10 +296,10 @@ public final class ParquetTypeUtils
         for (int i = 0; i < endOffset; i++) {
             if (bytes[i] != expectedValue) {
                 throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read fixed_len_byte_array(%d) value %s into %s",
-                        typeLength,
+                        "Could not read value %s into %s for typeLength %d",
                         new BigDecimal(new BigInteger(bytes), ((DecimalType) trinoType).getScale()),
-                        trinoType));
+                        trinoType,
+                        typeLength));
             }
         }
     }
