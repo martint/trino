@@ -13,8 +13,6 @@
  */
 package io.trino.parquet.reader.flat;
 
-import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 
@@ -22,47 +20,42 @@ import java.util.Optional;
 
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 
-public class BinaryFlatColumnReader
-        extends FlatColumnReader<BinaryBuffer>
+public class BinaryColumnAdapter
+        implements ColumnAdapter<BinaryBuffer>
 {
-    public BinaryFlatColumnReader(PrimitiveField field, ValueDecodersProvider<BinaryBuffer> decodersProvider)
-    {
-        super(field, decodersProvider);
-    }
-
     @Override
-    protected BinaryBuffer createBuffer(int batchSize)
+    public BinaryBuffer createBuffer(int batchSize)
     {
         return new BinaryBuffer(batchSize);
     }
 
     @Override
-    protected BinaryBuffer createTemporaryBuffer(int currentOffset, int size, BinaryBuffer buffer)
+    public BinaryBuffer createTemporaryBuffer(int currentOffset, int size, BinaryBuffer buffer)
     {
         return buffer.withTemporaryOffsets(currentOffset, size);
     }
 
     @Override
-    protected void copyValue(BinaryBuffer source, int sourceIndex, BinaryBuffer destination, int destinationIndex)
+    public void copyValue(BinaryBuffer source, int sourceIndex, BinaryBuffer destination, int destinationIndex)
     {
         // ignore as unpackNullValues is overridden
         throw new UnsupportedOperationException();
     }
 
     @Override
-    protected Block createNullableBlock(int batchSize, boolean[] nulls, BinaryBuffer values)
+    public Block createNullableBlock(int batchSize, boolean[] nulls, BinaryBuffer values)
     {
         return new VariableWidthBlock(batchSize, values.asSlice(), values.getOffsets(), Optional.of(nulls));
     }
 
     @Override
-    protected Block createNonNullBlock(int batchSize, BinaryBuffer values)
+    public Block createNonNullBlock(int batchSize, BinaryBuffer values)
     {
         return new VariableWidthBlock(batchSize, values.asSlice(), values.getOffsets(), Optional.empty());
     }
 
     @Override
-    protected void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
+    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
     {
         int endOffset = destOffset + totalValuesCount;
         int srcOffset = 0;

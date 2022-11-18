@@ -87,7 +87,7 @@ public class TestFlatColumnReader
     public void testReadPageV1BitPacked()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new IntFlatColumnReader(NULLABLE_FIELD, ValueDecoders::getIntDecoder);
+        FlatColumnReader<int[]> reader = new IntColumnAdapter(NULLABLE_FIELD, ValueDecoders::getIntDecoder);
         reader.setPageReader(getSimplePageReaderMock(BIT_PACKED), Optional.empty());
         reader.prepareNextRead(1);
 
@@ -100,7 +100,7 @@ public class TestFlatColumnReader
     public void testReadPageV1BitPackedNoNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new IntFlatColumnReader(FIELD, ValueDecoders::getIntDecoder);
+        FlatColumnReader<int[]> reader = new IntColumnAdapter(FIELD, ValueDecoders::getIntDecoder);
         reader.setPageReader(getSimplePageReaderMock(BIT_PACKED), Optional.empty());
         reader.prepareNextRead(1);
 
@@ -111,7 +111,7 @@ public class TestFlatColumnReader
     public void testReadPageV1RleNoNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new IntFlatColumnReader(FIELD, ValueDecoders::getIntDecoder);
+        FlatColumnReader<int[]> reader = new IntColumnAdapter(FIELD, ValueDecoders::getIntDecoder);
         assertThat(FIELD.isRequired()).isTrue();
         assertThat(FIELD.getDescriptor().getMaxDefinitionLevel()).isEqualTo(0);
         reader.setPageReader(getSimplePageReaderMock(RLE), Optional.empty());
@@ -126,7 +126,7 @@ public class TestFlatColumnReader
     public void testReadPageV1RleOnlyNulls()
             throws IOException
     {
-        FlatColumnReader<int[]> reader = new IntFlatColumnReader(NULLABLE_FIELD, ValueDecoders::getIntDecoder);
+        FlatColumnReader<int[]> reader = new IntColumnAdapter(NULLABLE_FIELD, ValueDecoders::getIntDecoder);
         assertThat(NULLABLE_FIELD.isRequired()).isFalse();
         assertThat(NULLABLE_FIELD.getDescriptor().getMaxDefinitionLevel()).isEqualTo(0);
         reader.setPageReader(getNullOnlyPageReaderMock(), Optional.empty());

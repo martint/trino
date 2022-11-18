@@ -13,41 +13,34 @@
  */
 package io.trino.parquet.reader.flat;
 
-import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ShortArrayBlock;
 
 import java.util.Optional;
 
-public class ShortFlatColumnReader
-        extends FlatColumnReader<short[]>
+public class ShortColumnAdapter
+        implements ColumnAdapter<short[]>
 {
-    public ShortFlatColumnReader(PrimitiveField field, ValueDecodersProvider<short[]> decodersProvider)
-    {
-        super(field, decodersProvider);
-    }
-
     @Override
-    protected short[] createBuffer(int size)
+    public short[] createBuffer(int size)
     {
         return new short[size];
     }
 
     @Override
-    protected Block createNonNullBlock(int size, short[] values)
+    public Block createNonNullBlock(int size, short[] values)
     {
         return new ShortArrayBlock(size, Optional.empty(), values);
     }
 
     @Override
-    protected Block createNullableBlock(int size, boolean[] nulls, short[] values)
+    public Block createNullableBlock(int size, boolean[] nulls, short[] values)
     {
         return new ShortArrayBlock(size, Optional.of(nulls), values);
     }
 
     @Override
-    protected void copyValue(short[] source, int sourceIndex, short[] destination, int destinationIndex)
+    public void copyValue(short[] source, int sourceIndex, short[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
     }

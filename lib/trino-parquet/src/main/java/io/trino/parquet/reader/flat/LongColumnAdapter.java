@@ -13,41 +13,34 @@
  */
 package io.trino.parquet.reader.flat;
 
-import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 
 import java.util.Optional;
 
-public class LongFlatColumnReader
-        extends FlatColumnReader<long[]>
+public class LongColumnAdapter
+        implements ColumnAdapter<long[]>
 {
-    public LongFlatColumnReader(PrimitiveField field, ValueDecodersProvider<long[]> decodersProvider)
-    {
-        super(field, decodersProvider);
-    }
-
     @Override
-    protected long[] createBuffer(int size)
+    public long[] createBuffer(int size)
     {
         return new long[size];
     }
 
     @Override
-    protected Block createNonNullBlock(int size, long[] values)
+    public Block createNonNullBlock(int size, long[] values)
     {
         return new LongArrayBlock(size, Optional.empty(), values);
     }
 
     @Override
-    protected Block createNullableBlock(int size, boolean[] nulls, long[] values)
+    public Block createNullableBlock(int size, boolean[] nulls, long[] values)
     {
         return new LongArrayBlock(size, Optional.of(nulls), values);
     }
 
     @Override
-    protected void copyValue(long[] source, int sourceIndex, long[] destination, int destinationIndex)
+    public void copyValue(long[] source, int sourceIndex, long[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
     }

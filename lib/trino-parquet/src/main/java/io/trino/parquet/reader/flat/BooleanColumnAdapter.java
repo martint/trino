@@ -13,41 +13,34 @@
  */
 package io.trino.parquet.reader.flat;
 
-import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 
 import java.util.Optional;
 
-public class BooleanFlatColumnReader
-        extends FlatColumnReader<byte[]>
+public class BooleanColumnAdapter
+        implements ColumnAdapter<byte[]>
 {
-    public BooleanFlatColumnReader(PrimitiveField field, ValueDecodersProvider<byte[]> decodersProvider)
-    {
-        super(field, decodersProvider);
-    }
-
     @Override
-    protected byte[] createBuffer(int size)
+    public byte[] createBuffer(int size)
     {
         return new byte[size];
     }
 
     @Override
-    protected Block createNonNullBlock(int size, byte[] values)
+    public Block createNonNullBlock(int size, byte[] values)
     {
         return new ByteArrayBlock(size, Optional.empty(), values);
     }
 
     @Override
-    protected Block createNullableBlock(int size, boolean[] nulls, byte[] values)
+    public Block createNullableBlock(int size, boolean[] nulls, byte[] values)
     {
         return new ByteArrayBlock(size, Optional.of(nulls), values);
     }
 
     @Override
-    protected void copyValue(byte[] source, int sourceIndex, byte[] destination, int destinationIndex)
+    public void copyValue(byte[] source, int sourceIndex, byte[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
     }

@@ -15,13 +15,14 @@ package io.trino.parquet.reader;
 
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
-import io.trino.parquet.reader.flat.BinaryFlatColumnReader;
-import io.trino.parquet.reader.flat.BooleanFlatColumnReader;
-import io.trino.parquet.reader.flat.ByteFlatColumnReader;
-import io.trino.parquet.reader.flat.Int128FlatColumnReader;
-import io.trino.parquet.reader.flat.IntFlatColumnReader;
-import io.trino.parquet.reader.flat.LongFlatColumnReader;
-import io.trino.parquet.reader.flat.ShortFlatColumnReader;
+import io.trino.parquet.reader.flat.BinaryColumnAdapter;
+import io.trino.parquet.reader.flat.BooleanColumnAdapter;
+import io.trino.parquet.reader.flat.ByteColumnAdapter;
+import io.trino.parquet.reader.flat.FlatColumnReader;
+import io.trino.parquet.reader.flat.Int128ColumnAdapter;
+import io.trino.parquet.reader.flat.IntColumnAdapter;
+import io.trino.parquet.reader.flat.LongColumnAdapter;
+import io.trino.parquet.reader.flat.ShortColumnAdapter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
@@ -76,73 +77,73 @@ public final class ColumnReaderFactory
         LogicalTypeAnnotation annotation = field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
         if (useBatchedColumnReaders && field.getDescriptor().getPath().length == 1) {
             if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
-                return new BooleanFlatColumnReader(field, ValueDecoders::getBooleanDecoder);
+                return new FlatColumnReader<>(field, ValueDecoders::getBooleanDecoder, new BooleanColumnAdapter());
             }
             if (TINYINT.equals(type) && primitiveType == INT32) {
                 if (isIntegerAnnotation(annotation)) {
-                    return new ByteFlatColumnReader(field, ValueDecoders::getByteDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getByteDecoder, new ByteColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (SMALLINT.equals(type) && primitiveType == INT32) {
                 if (isIntegerAnnotation(annotation)) {
-                    return new ShortFlatColumnReader(field, ValueDecoders::getShortDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getShortDecoder, new ShortColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (DATE.equals(type) && primitiveType == INT32) {
                 if (annotation == null || annotation instanceof DateLogicalTypeAnnotation) {
-                    return new IntFlatColumnReader(field, ValueDecoders::getIntDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getIntDecoder, new IntColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (type instanceof AbstractIntType && primitiveType == INT32) {
                 if (isIntegerAnnotation(annotation)) {
-                    return new IntFlatColumnReader(field, ValueDecoders::getIntDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getIntDecoder, new IntColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (type instanceof TimeType && primitiveType == INT64) {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
-                    return new LongFlatColumnReader(field, ValueDecoders::getTimeMicrosDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getTimeMicrosDecoder, new LongColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (type instanceof AbstractLongType && (primitiveType == INT32 || primitiveType == INT64)) {
                 if (isIntegerAnnotation(annotation)) {
                     if (primitiveType == INT32) {
-                        return new LongFlatColumnReader(field, ValueDecoders::getIntToLongDecoder);
+                        return new FlatColumnReader(field, ValueDecoders::getIntDecoder, new LongColumnAdapter());
                     }
-                    return new LongFlatColumnReader(field, ValueDecoders::getLongDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getLongDecoder, new LongColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }
             if (REAL.equals(type) && primitiveType == FLOAT) {
-                return new IntFlatColumnReader(field, ValueDecoders::getRealDecoder);
+                return new FlatColumnReader(field, ValueDecoders::getRealDecoder, new IntColumnAdapter());
             }
             if (DOUBLE.equals(type) && primitiveType == PrimitiveTypeName.DOUBLE) {
-                return new LongFlatColumnReader(field, ValueDecoders::getDoubleDecoder);
+                return new FlatColumnReader(field, ValueDecoders::getDoubleDecoder, new LongColumnAdapter());
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && (primitiveType == INT32 || primitiveType == INT64 || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
-                    return new LongFlatColumnReader(field, ValueDecoders::getShortDecimalDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getShortDecimalDecoder, new LongColumnAdapter());
                 }
             }
             if (type instanceof DecimalType decimalType && !decimalType.isShort()
                     && (primitiveType == BINARY || primitiveType == FIXED_LEN_BYTE_ARRAY)) {
                 if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation && !isDecimalRescaled(decimalAnnotation, decimalType)) {
-                    return new Int128FlatColumnReader(field, ValueDecoders::getLongDecimalDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getLongDecimalDecoder, new Int128ColumnAdapter());
                 }
             }
             if ((type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) && primitiveType == BINARY) {
-                return new BinaryFlatColumnReader(field, ValueDecoders::getBinaryDecoder);
+                return new FlatColumnReader(field, ValueDecoders::getBinaryDecoder, new BinaryColumnAdapter());
             }
             if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
                 // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
                 // To support such files, we bet on the logical type to be UUID based on the Trino UUID type check.
                 if (annotation == null || isLogicalUuid(annotation)) {
-                    return new Int128FlatColumnReader(field, ValueDecoders::getUuidDecoder);
+                    return new FlatColumnReader(field, ValueDecoders::getUuidDecoder, new Int128ColumnAdapter());
                 }
                 throw unsupportedException(type, field);
             }

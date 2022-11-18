@@ -39,14 +39,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.RLE;
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class FlatColumnReader<BufferType>
+public class FlatColumnReader<BufferType>
         implements ColumnReader
 {
     public static final int[] EMPTY_DEFINITION_LEVELS = new int[0];
@@ -54,6 +53,7 @@ public abstract class FlatColumnReader<BufferType>
 
     private final PrimitiveField field;
     private final ValueDecodersProvider<BufferType> decodersProvider;
+    private ColumnAdapter<BufferType> core;
     private PageReader pageReader;
     private RowRangesIterator rowRanges;
 
@@ -66,38 +66,16 @@ public abstract class FlatColumnReader<BufferType>
 
     private int nextBatchSize;
 
-    public FlatColumnReader(PrimitiveField field, ValueDecodersProvider<BufferType> decodersProvider)
+    public FlatColumnReader(PrimitiveField field, ValueDecodersProvider<BufferType> decodersProvider, ColumnAdapter<BufferType> core)
     {
         this.field = requireNonNull(field, "field is null");
         this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
+        this.core = requireNonNull(core, "core is null");
     }
 
     /**
      * Temporary buffer used for null unpacking
      */
-    protected BufferType createTemporaryBuffer(int currentOffset, int size, BufferType buffer)
-    {
-        return createBuffer(size);
-    }
-
-    protected abstract BufferType createBuffer(int size);
-
-    protected abstract void copyValue(BufferType source, int sourceIndex, BufferType destination, int destinationIndex);
-
-    protected abstract Block createNullableBlock(int size, boolean[] nulls, BufferType values);
-
-    protected abstract Block createNonNullBlock(int size, BufferType values);
-
-    protected void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
-    {
-        int srcOffset = 0;
-        while (srcOffset < nonNullCount) {
-            copyValue(source, srcOffset, destination, destOffset);
-            // Avoid branching
-            srcOffset += castToByteNegate(isNull[destOffset]);
-            destOffset++;
-        }
-    }
 
     private void seek()
     {
@@ -130,7 +108,7 @@ public abstract class FlatColumnReader<BufferType>
     @VisibleForTesting
     ColumnChunk readNullable()
     {
-        BufferType values = createBuffer(nextBatchSize);
+        BufferType values = core.createBuffer(nextBatchSize);
         boolean[] isNull = new boolean[nextBatchSize];
 
         int totalNonNullCount = 0;
@@ -154,8 +132,8 @@ public abstract class FlatColumnReader<BufferType>
             if (nonNullCount == 0) {
                 // Unpack empty null table. This is almost always a no-op. However, in binary type
                 // the last position offset needs to be propagated
-                BufferType tmpBuffer = createTemporaryBuffer(offset, 0, values);
-                unpackNullValues(tmpBuffer, values, isNull, offset, 0, chunkSize);
+                BufferType tmpBuffer = core.createTemporaryBuffer(offset, 0, values);
+                core.unpackNullValues(tmpBuffer, values, isNull, offset, 0, chunkSize);
             }
             // No nulls
             else if (nonNullCount == chunkSize) {
@@ -163,9 +141,9 @@ public abstract class FlatColumnReader<BufferType>
             }
             else {
                 // Read to a temporary array and unpack the nulls to the actual destination
-                BufferType tmpBuffer = createTemporaryBuffer(offset, nonNullCount, values);
+                BufferType tmpBuffer = core.createTemporaryBuffer(offset, nonNullCount, values);
                 valueDecoder.read(tmpBuffer, 0, nonNullCount);
-                unpackNullValues(tmpBuffer, values, isNull, offset, nonNullCount, chunkSize);
+                core.unpackNullValues(tmpBuffer, values, isNull, offset, nonNullCount, chunkSize);
             }
 
             offset += chunkSize;
@@ -181,10 +159,10 @@ public abstract class FlatColumnReader<BufferType>
         boolean hasNoNulls = totalNonNullCount == nextBatchSize;
         Block block;
         if (hasNoNulls) {
-            block = createNonNullBlock(nextBatchSize, values);
+            block = core.createNonNullBlock(nextBatchSize, values);
         }
         else {
-            block = createNullableBlock(nextBatchSize, isNull, values);
+            block = core.createNullableBlock(nextBatchSize, isNull, values);
         }
         return new ColumnChunk(block, EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
     }
@@ -192,7 +170,7 @@ public abstract class FlatColumnReader<BufferType>
     @VisibleForTesting
     ColumnChunk readNoNull()
     {
-        BufferType values = createBuffer(nextBatchSize);
+        BufferType values = core.createBuffer(nextBatchSize);
         int remainingInBatch = nextBatchSize;
         int offset = 0;
         while (remainingInBatch > 0) {
@@ -213,7 +191,7 @@ public abstract class FlatColumnReader<BufferType>
             remainingPageValueCount -= chunkSize;
         }
 
-        Block block = createNonNullBlock(nextBatchSize, values);
+        Block block = core.createNonNullBlock(nextBatchSize, values);
         return new ColumnChunk(block, EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
     }
 

@@ -20,7 +20,7 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
-import io.trino.parquet.reader.flat.IntFlatColumnReader;
+import io.trino.parquet.reader.flat.IntColumnAdapter;
 import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -179,8 +179,8 @@ public class TestColumnReader
     {
         INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
         INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
-        INT_FLAT_NO_NULLS(() -> new IntFlatColumnReader(FIELD, ValueDecoders::getIntDecoder), FIELD),
-        INT_FLAT_NULLABLE(() -> new IntFlatColumnReader(NULLABLE_FIELD, ValueDecoders::getIntDecoder), NULLABLE_FIELD);
+        INT_FLAT_NO_NULLS(() -> new IntColumnAdapter(FIELD, ValueDecoders::getIntDecoder), FIELD),
+        INT_FLAT_NULLABLE(() -> new IntColumnAdapter(NULLABLE_FIELD, ValueDecoders::getIntDecoder), NULLABLE_FIELD);
 
         private final Supplier<ColumnReader> columnReader;
         private final PrimitiveField field;

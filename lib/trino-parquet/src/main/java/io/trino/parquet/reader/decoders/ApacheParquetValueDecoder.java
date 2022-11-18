@@ -56,9 +56,14 @@ public abstract class ApacheParquetValueDecoder<T>
     @Override
     public void init(SimpleSliceInputStream input)
     {
+        initialize(input, delegate);
+    }
+
+    private static void initialize(SimpleSliceInputStream input, ValuesReader reader)
+    {
         byte[] buffer = input.readBytes();
         try {
-            delegate.initFromPage(0, ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, 0, buffer.length)));
+            reader.initFromPage(0, ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, 0, buffer.length)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
