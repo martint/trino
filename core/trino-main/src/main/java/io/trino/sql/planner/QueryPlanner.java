@@ -138,6 +138,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
@@ -668,6 +669,13 @@ class QueryPlanner
         // Finally, the merge row is complete
         Expression mergeRow = new Row(rowBuilder.build());
 
+        Assignments assignments = Assignments.builder()
+                .putIdentities(subPlanBuilder.getRoot().getOutputSymbols())
+                .build();
+        ProjectNode assignmentProject = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), assignments);
+
+        subPlanBuilder = addCheckConstraints(subPlanBuilder, analysis.getCheckConstraints(table), assignmentProject);
+
         // Build the page, containing:
         // The write redistribution columns if any
         // For partitioned or bucketed tables, a long hash value column.
@@ -699,6 +707,28 @@ class QueryPlanner
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), projectionAssignmentsBuilder.build());
 
         return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
+    }
+
+    private PlanBuilder addCheckConstraints(PlanBuilder subPlanBuilder, List<Expression> constraints, ProjectNode assignmentProject)
+    {
+        if (constraints.isEmpty()) {
+            return subPlanBuilder;
+        }
+
+        for (Expression constraint : constraints) {
+            Expression rewritten = subPlanBuilder.rewrite(constraint);
+            Expression predicate = new IfExpression(
+                    // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
+                    new CoalesceExpression(coerceIfNecessary(analysis, rewritten, rewritten), TRUE_LITERAL),
+                    TRUE_LITERAL,
+                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+            FilterNode filterNode = new FilterNode(
+                    idAllocator.getNextId(),
+                    assignmentProject,
+                    predicate);
+            subPlanBuilder = subPlanBuilder.withNewRoot(filterNode);
+        }
+        return subPlanBuilder;
     }
 
     public MergeWriterNode plan(Merge merge)

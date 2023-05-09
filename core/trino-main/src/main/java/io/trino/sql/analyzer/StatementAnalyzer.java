@@ -566,7 +566,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(tableFields))
                     .build();
             analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
-            analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
+            analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints, ImmutableMap.of());
             analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope);
 
             List<String> tableColumns = columns.stream()
@@ -812,7 +812,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), analysis.getScope(table).getRelationType())
                     .build();
             analyzeFiltersAndMasks(table, tableName, analysis.getScope(table).getRelationType(), accessControlScope);
-            analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints());
+            analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints(), ImmutableMap.of());
             analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope);
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
@@ -2298,11 +2298,11 @@ class StatementAnalyzer
                     .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
         }
 
-        private void analyzeCheckConstraints(Table table, QualifiedObjectName name, Scope accessControlScope, List<String> constraints)
+        private void analyzeCheckConstraints(Table table, QualifiedObjectName name, Scope accessControlScope, List<String> constraints, Map<Identifier, Expression> assignments)
         {
             for (String constraint : constraints) {
                 ViewExpression expression = new ViewExpression(Optional.empty(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), constraint);
-                analyzeCheckConstraint(table, name, accessControlScope, expression);
+                analyzeCheckConstraint(table, name, accessControlScope, expression, assignments);
             }
         }
 
@@ -3235,11 +3235,13 @@ class StatementAnalyzer
             Map<String, ColumnSchema> columns = allColumns.stream()
                     .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
+            ImmutableMap.Builder<Identifier, Expression> columnNameToAssignment = ImmutableMap.builderWithExpectedSize(update.getAssignments().size());
             for (UpdateAssignment assignment : update.getAssignments()) {
                 String columnName = assignment.getName().getValue();
                 if (!columns.containsKey(columnName)) {
                     throw semanticException(COLUMN_NOT_FOUND, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
+                columnNameToAssignment.put(assignment.getName(), assignment.getValue());
             }
 
             Set<String> assignmentTargets = update.getAssignments().stream()
@@ -3249,10 +3251,6 @@ class StatementAnalyzer
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
-            }
-            if (!tableSchema.getTableSchema().getCheckConstraints().isEmpty()) {
-                // TODO https://github.com/trinodb/trino/issues/15411 Add support for CHECK constraint to UPDATE statement
-                throw semanticException(NOT_SUPPORTED, update, "Updating a table with a check constraint is not supported");
             }
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
@@ -3280,6 +3278,8 @@ class StatementAnalyzer
 
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
+            analyzeCheckConstraints(table, tableName, tableScope, tableSchema.getTableSchema().getCheckConstraints(), columnNameToAssignment.buildOrThrow());
+            analysis.registerTable(table, redirection.getTableHandle(), tableName, session.getIdentity().getUser(), tableScope);
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
@@ -4715,7 +4715,7 @@ class StatementAnalyzer
             analysis.addRowFilter(table, expression);
         }
 
-        private void analyzeCheckConstraint(Table table, QualifiedObjectName name, Scope scope, ViewExpression constraint)
+        private void analyzeCheckConstraint(Table table, QualifiedObjectName name, Scope scope, ViewExpression constraint, Map<Identifier, Expression> assignments)
         {
             Expression expression;
             try {
@@ -4723,6 +4723,10 @@ class StatementAnalyzer
             }
             catch (ParsingException e) {
                 throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getErrorMessage()), e);
+            }
+
+            if (!assignments.isEmpty()) {
+                expression = rewriteToAssignment(assignments, expression);
             }
 
             verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Check constraint for '%s'", name));
@@ -4771,6 +4775,24 @@ class StatementAnalyzer
             }
 
             analysis.addCheckConstraints(table, expression);
+        }
+
+        private static Expression rewriteToAssignment(Map<Identifier, Expression> assignments, Expression sourceExpression)
+        {
+            return ExpressionTreeRewriter.rewriteWith(
+                    new ExpressionRewriter<Void>()
+                    {
+                        @Override
+                        public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                        {
+                            if (assignments.containsKey(node)) {
+                                return assignments.get(node);
+                            }
+                            return super.rewriteIdentifier(node, context, treeRewriter);
+                        }
+                    },
+                    sourceExpression,
+                    null);
         }
 
         private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)

@@ -350,31 +350,32 @@ public class TestCheckConstraint
     public void testUpdate()
     {
         // Within allowed check constraint
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey < 3"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey IN (1, 2, 3)"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey + 1"))
+                .matches("SELECT BIGINT '25'");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey IN (1, 2, 3)"))
+                .matches("SELECT BIGINT '3'");
 
         // Outside allowed check constraint
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey IN (1, 11)"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
+        // TODO: Improve error message to report the original check constraint
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10"))
+                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10 WHERE nationkey IN (1, 11)"))
+                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
 
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 2 WHERE nationkey = 11"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10 WHERE nationkey = 11"))
+                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
 
         // Within allowed check constraint, but updated rows are outside the check constraint
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey < 3"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = null WHERE nationkey < 3"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey < 3"))
+                .matches("SELECT BIGINT '3'");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET nationkey = null WHERE nationkey < 3"))
+                .matches("SELECT BIGINT '3'");
 
         // Outside allowed check constraint, and updated rows are outside the check constraint
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey = 10"))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET nationkey = null WHERE nationkey = null "))
-                .hasMessage("line 1:1: Updating a table with a check constraint is not supported");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey = 10"))
+                .matches("SELECT BIGINT '1'");
+        assertThat(assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey = null"))
+                .matches("SELECT BIGINT '0'");
     }
 
     /**
