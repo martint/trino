@@ -37,8 +37,8 @@ class SimulationController
 {
     private static final int DEFAULT_MIN_SPLITS_PER_TASK = 3;
 
-    private final TaskExecutor taskExecutor;
-    private final BiConsumer<SimulationController, TaskExecutor> callback;
+    private final TimeSharingTaskExecutor taskExecutor;
+    private final BiConsumer<SimulationController, TimeSharingTaskExecutor> callback;
 
     private final ExecutorService controllerExecutor = newSingleThreadExecutor();
 
@@ -50,7 +50,7 @@ class SimulationController
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
-    public SimulationController(TaskExecutor taskExecutor, BiConsumer<SimulationController, TaskExecutor> callback)
+    public SimulationController(TimeSharingTaskExecutor taskExecutor, BiConsumer<SimulationController, TimeSharingTaskExecutor> callback)
     {
         this.taskExecutor = taskExecutor;
         this.callback = callback;
