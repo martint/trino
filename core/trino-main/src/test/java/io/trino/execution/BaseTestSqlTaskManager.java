@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -84,7 +83,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
-public class TestSqlTaskManager
+public abstract class BaseTestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 1, 0);
     public static final OutputBufferId OUT = new OutputBufferId(0);
@@ -92,10 +91,12 @@ public class TestSqlTaskManager
     private TaskExecutor taskExecutor;
     private TaskManagementExecutor taskManagementExecutor;
 
+    protected abstract TaskExecutor createTaskExecutor();
+
     @BeforeAll
     public void setUp()
     {
-        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+        taskExecutor = createTaskExecutor();
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
     }
