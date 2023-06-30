@@ -4725,10 +4725,6 @@ class StatementAnalyzer
                 throw new TrinoException(INVALID_CHECK_CONSTRAINT, extractLocation(table), format("Invalid check constraint for '%s': %s", name, e.getErrorMessage()), e);
             }
 
-            if (!assignments.isEmpty()) {
-                expression = rewriteToAssignment(assignments, expression);
-            }
-
             verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Check constraint for '%s'", name));
 
             ExpressionAnalysis expressionAnalysis;

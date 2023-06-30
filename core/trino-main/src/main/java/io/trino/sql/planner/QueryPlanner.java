@@ -628,6 +628,8 @@ class QueryPlanner
         // The tinyint operation number, always UPDATE_OPERATION_NUMBER for update
         // The integer merge case number, always 0 for update
         Metadata metadata = plannerContext.getMetadata();
+
+        Assignments.Builder assignments = Assignments.builder();
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
 
         // Add column values to the rowBuilder - - the SET expression value for updated
@@ -649,13 +651,25 @@ class QueryPlanner
                     rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(columnSchema.getType())));
                 }
                 rowBuilder.add(rewritten);
+
+                assignments.put(relationPlan.getFieldMappings().get(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle)), rewritten);
             }
             else {
                 // Get the non-updated column value from the table
                 Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
                 rowBuilder.add(relationPlan.getFieldMappings().get(fieldNumber).toSymbolReference());
+
+                assignments.putIdentity(relationPlan.getFieldMappings().get(fieldNumber));
             }
         }
+
+        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        
+        assignments.putIdentity(relationPlan.getFieldMappings().get(rowIdReference.getFieldIndex()));
+        subPlanBuilder = subPlanBuilder.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                subPlanBuilder.getRoot(),
+                assignments.build()));
 
         // Add the "present" field
         rowBuilder.add(new GenericLiteral("BOOLEAN", "TRUE"));
@@ -669,12 +683,27 @@ class QueryPlanner
         // Finally, the merge row is complete
         Expression mergeRow = new Row(rowBuilder.build());
 
-        Assignments assignments = Assignments.builder()
-                .putIdentities(subPlanBuilder.getRoot().getOutputSymbols())
-                .build();
-        ProjectNode assignmentProject = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), assignments);
+        List<Expression> constraints = analysis.getCheckConstraints(table);
+        if (!constraints.isEmpty()) {
+            PlanBuilder x = subPlanBuilder.appendProjections(constraints, symbolAllocator, idAllocator);
 
-        subPlanBuilder = addCheckConstraints(subPlanBuilder, analysis.getCheckConstraints(table), assignmentProject);
+            List<Expression> predicates = new ArrayList<>();
+            for (Expression constraint : constraints) {
+                Expression symbol = x.translate(constraint).toSymbolReference();
+
+                Expression predicate = new IfExpression(
+                        // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
+                        new CoalesceExpression(coerceIfNecessary(analysis, symbol, symbol), TRUE_LITERAL),
+                        TRUE_LITERAL,
+                        new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+
+                predicates.add(predicate);
+            }
+
+            if (!predicates.isEmpty()) {
+                subPlanBuilder = subPlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), x.getRoot(), ExpressionUtils.and(predicates)));
+            }
+        }
 
         // Build the page, containing:
         // The write redistribution columns if any
@@ -683,7 +712,6 @@ class QueryPlanner
         // The merge case RowBlock
         // The integer case number block, always 0 for update
         // The byte is_distinct block, always true for update
-        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = relationPlan.getFieldMappings().get(rowIdReference.getFieldIndex());
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
@@ -707,28 +735,6 @@ class QueryPlanner
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), subPlanBuilder.getRoot(), projectionAssignmentsBuilder.build());
 
         return createMergePipeline(table, relationPlan, projectNode, rowIdSymbol, mergeRowSymbol);
-    }
-
-    private PlanBuilder addCheckConstraints(PlanBuilder subPlanBuilder, List<Expression> constraints, ProjectNode assignmentProject)
-    {
-        if (constraints.isEmpty()) {
-            return subPlanBuilder;
-        }
-
-        for (Expression constraint : constraints) {
-            Expression rewritten = subPlanBuilder.rewrite(constraint);
-            Expression predicate = new IfExpression(
-                    // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
-                    new CoalesceExpression(coerceIfNecessary(analysis, rewritten, rewritten), TRUE_LITERAL),
-                    TRUE_LITERAL,
-                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
-            FilterNode filterNode = new FilterNode(
-                    idAllocator.getNextId(),
-                    assignmentProject,
-                    predicate);
-            subPlanBuilder = subPlanBuilder.withNewRoot(filterNode);
-        }
-        return subPlanBuilder;
     }
 
     public MergeWriterNode plan(Merge merge)

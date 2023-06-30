@@ -358,12 +358,12 @@ public class TestCheckConstraint
         // Outside allowed check constraint
         // TODO: Improve error message to report the original check constraint
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10"))
-                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
+                .hasMessage("Check constraint violation: (regionkey < 10)");
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10 WHERE nationkey IN (1, 11)"))
-                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
+                .hasMessage("Check constraint violation: (regionkey < 10)");
 
         assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation SET regionkey = regionkey * 10 WHERE nationkey = 11"))
-                .hasMessage("Check constraint violation: ((regionkey * 10) < 10)");
+                .hasMessage("Check constraint violation: (regionkey < 10)");
 
         // Within allowed check constraint, but updated rows are outside the check constraint
         assertThat(assertions.query("UPDATE mock.tiny.nation SET nationkey = 10 WHERE nationkey < 3"))
