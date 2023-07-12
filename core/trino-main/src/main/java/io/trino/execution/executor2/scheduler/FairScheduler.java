@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.executor2.scheduler.TaskControl.State;
 
@@ -27,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -47,6 +49,9 @@ public final class FairScheduler
 
     private final Thread dumper;
 
+    @GuardedBy("this")
+    private boolean closed;
+
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
     {
         this.ticker = requireNonNull(ticker, "ticker is null");
@@ -65,10 +70,11 @@ public final class FairScheduler
 
         dumper = new Thread(() -> {
             while (true) {
-                System.out.println("Available permits: " + concurrencyControl.availablePermits());
-                System.out.println("Reservations: " + concurrencyControl.reservations());
+                LOG.info("Available permits: %s", concurrencyControl.availablePermits());
+                LOG.info("Reservations: %s", concurrencyControl.reservations());
+                LOG.info(queue.toString());
                 try {
-                    Thread.sleep(10_000);
+                    Thread.sleep(60_000);
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -107,8 +113,15 @@ public final class FairScheduler
     }
 
     @Override
-    public void close()
+    public synchronized void close()
     {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        LOG.info("Closing fair scheduler: %s", this);
+
         Set<TaskControl> tasks = queue.finishAll();
 
         for (TaskControl task : tasks) {
@@ -119,16 +132,24 @@ public final class FairScheduler
         schedulerExecutor.shutdownNow();
     }
 
-    public Group createGroup(String name)
+    public synchronized Group createGroup(String name)
     {
+        checkArgument(!closed, "Already closed");
+
+        LOG.info("Create group: %s", name);
+
         Group group = new Group(name);
         queue.startGroup(group);
 
         return group;
     }
 
-    public void removeGroup(Group group)
+    public synchronized void removeGroup(Group group)
     {
+        checkArgument(!closed, "Already closed");
+
+        LOG.info("Remove group: %s", group);
+
         Set<TaskControl> tasks = queue.finishGroup(group);
 
         for (TaskControl task : tasks) {
@@ -136,12 +157,12 @@ public final class FairScheduler
         }
     }
 
-    public ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
+    public synchronized ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
     {
+        checkArgument(!closed, "Already closed");
+
         TaskControl task = new TaskControl(group, id, ticker);
-
         ListenableFuture<Void> done = taskExecutor.submit(() -> runTask(runner, task), null);
-
         queue.enqueue(group, task, 0);
 
         return done;
@@ -201,13 +222,15 @@ public final class FairScheduler
             return true;
         }
 
+        concurrencyControl.release(task);
+
         if (!task.transitionToWaiting()) {
-            concurrencyControl.release(task);
             return false;
         }
 
-        queue.enqueue(task.group(), task, delta);
-        concurrencyControl.release(task);
+        if (!queue.enqueue(task.group(), task, delta)) {
+            return false;
+        }
 
         return awaitReadyAndTransitionToRunning(task);
     }
@@ -216,17 +239,15 @@ public final class FairScheduler
     {
         long delta = task.elapsed();
 
+        concurrencyControl.release(task);
+
         if (!task.transitionToBlocked()) {
-            concurrencyControl.release(task);
             return false;
         }
 
         if (!queue.block(task.group(), task, delta)) {
-            concurrencyControl.release(task);
             return false;
         }
-
-        concurrencyControl.release(task);
 
         future.addListener(task::markUnblocked, MoreExecutors.directExecutor());
         task.awaitUnblock();

@@ -14,6 +14,7 @@
 package io.trino.execution.executor2.scheduler;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.annotation.NotThreadSafe;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -107,6 +108,7 @@ import static io.trino.execution.executor2.scheduler.SchedulingQueue.State.RUNNI
  * </ul>
  * </p>
  */
+@NotThreadSafe
 final class SchedulingQueue<G, T>
 {
     private final PriorityQueue<G> runnableQueue = new PriorityQueue<>();
