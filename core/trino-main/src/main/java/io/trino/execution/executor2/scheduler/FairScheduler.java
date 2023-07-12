@@ -58,6 +58,8 @@ public final class FairScheduler
 
     private final Gate paused = new Gate(true);
 
+    private final Thread dumper;
+
     @GuardedBy("this")
     private boolean closed;
 
@@ -76,6 +78,21 @@ public final class FairScheduler
                 .setNameFormat(threadNameFormat)
                 .setDaemon(true)
                 .build()));
+
+        dumper = new Thread(() -> {
+            while (true) {
+                LOG.info("Available permits: %s", concurrencyControl.availablePermits());
+                LOG.info("Reservations: %s", concurrencyControl.reservations());
+                LOG.info(queue.toString());
+                try {
+                    Thread.sleep(60_000);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        });
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -93,6 +110,7 @@ public final class FairScheduler
     public void start()
     {
         schedulerExecutor.submit(this::runScheduler);
+        dumper.start();
     }
 
     public void pause()
@@ -113,6 +131,8 @@ public final class FairScheduler
         }
         closed = true;
 
+        LOG.info("Closing fair scheduler: %s", this);
+
         Set<TaskControl> tasks = queue.finishAll();
 
         for (TaskControl task : tasks) {
@@ -127,6 +147,8 @@ public final class FairScheduler
     {
         checkArgument(!closed, "Already closed");
 
+        LOG.info("Create group: %s", name);
+
         Group group = new Group(name);
         queue.startGroup(group);
 
@@ -136,6 +158,8 @@ public final class FairScheduler
     public synchronized void removeGroup(Group group)
     {
         checkArgument(!closed, "Already closed");
+
+        LOG.info("Remove group: %s", group);
 
         Set<TaskControl> tasks = queue.finishGroup(group);
 
