@@ -13,6 +13,8 @@
  */
 package io.trino.execution.executor2.scheduler;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -52,5 +54,10 @@ public class Reservation<T>
         reservations.remove(entry);
 
         semaphore.release();
+    }
+
+    public synchronized Set<T> reservations()
+    {
+        return ImmutableSet.copyOf(reservations);
     }
 }

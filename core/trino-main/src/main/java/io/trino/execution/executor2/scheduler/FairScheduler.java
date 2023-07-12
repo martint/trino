@@ -45,6 +45,8 @@ public final class FairScheduler
 
     private final Gate paused = new Gate(true);
 
+    private final Thread dumper;
+
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
     {
         this.ticker = requireNonNull(ticker, "ticker is null");
@@ -60,6 +62,20 @@ public final class FairScheduler
                 .setNameFormat(threadNameFormat)
                 .setDaemon(true)
                 .build()));
+
+        dumper = new Thread(() -> {
+            while (true) {
+                System.out.println("Available permits: " + concurrencyControl.availablePermits());
+                System.out.println("Reservations: " + concurrencyControl.reservations());
+                try {
+                    Thread.sleep(10_000);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        });
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -77,6 +93,7 @@ public final class FairScheduler
     public void start()
     {
         schedulerExecutor.submit(this::runScheduler);
+        dumper.start();
     }
 
     public void pause()
