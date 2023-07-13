@@ -50,7 +50,7 @@ public final class PrioritizedSplitRunner
 
     private final long createdNanos = System.nanoTime();
 
-    private final TaskHandle taskHandle;
+    private final TimeSharingTaskHandle taskHandle;
     private final int splitId;
     private final long workerId;
     private final SplitRunner split;
@@ -81,7 +81,7 @@ public final class PrioritizedSplitRunner
     private final TimeStat unblockedQuantaWallTime;
 
     PrioritizedSplitRunner(
-            TaskHandle taskHandle,
+            TimeSharingTaskHandle taskHandle,
             int splitId,
             SplitRunner split,
             Span splitSpan,
@@ -107,7 +107,7 @@ public final class PrioritizedSplitRunner
         updateLevelPriority();
     }
 
-    public TaskHandle getTaskHandle()
+    public TimeSharingTaskHandle getTaskHandle()
     {
         return taskHandle;
     }

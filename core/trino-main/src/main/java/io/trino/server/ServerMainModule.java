@@ -51,6 +51,8 @@ import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.TimeSharingTaskExecutor;
+import io.trino.execution.executor2.ThreadPerDriverTaskExecutor;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
@@ -307,7 +309,7 @@ public class ServerMainModule
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
-        binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
+
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
@@ -318,6 +320,20 @@ public class ServerMainModule
         binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
+
+        // TODO: use conditional module
+        TaskManagerConfig taskManagerConfig = buildConfigObject(TaskManagerConfig.class);
+        if (taskManagerConfig.isThreadPerDriverSchedulerEnabled()) {
+            binder.bind(TaskExecutor.class)
+                    .to(ThreadPerDriverTaskExecutor.class)
+                    .in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(TaskExecutor.class)
+                    .to(TimeSharingTaskExecutor.class)
+                    .in(Scopes.SINGLETON);
+        }
+
         if (retryPolicy == TASK) {
             configBinder(binder).bindConfigDefaults(TaskManagerConfig.class, TaskManagerConfig::applyFaultTolerantExecutionDefaults);
         }

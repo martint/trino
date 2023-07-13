@@ -49,7 +49,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestTaskExecutor
+public class TestTimeSharingTaskExecutor
 {
     @Test(invocationCount = 100)
     public void testTasksComplete()
@@ -58,7 +58,7 @@ public class TestTaskExecutor
         TestingTicker ticker = new TestingTicker();
         Duration splitProcessingDurationThreshold = new Duration(10, MINUTES);
 
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, ticker);
 
         taskExecutor.start();
         try {
@@ -156,7 +156,7 @@ public class TestTaskExecutor
     public void testQuantaFairness()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(1, 2, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TimeSharingTaskExecutor(1, 2, 3, 4, ticker);
 
         taskExecutor.start();
         try {
@@ -190,12 +190,12 @@ public class TestTaskExecutor
     public void testLevelMovement()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(2, 2, 3, 4, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(2, 2, 3, 4, ticker);
 
         taskExecutor.start();
         try {
             ticker.increment(20, MILLISECONDS);
-            TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TimeSharingTaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser globalPhaser = new Phaser();
             globalPhaser.bulkRegister(3); // 2 taskExecutor threads + test thread
@@ -229,7 +229,7 @@ public class TestTaskExecutor
             throws Exception
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(6, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(6, 3, 3, 4, new MultilevelSplitQueue(2), ticker);
 
         taskExecutor.start();
         try {
@@ -307,12 +307,12 @@ public class TestTaskExecutor
     public void testTaskHandle()
     {
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, ticker);
 
         taskExecutor.start();
         try {
             TaskId taskId = new TaskId(new StageId("test", 0), 0, 0);
-            TaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TimeSharingTaskHandle taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
 
             Phaser beginPhase = new Phaser();
             beginPhase.register();
@@ -343,8 +343,8 @@ public class TestTaskExecutor
     public void testLevelContributionCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId(new StageId("test0", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
-        TaskHandle handle1 = new TaskHandle(new TaskId(new StageId("test1", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TimeSharingTaskHandle handle0 = new TimeSharingTaskHandle(new TaskId(new StageId("test0", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TimeSharingTaskHandle handle1 = new TimeSharingTaskHandle(new TaskId(new StageId("test1", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
@@ -363,7 +363,7 @@ public class TestTaskExecutor
     public void testUpdateLevelWithCap()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
-        TaskHandle handle0 = new TaskHandle(new TaskId(new StageId("test0", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
+        TimeSharingTaskHandle handle0 = new TimeSharingTaskHandle(new TaskId(new StageId("test0", 0), 0, 0), splitQueue, () -> 1, 1, new Duration(1, SECONDS), OptionalInt.empty());
 
         long quantaNanos = MINUTES.toNanos(10);
         handle0.addScheduledNanos(quantaNanos);
@@ -382,7 +382,7 @@ public class TestTaskExecutor
         int maxDriversPerTask = 2;
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 16, 1, maxDriversPerTask, splitQueue, ticker);
 
         taskExecutor.start();
         try {
@@ -423,7 +423,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2 and 4
-        TaskExecutor taskExecutor = new TaskExecutor(4, 16, 2, 4, splitQueue, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 16, 2, 4, splitQueue, ticker);
 
         taskExecutor.start();
         try {
@@ -463,7 +463,7 @@ public class TestTaskExecutor
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
         // create a task executor with min/max drivers per task to be 2
-        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 1, 2, 2, splitQueue, ticker);
 
         taskExecutor.start();
         try {
@@ -508,7 +508,7 @@ public class TestTaskExecutor
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
         TestingTicker ticker = new TestingTicker();
-        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 1, 2, 2, splitQueue, ticker);
 
         TaskHandle testTaskHandle = taskExecutor.addTask(new TaskId(new StageId("test", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
         TestingJob driver1 = new TestingJob(ticker, new Phaser(), new Phaser(), new Phaser(), 1, 500);

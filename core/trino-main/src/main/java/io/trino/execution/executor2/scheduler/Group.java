@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor2.scheduler;
 
-public interface TaskHandle
+public record Group(String name)
 {
-    boolean isDestroyed();
+    @Override
+    public String toString()
+    {
+        return name;
+    }
 }
