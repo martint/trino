@@ -106,7 +106,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectStar()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -116,7 +116,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(groups = LARGE_QUERY)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -134,7 +134,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(groups = LARGE_QUERY)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testAllowMultipleFilesPerBucket()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -151,7 +151,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectAfterMultipleInserts()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -169,7 +169,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectAfterMultipleInsertsForSortedTable()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_SORTED_NATION).getNameInDatabase();
@@ -187,7 +187,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectAfterMultipleInsertsForPartitionedTable()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -212,7 +212,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectFromEmptyBucketedTableEmptyTablesAllowed()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -221,7 +221,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testSelectFromIncompleteBucketedTableEmptyTablesAllowed()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -234,7 +234,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testInsertPartitionedBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
@@ -250,7 +250,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreatePartitionedBucketedTableAsSelect()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -264,7 +264,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testInsertIntoBucketedTables()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION).getNameInDatabase();
@@ -278,7 +278,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreateBucketedTableAsSelect()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
@@ -291,7 +291,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testBucketingVersion()
     {
         String value = "Trino rocks";
@@ -313,7 +313,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(dataProvider = "testBucketingWithUnsupportedDataTypesDataProvider")
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testBucketingWithUnsupportedDataTypes(BucketingType bucketingType, String columnToBeBucketed)
     {
         try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomNameSuffix())) {

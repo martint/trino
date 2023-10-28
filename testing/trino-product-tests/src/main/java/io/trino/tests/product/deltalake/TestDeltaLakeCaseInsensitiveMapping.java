@@ -74,7 +74,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testNonLowercaseFieldNames()
     {
         String tableName = "test_dl_non_lowercase_field" + randomNameSuffix();
@@ -159,7 +159,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testGeneratedColumnWithNonLowerCaseColumnName()
     {
         String tableName = "test_dl_generated_column_uppercase_name" + randomNameSuffix();
@@ -185,7 +185,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
 
     // Exclude 10.4 because it throws MISSING_COLUMN when executing INSERT statement
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testIdentityColumnWithNonLowerCaseColumnName()
     {
         String tableName = "test_identity_column_case_sensitivity_" + randomNameSuffix();

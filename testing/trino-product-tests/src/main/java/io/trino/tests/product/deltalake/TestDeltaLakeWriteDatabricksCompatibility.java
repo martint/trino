@@ -68,7 +68,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testUpdateCompatibility()
     {
         String tableName = "test_update_compatibility_" + randomNameSuffix();
@@ -100,7 +100,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeleteCompatibility()
     {
         String tableName = "test_delete_compatibility_" + randomNameSuffix();
@@ -130,7 +130,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeleteOnPartitionedTableCompatibility()
     {
         String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
@@ -160,7 +160,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeleteOnPartitionKeyCompatibility()
     {
         String tableName = "test_delete_on_partitioned_table_compatibility_" + randomNameSuffix();
@@ -188,7 +188,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     // Test partition case sensitivity when updating
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "partition_column_names")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCaseUpdateInPartition(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("update_case_compat", partitionColumn, List.of(
@@ -203,7 +203,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     // Test that the correct error is generated when attempting to update the partition columns
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "partition_column_names")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCaseUpdatePartitionColumnFails(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("update_case_compat", partitionColumn, List.of(row(1, 1, 1)))) {
@@ -221,7 +221,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     // Delete within a partition
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "partition_column_names")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCaseDeletePartialPartition(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("delete_case_compat", partitionColumn, List.of(
@@ -235,7 +235,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     // Delete an entire partition
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "partition_column_names")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCaseDeleteEntirePartition(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("delete_case_compat", partitionColumn, List.of(
@@ -248,7 +248,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testTrinoRespectsDatabricksSettingNonNullableColumn()
     {
         String tableName = "test_databricks_table_with_nonnullable_columns_" + randomNameSuffix();
@@ -276,7 +276,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksRespectsTrinoSettingNonNullableColumn()
     {
         String tableName = "test_trino_table_with_nonnullable_columns_" + randomNameSuffix();
@@ -303,7 +303,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testInsertingIntoDatabricksTableWithAddedNotNullConstraint()
     {
         String tableName = "test_databricks_table_altered_after_initial_write_" + randomNameSuffix();
@@ -332,7 +332,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testTrinoVacuumRemoveChangeDataFeedFiles()
     {
         testVacuumRemoveChangeDataFeedFiles(tableName -> {
@@ -342,7 +342,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksVacuumRemoveChangeDataFeedFiles()
     {
         testVacuumRemoveChangeDataFeedFiles(tableName -> {

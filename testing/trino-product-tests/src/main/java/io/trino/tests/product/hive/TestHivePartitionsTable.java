@@ -102,7 +102,7 @@ public class TestHivePartitionsTable
     }
 
     @Test(groups = HIVE_PARTITIONING)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testShowPartitionsFromHiveTable()
     {
         String tableNameInDatabase = tablesState.get(PARTITIONED_TABLE).getNameInDatabase();
@@ -125,7 +125,7 @@ public class TestHivePartitionsTable
     }
 
     @Test(groups = HIVE_PARTITIONING)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM \"nation$partitions\""))
@@ -133,7 +133,7 @@ public class TestHivePartitionsTable
     }
 
     @Test(groups = HIVE_PARTITIONING)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testShowPartitionsFromHiveTableWithTooManyPartitions()
     {
         String tableName = tablesState.get(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS).getNameInDatabase();

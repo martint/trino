@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,8 @@ import static java.util.stream.Collectors.joining;
 public class FlakyAnnotationVerifier
         implements IClassListener
 {
+    private static final Period FLAKY_GRACE_PERIOD = Period.ofMonths(2);
+
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
@@ -104,6 +108,10 @@ public class FlakyAnnotationVerifier
             }
             catch (PatternSyntaxException e) {
                 return Optional.of(format("Test method %s has invalid @Flaky.match: %s", method, getStackTraceAsString(e)));
+            }
+            LocalDate created = LocalDate.parse(flaky.get().since());
+            if (created.isBefore(LocalDate.now().minus(FLAKY_GRACE_PERIOD))) {
+                throw new AssertionError(format("Test method has been marked as flaky since %s. Fix it or remove it: %s", created, method));
             }
         }
         return Optional.empty();

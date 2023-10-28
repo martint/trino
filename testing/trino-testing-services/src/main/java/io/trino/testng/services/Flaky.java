@@ -38,4 +38,10 @@ public @interface Flaky
      */
     @Language("RegExp")
     String match();
+
+    /**
+     * Date when the annotation was first added to a flaky test.
+     * The date should be in ISO-8601 format, e.g. {@code 2019-01-01}.
+     */
+    String since();
 }

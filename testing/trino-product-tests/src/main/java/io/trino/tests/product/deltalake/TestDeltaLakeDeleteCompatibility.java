@@ -89,7 +89,7 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeleteCompatibility()
     {
         String tableName = "test_delete_compatibility_" + randomNameSuffix();
@@ -190,7 +190,7 @@ public class TestDeltaLakeDeleteCompatibility
 
     // OSS Delta doesn't support TRUNCATE TABLE statement
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testTruncateTable()
     {
         String tableName = "test_truncate_table_" + randomNameSuffix();
@@ -214,7 +214,7 @@ public class TestDeltaLakeDeleteCompatibility
 
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeletionVectors(String mode)
     {
         String tableName = "test_deletion_vectors_" + randomNameSuffix();
@@ -441,7 +441,7 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDeletionVectorsTruncateTable()
     {
         testDeletionVectorsDeleteAll(tableName -> {

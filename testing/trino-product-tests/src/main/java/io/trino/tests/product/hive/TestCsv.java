@@ -66,14 +66,14 @@ public class TestCsv
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreateCsvTableAs()
     {
         testCreateCsvTableAs("");
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreateCsvTableAsWithCustomProperties()
     {
         testCreateCsvTableAs(", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -98,14 +98,14 @@ public class TestCsv
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testInsertIntoPartitionedCsvTable()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table", "");
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testInsertIntoPartitionedCsvTableWithCustomProperties()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table_with_custom_parameters", ", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -132,14 +132,14 @@ public class TestCsv
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreatePartitionedCsvTableAs()
     {
         testCreatePartitionedCsvTableAs("storage_formats_test_create_table_as_select_partitioned_csv", "");
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreatePartitionedCsvTableAsWithCustomParamters()
     {
         testCreatePartitionedCsvTableAs(

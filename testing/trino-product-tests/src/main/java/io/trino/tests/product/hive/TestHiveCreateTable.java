@@ -37,7 +37,7 @@ public class TestHiveCreateTable
         extends ProductTest
 {
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreateTable()
             throws SQLException
     {
@@ -58,7 +58,7 @@ public class TestHiveCreateTable
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testCreateTableAsSelect()
             throws SQLException
     {

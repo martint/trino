@@ -527,7 +527,8 @@ public abstract class BaseRaptorConnectorTest
     @Test
     @Flaky(
             issue = "https://github.com/trinodb/trino/issues/1977",
-            match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
+            match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]",
+            since = "2023-10-27")
     public void testCreateBucketedTable()
     {
         assertUpdate("DROP TABLE IF EXISTS orders_bucketed");

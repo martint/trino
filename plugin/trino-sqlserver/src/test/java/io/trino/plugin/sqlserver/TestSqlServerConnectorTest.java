@@ -68,7 +68,7 @@ public class TestSqlServerConnectorTest
         return sqlServer::execute;
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
+    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*", since = "2023-10-27")
     @Test(dataProvider = "doubleTrueFalse")
     public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
             throws SQLException
@@ -97,7 +97,7 @@ public class TestSqlServerConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
+    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*", since = "2023-10-27")
     @Test(dataProvider = "tripleTrueFalse")
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException

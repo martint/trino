@@ -54,7 +54,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     private static final long MAX_JOB_TIME_MILLIS = MINUTES.toMillis(5);
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCleanUpOldTablesUsingDelta()
     {
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();

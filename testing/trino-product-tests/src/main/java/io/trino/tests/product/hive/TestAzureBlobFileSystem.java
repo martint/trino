@@ -57,7 +57,7 @@ public class TestAzureBlobFileSystem
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testPathContainsSpecialCharacter()
     {
         String tableName = "test_path_special_character" + randomNameSuffix();

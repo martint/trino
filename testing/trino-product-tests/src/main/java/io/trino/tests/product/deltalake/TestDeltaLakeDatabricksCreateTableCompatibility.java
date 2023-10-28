@@ -56,7 +56,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksCanReadInitialCreateTable()
     {
         String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
@@ -96,7 +96,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksCanReadInitialCreatePartitionedTable()
     {
         String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
@@ -139,7 +139,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksCanReadInitialCreateTableAs()
     {
         String tableName = "test_dl_create_table_as_compat_" + randomNameSuffix();
@@ -184,7 +184,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testDatabricksCanReadInitialCreatePartitionedTableAs()
     {
         String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
@@ -247,7 +247,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithTableComment()
     {
         String tableName = "test_dl_create_table_comment_" + randomNameSuffix();
@@ -268,7 +268,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithColumnCommentOnTrino()
     {
         String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
@@ -294,7 +294,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithColumnCommentOnDelta()
     {
         String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
@@ -314,7 +314,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithDuplicatedColumnNames()
     {
         String tableName = "test_dl_create_table_with_duplicated_column_names_" + randomNameSuffix();
@@ -331,7 +331,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithUnsupportedPartitionType()
     {
         String tableName = "test_dl_create_table_with_unsupported_column_types_" + randomNameSuffix();
@@ -363,7 +363,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH, since = "2023-10-27")
     public void testCreateTableWithAllPartitionColumns()
     {
         String tableName = "test_dl_create_table_with_all_partition_columns_" + randomNameSuffix();

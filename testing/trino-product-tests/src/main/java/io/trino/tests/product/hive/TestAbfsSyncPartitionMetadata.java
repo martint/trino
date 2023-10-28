@@ -56,7 +56,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testAddPartition()
     {
@@ -64,7 +64,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -72,7 +72,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testDropPartition()
     {
@@ -80,7 +80,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -88,7 +88,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testFullSyncPartition()
     {
@@ -96,7 +96,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testInvalidSyncMode()
     {
@@ -104,7 +104,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testMixedCasePartitionNames()
     {
@@ -112,7 +112,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     @Override
     public void testConflictingMixedCasePartitionNames()
     {

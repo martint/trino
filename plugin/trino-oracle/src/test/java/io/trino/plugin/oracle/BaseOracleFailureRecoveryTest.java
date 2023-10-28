@@ -66,7 +66,7 @@ public abstract class BaseOracleFailureRecoveryTest
     }
 
     @Override
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable", since = "2023-10-27")
     @Test(dataProvider = "parallelTests")
     public void testParallel(Runnable runnable)
     {

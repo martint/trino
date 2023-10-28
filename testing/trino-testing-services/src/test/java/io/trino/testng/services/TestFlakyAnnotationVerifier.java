@@ -72,7 +72,7 @@ public class TestFlakyAnnotationVerifier
 
     private static class TestNotTestMethodWithFlaky
     {
-        @Flaky(issue = "Blah", match = "Blah")
+        @Flaky(issue = "Blah", match = "Blah", since = "2023-01-01")
         @ReportBadTestAnnotations.Suppress
         public void test() {}
     }
@@ -95,7 +95,7 @@ public class TestFlakyAnnotationVerifier
             extends TestParentJustTest
     {
         @Override
-        @Flaky(issue = "Blah", match = "Blah")
+        @Flaky(issue = "Blah", match = "Blah", since = "2023-01-01")
         public void test() {}
     }
 
@@ -104,14 +104,14 @@ public class TestFlakyAnnotationVerifier
     {
         @Override
         @Test
-        @Flaky(issue = "Blah", match = "Blah")
+        @Flaky(issue = "Blah", match = "Blah", since = "2023-01-01")
         public void test() {}
     }
 
     private static class TestParentTestAndFlaky
     {
         @Test
-        @Flaky(issue = "Blah", match = "Blah")
+        @Flaky(issue = "Blah", match = "Blah", since = "2023-01-01")
         public void test() {}
     }
 
@@ -146,7 +146,7 @@ public class TestFlakyAnnotationVerifier
             extends TestChildNoDeclaration
     {
         @Override
-        @Flaky(issue = "Blah", match = "Blah")
+        @Flaky(issue = "Blah", match = "Blah", since = "2023-01-01")
         public void test() {}
     }
 
@@ -157,7 +157,7 @@ public class TestFlakyAnnotationVerifier
     private static class TestFlakyInvalidPattern
     {
         @Test
-        @Flaky(match = "unbalanaced (", issue = "x")
+        @Flaky(match = "unbalanaced (", issue = "x", since = "2023-01-01")
         public void test() {}
     }
 }

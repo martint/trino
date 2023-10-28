@@ -52,7 +52,7 @@ public class TestHivePartitionProcedures
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterPartition()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -70,7 +70,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -81,7 +81,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterMissingTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -91,7 +91,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -101,7 +101,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -111,7 +111,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testUnregisterMissingPartitionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -121,7 +121,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionMissingTableShouldFail()
     {
         assertQueryFailure(() -> addPartition("missing_table", "col", "f", "/"))
@@ -129,7 +129,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -139,7 +139,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -150,7 +150,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionCollisionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -160,7 +160,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -170,7 +170,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionInvalidLocationShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -180,7 +180,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionWithDefaultPartitionLocation()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -198,7 +198,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartition()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -218,7 +218,7 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH, since = "2023-10-27")
     public void testRegisterPartitionFromAnyLocation()
     {
         createPartitionedTable(FIRST_TABLE);

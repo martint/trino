@@ -129,7 +129,7 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim", since = "2023-10-27")
     @Test
     @Override
     public void testSelectInformationSchemaColumns()

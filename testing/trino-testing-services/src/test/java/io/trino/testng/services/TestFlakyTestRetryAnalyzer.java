@@ -28,7 +28,7 @@ public class TestFlakyTestRetryAnalyzer
     private int testNoRetryingCount;
     private int[] testRetryingParametricTestCount = new int[2];
 
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!", since = "9999-01-01")
     @Test
     public void testRetrying()
     {
@@ -48,13 +48,13 @@ public class TestFlakyTestRetryAnalyzer
 
     @Override
     @Test
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!", since = "9999-01-01")
     public void testRetryingOverriddenTest()
     {
         super.testRetryingOverriddenTest();
     }
 
-    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!")
+    @Flaky(issue = "intentionally flaky for @Flaky test purposes", match = "I am trying hard to fail!", since = "9999-01-01")
     @Test(dataProvider = "parameters")
     public void testRetryingParametricTest(int index)
     {
