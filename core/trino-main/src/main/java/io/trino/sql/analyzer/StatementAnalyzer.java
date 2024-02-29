@@ -2563,6 +2563,7 @@ class StatementAnalyzer
 
             if (storageTable.isPresent()) {
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
+                analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
                 Scope accessControlScope = Scope.builder()
                         .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
                         .build();
@@ -2570,7 +2571,7 @@ class StatementAnalyzer
                 analysis.registerTable(table, storageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
                 analysis.addRelationCoercion(table, viewFields.stream().map(Field::getType).toArray(Type[]::new));
                 // use storage table output fields as they contain ColumnHandles
-                return createAndAssignScope(table, scope, storageTableFields);
+                return createAndAssignScope(table, scope, viewFields);
             }
 
             Scope accessControlScope = Scope.builder()

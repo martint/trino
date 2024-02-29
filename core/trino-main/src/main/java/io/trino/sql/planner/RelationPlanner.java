@@ -151,6 +151,7 @@ import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -311,7 +312,12 @@ class RelationPlanner
 
             ImmutableList.Builder<Symbol> outputSymbolsBuilder = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-            for (Field field : scope.getRelationType().getAllFields()) {
+
+            Collection<Field> fields = analysis.getMaterializedViewStorageTableFields(node);
+            if (fields == null) {
+                fields = scope.getRelationType().getAllFields();
+            }
+            for (Field field : fields) {
                 Symbol symbol = symbolAllocator.newSymbol(field);
 
                 outputSymbolsBuilder.add(symbol);
