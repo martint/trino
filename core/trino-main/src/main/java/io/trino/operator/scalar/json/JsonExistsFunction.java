@@ -15,10 +15,10 @@ package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonItems;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.JsonPathItem;
+import io.trino.json.JsonValueView;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
@@ -43,9 +43,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
-import static io.trino.operator.scalar.json.ParameterUtil.toLegacyPathParameters;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -116,16 +114,16 @@ public class JsonExistsFunction
             SqlRow parametersRow,
             long errorBehavior)
     {
-        if (inputExpression.equals(JSON_ERROR)) {
+        if (JsonValueView.isJsonError(inputExpression)) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (JsonValueView.isJsonError(parameter)) {
                 return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        Object[] legacyParameters = toLegacyPathParameters(parameters);
+        JsonPathItem inputItem = (JsonPathItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
@@ -136,7 +134,7 @@ public class JsonExistsFunction
         }
         List<Object> pathResult;
         try {
-            pathResult = evaluator.evaluate(JsonItems.toJsonNode((JsonPathItem) inputExpression), legacyParameters);
+            pathResult = evaluator.evaluate(inputItem, parameters);
         }
         catch (PathEvaluationException e) {
             return handleError(errorBehavior, () -> e);

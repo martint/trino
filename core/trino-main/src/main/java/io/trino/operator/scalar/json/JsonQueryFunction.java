@@ -16,12 +16,14 @@ package io.trino.operator.scalar.json;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.JsonPathItem;
 import io.trino.json.JsonValue;
+import io.trino.json.JsonValueView;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.TypedValue;
@@ -48,9 +50,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
-import static io.trino.operator.scalar.json.ParameterUtil.toLegacyPathParameters;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -58,6 +58,7 @@ import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryFunction
@@ -130,16 +131,16 @@ public class JsonQueryFunction
             long emptyBehavior,
             long errorBehavior)
     {
-        if (inputExpression.equals(JSON_ERROR)) {
+        if (JsonValueView.isJsonError(inputExpression)) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (JsonValueView.isJsonError(parameter)) {
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        Object[] legacyParameters = toLegacyPathParameters(parameters);
+        JsonPathItem inputItem = (JsonPathItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
@@ -150,7 +151,7 @@ public class JsonQueryFunction
         }
         List<Object> pathResult;
         try {
-            pathResult = evaluator.evaluate(JsonItems.toJsonNode((JsonPathItem) inputExpression), legacyParameters);
+            pathResult = evaluator.evaluate(inputItem, parameters);
         }
         catch (PathEvaluationException e) {
             return handleSpecialCase(errorBehavior, () -> e);
@@ -161,15 +162,24 @@ public class JsonQueryFunction
             return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionException("JSON path found no items"));
         }
 
+        if (pathResult.size() == 1) {
+            Object item = pathResult.get(0);
+            return switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
+                case WITHOUT -> toJsonResult(item);
+                case CONDITIONAL -> {
+                    if (isArrayOrObject(item)) {
+                        yield item;
+                    }
+                    yield encodedResult(new JsonArrayItem(ImmutableList.of(JsonItems.asJsonValue(item))));
+                }
+                case UNCONDITIONAL -> encodedResult(new JsonArrayItem(ImmutableList.of(JsonItems.asJsonValue(item))));
+            };
+        }
+
         // translate sequence to JSON items
-        ImmutableList.Builder<JsonValue> builder = ImmutableList.builder();
+        ImmutableList.Builder<JsonValue> builder = ImmutableList.builderWithExpectedSize(pathResult.size());
         for (Object item : pathResult) {
-            if (item instanceof TypedValue typedValue) {
-                builder.add(typedValue);
-            }
-            else {
-                builder.add(JsonItems.fromJsonNode((com.fasterxml.jackson.databind.JsonNode) item));
-            }
+            builder.add(JsonItems.asJsonValue(item));
         }
         List<JsonValue> sequence = builder.build();
 
@@ -182,7 +192,7 @@ public class JsonQueryFunction
                 sequence = ImmutableList.of(new JsonArrayItem(sequence));
                 break;
             case CONDITIONAL:
-                if (sequence.size() != 1 || (!(sequence.get(0) instanceof JsonArrayItem) && !(sequence.get(0) instanceof JsonObjectItem))) {
+                if (sequence.size() != 1 || !isArrayOrObject(sequence.get(0))) {
                     sequence = ImmutableList.of(new JsonArrayItem(sequence));
                 }
                 break;
@@ -207,5 +217,32 @@ public class JsonQueryFunction
             case EMPTY_ARRAY -> EMPTY_ARRAY_RESULT;
             case EMPTY_OBJECT -> EMPTY_OBJECT_RESULT;
         };
+    }
+
+    private static JsonPathItem toJsonResult(Object item)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            return view.get();
+        }
+        if (item instanceof JsonValue jsonValue) {
+            return encodedResult(jsonValue);
+        }
+        if (item instanceof TypedValue typedValue) {
+            return encodedResult(typedValue);
+        }
+        throw new IllegalArgumentException(format("unexpected JSON path result item: %s", item.getClass().getName()));
+    }
+
+    private static boolean isArrayOrObject(Object item)
+    {
+        return JsonValueView.fromObject(item)
+                .map(view -> view.isArray() || view.isObject())
+                .orElse(item instanceof JsonArrayItem || item instanceof JsonObjectItem);
+    }
+
+    private static JsonPathItem encodedResult(JsonValue value)
+    {
+        return JsonValueView.root(JsonItemEncoding.encode(value));
     }
 }

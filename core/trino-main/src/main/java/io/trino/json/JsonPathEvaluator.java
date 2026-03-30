@@ -14,7 +14,10 @@
 package io.trino.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.google.common.collect.ImmutableList;
 import io.trino.json.ir.IrJsonPath;
+import io.trino.json.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -30,7 +33,8 @@ import static java.util.Objects.requireNonNull;
  * Evaluates the JSON path expression using given JSON input and parameters,
  * respecting the path mode `strict` or `lax`.
  * Successful evaluation results in a sequence of objects.
- * Each object in the sequence is either a `JsonNode` or a `TypedValue`
+ * Each object in the sequence is represented either by a JsonValueView-backed JSON item
+ * or a typed scalar value.
  * Certain error conditions might be suppressed in `lax` mode.
  * Any unsuppressed error condition causes evaluation failure.
  * In such case, `PathEvaluationError` is thrown.
@@ -54,9 +58,69 @@ public class JsonPathEvaluator
         this.resolver = new CachingResolver(metadata);
     }
 
-    public List<Object> evaluate(JsonNode input, Object[] parameters)
+    public List<Object> evaluate(JsonPathItem input, Object[] parameters)
     {
-        return new PathEvaluationVisitor(path.isLax(), input, parameters, invoker, resolver).process(path.getRoot(), new PathEvaluationContext());
+        List<Object> pathResult = new PathEvaluationVisitor(
+                path.isLax(),
+                toLegacyJsonNode(input),
+                toLegacyPathParameters(parameters),
+                invoker,
+                resolver)
+                .process(path.getRoot(), new PathEvaluationContext());
+
+        ImmutableList.Builder<Object> builder = ImmutableList.builderWithExpectedSize(pathResult.size());
+        for (Object item : pathResult) {
+            if (item instanceof JsonNode jsonNode) {
+                builder.add(JsonItems.fromJsonNode(jsonNode));
+            }
+            else {
+                builder.add(item);
+            }
+        }
+        return builder.build();
+    }
+
+    private static JsonNode toLegacyJsonNode(Object value)
+    {
+        if (value instanceof JsonPathItem item) {
+            return toLegacyJsonNode(item);
+        }
+        throw new IllegalArgumentException("Expected JSON item, but got " + value.getClass().getSimpleName());
+    }
+
+    private static JsonNode toLegacyJsonNode(JsonPathItem item)
+    {
+        item = JsonItems.materialize(item);
+        if (item instanceof JsonNode jsonNode) {
+            return jsonNode;
+        }
+        if (item instanceof JsonValue value) {
+            return JsonItems.toJsonNode(value);
+        }
+        throw new IllegalArgumentException("Expected JSON value, but got " + item.getClass().getSimpleName());
+    }
+
+    private static Object toLegacyPathValue(Object value)
+    {
+        if (value instanceof TypedValue) {
+            return value;
+        }
+        if (value == JsonNull.JSON_NULL) {
+            return NullNode.getInstance();
+        }
+        if (value instanceof JsonPathItem item) {
+            return toLegacyJsonNode(item);
+        }
+        return value;
+    }
+
+    private static Object[] toLegacyPathParameters(Object[] parameters)
+    {
+        Object[] converted = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            converted[i] = toLegacyPathValue(parameters[i]);
+        }
+        return converted;
     }
 
     public static class Invoker
