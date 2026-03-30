@@ -22,6 +22,9 @@ import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -30,7 +33,12 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,20 +48,22 @@ class TestJson2016Type
     void testBinaryStorageRoundTrip()
     {
         JsonValue duplicateObject = parseJson("{\"key\":1,\"key\":2}");
-        JsonValue numericArray = new JsonArrayItem(List.of(
-                new TypedValue(INTEGER, 1L),
-                parseValue("1000000000000"),
-                parseValue("1.25")));
+        JsonValue temporalArray = new JsonArrayItem(List.of(
+                new TypedValue(DATE, 7L),
+                new TypedValue(createTimeType(12), 123_456_789_012L),
+                new TypedValue(createTimeWithTimeZoneType(12), new LongTimeWithTimeZone(456_789_012_345L, -480)),
+                new TypedValue(createTimestampType(9), new LongTimestamp(999_888_777L, 123_456)),
+                new TypedValue(createTimestampWithTimeZoneType(12), LongTimestampWithTimeZone.fromEpochMillisAndFraction(555_444_333L, 987_654_321, (short) 0))));
 
         BlockBuilder blockBuilder = JSON_2016.createBlockBuilder(null, 4);
         JSON_2016.writeObject(blockBuilder, duplicateObject);
-        JSON_2016.writeObject(blockBuilder, numericArray);
+        JSON_2016.writeObject(blockBuilder, temporalArray);
         JSON_2016.writeObject(blockBuilder, JSON_ERROR);
         blockBuilder.appendNull();
         Block block = blockBuilder.buildValueBlock();
 
         assertThat(JsonItems.asJsonValue(JSON_2016.getObject(block, 0))).isEqualTo(JsonItems.asJsonValue(duplicateObject));
-        assertThat(JsonItems.asJsonValue(JSON_2016.getObject(block, 1))).isEqualTo(JsonItems.asJsonValue(numericArray));
+        assertThat(JsonItems.asJsonValue(JSON_2016.getObject(block, 1))).isEqualTo(JsonItems.asJsonValue(temporalArray));
         assertThat(JsonValueView.isJsonError(JSON_2016.getObject(block, 2))).isTrue();
         assertThat(JSON_2016.getObject(block, 3)).isNull();
 
@@ -63,7 +73,7 @@ class TestJson2016Type
         assertThat(payload).isNotEqualTo(JsonItems.jsonText(duplicateObject));
 
         Block region = block.copyRegion(1, 2);
-        assertThat(JsonItems.asJsonValue(JSON_2016.getObject(region, 0))).isEqualTo(JsonItems.asJsonValue(numericArray));
+        assertThat(JsonItems.asJsonValue(JSON_2016.getObject(region, 0))).isEqualTo(JsonItems.asJsonValue(temporalArray));
         assertThat(JsonValueView.isJsonError(JSON_2016.getObject(region, 1))).isTrue();
     }
 

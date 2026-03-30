@@ -25,6 +25,7 @@ import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
@@ -278,6 +279,14 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('b' AS char(10))");
 
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime()' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 UTC\"', 'lax $.datetime()' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 UTC'");
+
         // the actual value does not fit in the expected returned type. the error is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint)"))
@@ -299,6 +308,12 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000000000000 * 1000000000000' RETURNING bigint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES BIGINT '-1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYY-MM-DD\")')"))
+                .failure()
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:35: datetime() format template is not yet supported");
     }
 
     @Test
