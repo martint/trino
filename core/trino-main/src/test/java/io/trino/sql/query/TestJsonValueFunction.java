@@ -25,7 +25,6 @@ import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
@@ -287,6 +286,18 @@ public class TestJsonValueFunction
                 "SELECT json_value('\"2024-01-02 12:34:56.789 UTC\"', 'lax $.datetime()' RETURNING timestamp(3) with time zone)"))
                 .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 UTC'");
 
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYY-MM-DD\")' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 +05:30\"', 'lax $.datetime(\"YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM\")' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 +05:30'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"12:34:56.789+05:30\"', 'lax $.datetime(\"HH24:MI:SS.FF3TZH:TZM\")' RETURNING time(3) with time zone)"))
+                .matches("VALUES TIME '12:34:56.789+05:30'");
+
         // the actual value does not fit in the expected returned type. the error is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint)"))
@@ -310,10 +321,10 @@ public class TestJsonValueFunction
                 .matches("VALUES BIGINT '-1'");
 
         assertThat(assertions.query(
-                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYY-MM-DD\")')"))
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYYRR\")')"))
                 .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:35: datetime() format template is not yet supported");
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:35: invalid datetime() format template in JSON path: datetime() format template cannot contain both year and rounded year fields");
     }
 
     @Test

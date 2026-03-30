@@ -44,6 +44,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
 import io.trino.json.ir.TypedValue;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -129,16 +130,18 @@ class PathEvaluationVisitor
     private final boolean lax;
     private final JsonPathItem input;
     private final JsonPathItem[] parameters;
+    private final ConnectorSession session;
     private final PathPredicateEvaluationVisitor predicateVisitor;
     private final Invoker invoker;
     private final CachingResolver resolver;
     private int objectId;
 
-    public PathEvaluationVisitor(boolean lax, JsonPathItem input, JsonPathItem[] parameters, Invoker invoker, CachingResolver resolver)
+    public PathEvaluationVisitor(boolean lax, JsonPathItem input, JsonPathItem[] parameters, ConnectorSession session, Invoker invoker, CachingResolver resolver)
     {
         this.lax = lax;
         this.input = requireNonNull(input, "input is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
+        this.session = requireNonNull(session, "session is null");
         this.invoker = requireNonNull(invoker, "invoker is null");
         this.resolver = requireNonNull(resolver, "resolver is null");
         this.predicateVisitor = new PathPredicateEvaluationVisitor(lax, this, invoker, resolver);
@@ -606,8 +609,6 @@ class PathEvaluationVisitor
     @Override
     protected List<JsonPathItem> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context)
     {
-        checkState(node.format().isEmpty(), "datetime() format template is not supported");
-
         List<JsonPathItem> sequence = process(node.base(), context);
 
         if (lax) {
@@ -618,7 +619,9 @@ class PathEvaluationVisitor
         for (JsonPathItem object : sequence) {
             TypedValue value = getTextTypedValue(object)
                     .orElseThrow(() -> itemTypeError("TEXT", itemTypeName(object)));
-            outputSequence.add(getDatetime(value));
+            outputSequence.add(node.format()
+                    .map(template -> template.parseValue(getText(value), session))
+                    .orElseGet(() -> getDatetime(value)));
         }
 
         return outputSequence.build();
@@ -626,11 +629,7 @@ class PathEvaluationVisitor
 
     private static TypedValue getDatetime(TypedValue typedValue)
     {
-        String value = switch (typedValue.getType()) {
-            case CharType charType -> padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8();
-            case VarcharType _ -> ((Slice) typedValue.getObjectValue()).toStringUtf8();
-            default -> throw itemTypeError("TEXT", typedValue.getType().getDisplayName());
-        };
+        String value = getText(typedValue);
 
         try {
             return new TypedValue(DATE, (long) parseDate(value));
