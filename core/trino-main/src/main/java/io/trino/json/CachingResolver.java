@@ -23,6 +23,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.operators;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,6 +54,7 @@ public class CachingResolver
 
     private final Metadata metadata;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
+    private final NonEvictableCache<String, ResolvedFunctionAndCoercions> functions = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
     public CachingResolver(Metadata metadata)
     {
@@ -64,6 +67,16 @@ public class CachingResolver
         try {
             return operators
                     .get(new NodeAndTypes(IrPathNodeRef.of(node), leftType, rightType), () -> resolveOperators(operatorType, leftType, rightType));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public ResolvedFunctionAndCoercions getRegexpLikeFunction()
+    {
+        try {
+            return functions.get("regexp_like", this::resolveRegexpLikeFunction);
         }
         catch (ExecutionException e) {
             throw new RuntimeException(e);
@@ -103,6 +116,24 @@ public class CachingResolver
         }
 
         return operators(operator, leftCast, rightCast);
+    }
+
+    private ResolvedFunctionAndCoercions resolveRegexpLikeFunction()
+    {
+        ResolvedFunction function = metadata.resolveBuiltinFunction("regexp_like", fromTypes(VarcharType.VARCHAR, VarcharType.VARCHAR));
+        BoundSignature signature = function.signature();
+
+        Optional<ResolvedFunction> leftCast = Optional.empty();
+        if (!signature.getArgumentTypes().get(0).equals(VarcharType.VARCHAR)) {
+            leftCast = Optional.of(metadata.getCoercion(VarcharType.VARCHAR, signature.getArgumentTypes().get(0)));
+        }
+
+        Optional<ResolvedFunction> rightCast = Optional.empty();
+        if (!signature.getArgumentTypes().get(1).equals(VarcharType.VARCHAR)) {
+            rightCast = Optional.of(metadata.getCoercion(VarcharType.VARCHAR, signature.getArgumentTypes().get(1)));
+        }
+
+        return ResolvedFunctionAndCoercions.functions(function, leftCast, rightCast);
     }
 
     private static class NodeAndTypes
@@ -175,6 +206,40 @@ public class CachingResolver
         public Optional<ResolvedFunction> getRightCoercion()
         {
             checkState(this != RESOLUTION_ERROR, "accessing coercion on RESOLUTION_ERROR");
+            return rightCoercion;
+        }
+    }
+
+    public static class ResolvedFunctionAndCoercions
+    {
+        private final ResolvedFunction function;
+        private final Optional<ResolvedFunction> leftCoercion;
+        private final Optional<ResolvedFunction> rightCoercion;
+
+        public static ResolvedFunctionAndCoercions functions(ResolvedFunction function, Optional<ResolvedFunction> leftCoercion, Optional<ResolvedFunction> rightCoercion)
+        {
+            return new ResolvedFunctionAndCoercions(requireNonNull(function, "function is null"), leftCoercion, rightCoercion);
+        }
+
+        private ResolvedFunctionAndCoercions(ResolvedFunction function, Optional<ResolvedFunction> leftCoercion, Optional<ResolvedFunction> rightCoercion)
+        {
+            this.function = function;
+            this.leftCoercion = requireNonNull(leftCoercion, "leftCoercion is null");
+            this.rightCoercion = requireNonNull(rightCoercion, "rightCoercion is null");
+        }
+
+        public ResolvedFunction getFunction()
+        {
+            return function;
+        }
+
+        public Optional<ResolvedFunction> getLeftCoercion()
+        {
+            return leftCoercion;
+        }
+
+        public Optional<ResolvedFunction> getRightCoercion()
+        {
             return rightCoercion;
         }
     }

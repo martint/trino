@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.json.XQueryRegex;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.TrinoException;
@@ -474,11 +475,17 @@ public class JsonPathAnalyzer
         @Override
         protected Type visitLikeRegexPredicate(LikeRegexPredicate node, Void context)
         {
-            throw semanticException(NOT_SUPPORTED, pathNode, "like_regex predicate in JSON path is not yet supported");
-            // TODO when like_regex is supported, this method should do the following:
-            // process(node.getPath());
-            // types.put(PathNodeRef.of(node), BOOLEAN);
-            // return BOOLEAN;
+            process(node.getPath());
+            node.getFlag().ifPresent(flags -> {
+                try {
+                    XQueryRegex.validateFlags(flags);
+                }
+                catch (IllegalArgumentException e) {
+                    throw semanticException(INVALID_PATH, pathNode, e, "invalid like_regex flags in JSON path: %s", e.getMessage());
+                }
+            });
+            types.put(PathNodeRef.of(node), BOOLEAN);
+            return BOOLEAN;
         }
 
         @Override

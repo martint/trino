@@ -15,6 +15,8 @@ package io.trino.json;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.json.CachingResolver.ResolvedFunctionAndCoercions;
 import io.trino.json.CachingResolver.ResolvedOperatorAndCoercions;
 import io.trino.json.JsonPathEvaluator.Invoker;
 import io.trino.json.ir.IrComparisonPredicate;
@@ -23,6 +25,7 @@ import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPathVisitor;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
@@ -365,6 +368,72 @@ class PathPredicateEvaluationVisitor
         Boolean predicateResult = process(node.predicate(), context);
 
         return predicateResult == null;
+    }
+
+    @Override
+    protected Boolean visitIrLikeRegexPredicate(IrLikeRegexPredicate node, PathEvaluationContext context)
+    {
+        List<JsonPathItem> valueSequence;
+        try {
+            valueSequence = pathVisitor.process(node.path(), context);
+        }
+        catch (PathEvaluationException e) {
+            return null;
+        }
+
+        if (lax) {
+            valueSequence = unwrapArrays(valueSequence);
+        }
+        if (valueSequence.isEmpty()) {
+            return FALSE;
+        }
+
+        ResolvedFunctionAndCoercions regexpLike = resolver.getRegexpLikeFunction();
+
+        Object pattern = Slices.utf8Slice(XQueryRegex.patternWithFlags(node.pattern(), node.flag().orElse("")));
+        if (regexpLike.getRightCoercion().isPresent()) {
+            try {
+                pattern = invoker.invoke(regexpLike.getRightCoercion().get(), ImmutableList.of(pattern));
+            }
+            catch (RuntimeException e) {
+                return null;
+            }
+        }
+
+        boolean found = false;
+        for (JsonPathItem object : valueSequence) {
+            Slice value = getText(object);
+            if (value == null) {
+                return null;
+            }
+
+            Object source = value;
+            if (regexpLike.getLeftCoercion().isPresent()) {
+                try {
+                    source = invoker.invoke(regexpLike.getLeftCoercion().get(), ImmutableList.of(source));
+                }
+                catch (RuntimeException e) {
+                    return null;
+                }
+            }
+
+            Object result;
+            try {
+                result = invoker.invoke(regexpLike.getFunction(), ImmutableList.of(source, pattern));
+            }
+            catch (RuntimeException e) {
+                return null;
+            }
+
+            if ((Boolean) result) {
+                found = true;
+                if (lax) {
+                    return TRUE;
+                }
+            }
+        }
+
+        return found;
     }
 
     @Override

@@ -36,6 +36,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -384,8 +385,8 @@ class JsonPathTranslator
         {
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
-            // TODO
-            throw new IllegalStateException("like_regex predicate is not yet supported. The query should have failed in JsonPathAnalyzer.");
+            IrPathNode path = process(node.getPath());
+            return new IrLikeRegexPredicate(path, node.getPattern(), node.getFlag());
         }
 
         @Override

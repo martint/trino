@@ -33,6 +33,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -269,6 +270,11 @@ public class PathNodes
     public static IrPredicate isUnknown(IrPredicate predicate)
     {
         return new IrIsUnknownPredicate(predicate);
+    }
+
+    public static IrPredicate likeRegex(IrPathNode path, String pattern)
+    {
+        return new IrLikeRegexPredicate(path, pattern, Optional.empty());
     }
 
     public static IrPredicate negation(IrPredicate predicate)

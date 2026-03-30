@@ -39,6 +39,7 @@ import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
 import io.trino.json.ir.IrNamedValueVariable;
@@ -237,6 +238,13 @@ public class TestJsonPath2016TypeSerialization
                                 new IrCeilingMethod(new IrMemberAccessor(new IrContextVariable(Optional.empty()), Optional.of("some_key"), Optional.of(BIGINT)), Optional.of(BIGINT)),
                                 Optional.of(BIGINT)),
                         Optional.of(createVarcharType(7)))));
+    }
+
+    @Test
+    public void testPredicates()
+    {
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrLikeRegexPredicate(JSON_NULL, "^a+$", Optional.of("im"))));
     }
 
     private static void assertJsonRoundTrip(IrJsonPath object)
