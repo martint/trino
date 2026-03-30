@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class FragmentLeaf
         implements JsonTableProcessingFragment
 {
-    private static final Object[] NO_PARAMETERS = new Object[0];
+    private static final JsonPathItem[] NO_PARAMETERS = new JsonPathItem[0];
 
     private final JsonPathEvaluator pathEvaluator;
     private final List<Column> columns;
@@ -77,7 +77,7 @@ public class FragmentLeaf
      * Prepares the root Fragment to produce rows for the new JSON item and a set of path parameters.
      */
     @Override
-    public void resetRoot(JsonPathItem item, Page input, int position, Object[] pathParameters)
+    public void resetRoot(JsonPathItem item, Page input, int position, JsonPathItem[] pathParameters)
     {
         requireNonNull(pathParameters, "pathParameters is null");
         this.input = requireNonNull(input, "input is null");

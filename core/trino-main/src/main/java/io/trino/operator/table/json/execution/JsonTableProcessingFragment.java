@@ -38,7 +38,7 @@ public interface JsonTableProcessingFragment
      * @param position the currently processed position in the input page
      * @param pathParameters JSON path parameters for the top-level JSON path
      */
-    default void resetRoot(JsonPathItem item, Page input, int position, Object[] pathParameters)
+    default void resetRoot(JsonPathItem item, Page input, int position, JsonPathItem[] pathParameters)
     {
         throw new IllegalStateException("not the root fragment");
     }

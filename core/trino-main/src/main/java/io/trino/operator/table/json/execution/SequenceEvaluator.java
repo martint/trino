@@ -29,7 +29,7 @@ public final class SequenceEvaluator
     private SequenceEvaluator() {}
 
     // creates a sequence of JSON items, and applies error handling
-    public static List<JsonPathItem> getSequence(JsonPathItem item, Object[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)
+    public static List<JsonPathItem> getSequence(JsonPathItem item, JsonPathItem[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)
     {
         if (item == null) {
             // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules 1) a) empty table should be returned for null input. Empty sequence will result in an empty table.
@@ -51,7 +51,7 @@ public final class SequenceEvaluator
             }
         }
         // evaluate path into a sequence
-        List<Object> pathResult;
+        List<JsonPathItem> pathResult;
         try {
             pathResult = pathEvaluator.evaluate(item, pathParameters);
         }
@@ -63,7 +63,6 @@ public final class SequenceEvaluator
             return ImmutableList.of();
         }
         return pathResult.stream()
-                .map(JsonPathItem.class::cast)
                 .collect(toImmutableList());
     }
 }

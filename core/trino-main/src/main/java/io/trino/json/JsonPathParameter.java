@@ -13,14 +13,17 @@
  */
 package io.trino.json;
 
-/// A carrier value that can appear in JSON path evaluation.
+import static java.util.Objects.requireNonNull;
+
+/// Wrapper for a JSON path parameter value.
 ///
-/// This includes:
-/// - [materialized SQL/JSON items][JsonItem]
-/// - execution sentinels such as the empty sequence
-/// - parameter wrappers
-/// - view-backed or encoded wrappers that avoid eager materialization
-public sealed interface JsonPathItem
-        permits EncodedJsonItem, JsonEmptySequenceNode, JsonItem, JsonPathParameter, JsonValueView
+/// Path parameters are represented distinctly from ordinary input items so the evaluator can keep
+/// track of parameter-originated values without widening the materialized value hierarchy.
+public record JsonPathParameter(JsonValue item)
+        implements JsonPathItem
 {
+    public JsonPathParameter
+    {
+        item = requireNonNull(item, "item is null");
+    }
 }

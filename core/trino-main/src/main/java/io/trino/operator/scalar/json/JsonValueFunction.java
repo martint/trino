@@ -272,7 +272,7 @@ public class JsonValueFunction
         if (JsonValueView.isJsonError(inputExpression)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
-        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (JsonValueView.isJsonError(parameter)) {
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
@@ -287,7 +287,7 @@ public class JsonValueFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<JsonPathItem> pathResult;
         try {
             pathResult = evaluator.evaluate(inputItem, parameters);
         }
@@ -306,6 +306,16 @@ public class JsonValueFunction
         if (item == JsonNull.JSON_NULL) {
             return null;
         }
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (jsonView.kind() == JsonValueView.Kind.NULL) {
+                return null;
+            }
+            if (jsonView.isTypedValue()) {
+                item = jsonView.typedValue();
+            }
+        }
         if (!(item instanceof TypedValue typedValue)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
         }
@@ -323,7 +333,7 @@ public class JsonValueFunction
                     returnType)));
         }
         try {
-            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.value()));
+            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, typedValue.value());
         }
         catch (RuntimeException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(

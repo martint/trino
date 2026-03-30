@@ -26,8 +26,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import java.io.IOException;
 import java.util.List;
 
-public class JsonEmptySequenceNode
+public final class JsonEmptySequenceNode
         extends JsonNode
+        implements JsonPathItem
 {
     public static final JsonEmptySequenceNode EMPTY_SEQUENCE = new JsonEmptySequenceNode();
 

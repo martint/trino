@@ -124,12 +124,12 @@ public class TestJsonPathEvaluator
             .put("date_parameter", new TypedValue(DATE, 1234L))
             .put("timestamp_parameter", new TypedValue(createTimestampType(7), new LongTimestamp(20, 30)))
             .put("empty_sequence_parameter", EMPTY_SEQUENCE)
-            .put("null_parameter", NullNode.instance)
-            .put("json_number_parameter", IntNode.valueOf(-6))
-            .put("json_text_parameter", TextNode.valueOf("JSON text"))
-            .put("json_boolean_parameter", BooleanNode.FALSE)
-            .put("json_array_parameter", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance)))
-            .put("json_object_parameter", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)))
+            .put("null_parameter", normalizeItem(NullNode.instance))
+            .put("json_number_parameter", jsonParameter(IntNode.valueOf(-6)))
+            .put("json_text_parameter", jsonParameter(TextNode.valueOf("JSON text")))
+            .put("json_boolean_parameter", jsonParameter(BooleanNode.FALSE))
+            .put("json_array_parameter", jsonParameter(new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance))))
+            .put("json_object_parameter", jsonParameter(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance))))
             .buildOrThrow();
 
     private static final List<String> PARAMETERS_ORDER = ImmutableList.copyOf(PARAMETERS.keySet());
@@ -1457,7 +1457,7 @@ public class TestJsonPathEvaluator
         return () -> new RecursiveComparisonAssert<>(evaluate(input, path), COMPARISON_CONFIGURATION);
     }
 
-    private static List<Object> evaluate(JsonNode input, IrJsonPath path)
+    private static List<JsonPathItem> evaluate(JsonNode input, IrJsonPath path)
     {
         return createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
     }
@@ -1469,15 +1469,15 @@ public class TestJsonPathEvaluator
 
     private static Boolean evaluatePredicate(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
     {
-        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem(currentItem));
+        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem((JsonPathItem) normalizeItem(currentItem)));
     }
 
     private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
     {
         return new PathEvaluationVisitor(
                 lax,
-                input,
-                PARAMETERS.values().toArray(),
+                (JsonPathItem) normalizeItem(input),
+                PARAMETERS.values().toArray(new JsonPathItem[0]),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
     }
@@ -1489,5 +1489,37 @@ public class TestJsonPathEvaluator
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
+    }
+
+    private static List<JsonPathItem> sequence(Object... items)
+    {
+        ImmutableList.Builder<JsonPathItem> builder = ImmutableList.builder();
+        for (Object item : items) {
+            builder.add((JsonPathItem) normalizeItem(item));
+        }
+        return builder.build();
+    }
+
+    private static List<JsonPathItem> singletonSequence(Object item)
+    {
+        return ImmutableList.of((JsonPathItem) normalizeItem(item));
+    }
+
+    private static List<JsonPathItem> emptySequence()
+    {
+        return ImmutableList.of();
+    }
+
+    private static Object normalizeItem(Object item)
+    {
+        if (item instanceof JsonNode jsonNode) {
+            return JsonItems.fromJsonNode(jsonNode);
+        }
+        return item;
+    }
+
+    private static JsonPathParameter jsonParameter(JsonNode item)
+    {
+        return new JsonPathParameter((JsonValue) normalizeItem(item));
     }
 }

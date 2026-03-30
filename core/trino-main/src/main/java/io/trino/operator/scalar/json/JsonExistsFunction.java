@@ -117,7 +117,7 @@ public class JsonExistsFunction
         if (JsonValueView.isJsonError(inputExpression)) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
-        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (JsonValueView.isJsonError(parameter)) {
                 return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
@@ -132,7 +132,7 @@ public class JsonExistsFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<JsonPathItem> pathResult;
         try {
             pathResult = evaluator.evaluate(inputItem, parameters);
         }

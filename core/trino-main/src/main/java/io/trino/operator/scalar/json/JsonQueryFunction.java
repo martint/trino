@@ -134,7 +134,7 @@ public class JsonQueryFunction
         if (JsonValueView.isJsonError(inputExpression)) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
-        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (JsonValueView.isJsonError(parameter)) {
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
@@ -149,7 +149,7 @@ public class JsonQueryFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<JsonPathItem> pathResult;
         try {
             pathResult = evaluator.evaluate(inputItem, parameters);
         }
@@ -163,7 +163,7 @@ public class JsonQueryFunction
         }
 
         if (pathResult.size() == 1) {
-            Object item = pathResult.get(0);
+            JsonPathItem item = pathResult.get(0);
             return switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
                 case WITHOUT -> toJsonResult(item);
                 case CONDITIONAL -> {
@@ -178,7 +178,7 @@ public class JsonQueryFunction
 
         // translate sequence to JSON items
         ImmutableList.Builder<JsonValue> builder = ImmutableList.builderWithExpectedSize(pathResult.size());
-        for (Object item : pathResult) {
+        for (JsonPathItem item : pathResult) {
             builder.add(JsonItems.asJsonValue(item));
         }
         List<JsonValue> sequence = builder.build();
