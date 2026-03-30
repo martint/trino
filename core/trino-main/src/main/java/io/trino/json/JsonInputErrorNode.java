@@ -13,158 +13,18 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonPointer;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.ObjectCodec;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-
-import java.io.IOException;
-import java.util.List;
-
-public final class JsonInputErrorNode
-        extends JsonNode
+/// Sentinel representing a suppressed JSON input conversion failure.
+///
+/// This is a materialized marker used by the SQL/JSON runtime to preserve malformed-input state
+/// across evaluation when the semantics require the error to be carried rather than thrown.
+public enum JsonInputErrorNode
         implements JsonItem
 {
-    public static final JsonInputErrorNode JSON_ERROR = new JsonInputErrorNode();
-
-    private JsonInputErrorNode() {}
-
-    @Override
-    public <T extends JsonNode> T deepCopy()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonToken asToken()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser.NumberType numberType()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode get(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse(ObjectCodec codec)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected JsonNode _at(JsonPointer ptr)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNodeType getNodeType()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String asText()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findValue(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findPath(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findParent(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> findValuesAsText(String fieldName, List<String> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
+    JSON_ERROR;
 
     @Override
     public String toString()
     {
         return "JSON_ERROR";
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        return o == this;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public void serialize(JsonGenerator gen, SerializerProvider serializers)
-            throws IOException
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void serializeWithType(JsonGenerator gen, SerializerProvider serializers, TypeSerializer typeSer)
-            throws IOException
-    {
-        throw new UnsupportedOperationException();
     }
 }
