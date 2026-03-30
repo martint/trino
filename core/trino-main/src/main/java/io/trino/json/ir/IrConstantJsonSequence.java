@@ -16,13 +16,12 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonItems;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonValue;
 import io.trino.spi.type.Type;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.UncheckedIOException;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +32,9 @@ import static java.util.Objects.requireNonNull;
 public final class IrConstantJsonSequence
         implements IrPathNode
 {
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
+
     public static final IrConstantJsonSequence EMPTY_SEQUENCE = new IrConstantJsonSequence(ImmutableList.of(), Optional.empty());
 
     private final List<JsonValue> sequence;
@@ -48,7 +50,7 @@ public final class IrConstantJsonSequence
     {
         return new IrConstantJsonSequence(
                 requireNonNull(sequence, "sequence is null").stream()
-                        .map(IrConstantJsonSequence::parseJson)
+                        .map(IrConstantJsonSequence::decodeItem)
                         .collect(toImmutableList()),
                 Optional.ofNullable(type));
     }
@@ -74,7 +76,7 @@ public final class IrConstantJsonSequence
     public List<String> getSequenceAsJson()
     {
         return sequence.stream()
-                .map(item -> JsonItems.jsonText(item).toStringUtf8())
+                .map(IrConstantJsonSequence::encodeItem)
                 .collect(toImmutableList());
     }
 
@@ -109,13 +111,13 @@ public final class IrConstantJsonSequence
         return Objects.hash(sequence, type);
     }
 
-    private static JsonValue parseJson(String json)
+    private static String encodeItem(JsonValue item)
     {
-        try {
-            return JsonItems.parseJson(Reader.of(json));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to deserialize JSON path constant", e);
-        }
+        return BASE64_ENCODER.encodeToString(JsonItemEncoding.encode(item).getBytes());
+    }
+
+    private static JsonValue decodeItem(String value)
+    {
+        return JsonItemEncoding.decodeValue(Slices.wrappedBuffer(BASE64_DECODER.decode(requireNonNull(value, "value is null"))));
     }
 }
