@@ -16,11 +16,13 @@ package io.trino.operator.scalar.json;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonArrayItem;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonObjectMember;
 import io.trino.json.JsonValue;
+import io.trino.json.JsonValueView;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
@@ -40,6 +42,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,6 +135,9 @@ public class JsonObjectFunction
             else if (valueType.equals(JsonType.JSON)) {
                 io.trino.json.JsonPathItem pathItem = JsonType.toPathItem((Slice) value);
                 checkState(pathItem != io.trino.json.JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                if (uniqueKeys) {
+                    validateUniqueKeys(pathItem);
+                }
                 valueNode = JsonItems.asJsonValue(pathItem);
             }
             else {
@@ -145,5 +151,55 @@ public class JsonObjectFunction
         }
 
         return new JsonObjectItem(members);
+    }
+
+    // Matches Jackson's default nesting depth; guards against stack overflow on adversarial inputs.
+    private static final int MAX_VALIDATION_DEPTH = 1000;
+
+    private static void validateUniqueKeys(io.trino.json.JsonPathItem item)
+    {
+        validateUniqueKeys(item, 0);
+    }
+
+    private static void validateUniqueKeys(io.trino.json.JsonPathItem item, int depth)
+    {
+        if (depth > MAX_VALIDATION_DEPTH) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "JSON value passed to JSON_OBJECT exceeds maximum nesting depth of " + MAX_VALIDATION_DEPTH);
+        }
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.get();
+            if (jsonView.isObject()) {
+                Set<String> keyNames = new HashSet<>();
+                jsonView.forEachObjectMember((key, memberView) -> {
+                    if (!keyNames.add(key)) {
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                    }
+                    validateUniqueKeys(memberView, depth + 1);
+                });
+                return;
+            }
+            if (jsonView.isArray()) {
+                jsonView.forEachArrayElement(element -> validateUniqueKeys(element, depth + 1));
+            }
+            return;
+        }
+
+        if (item instanceof JsonObjectItem objectItem) {
+            Set<String> keyNames = new HashSet<>();
+            for (JsonObjectMember member : objectItem.members()) {
+                if (!keyNames.add(member.key())) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                }
+                validateUniqueKeys(member.value(), depth + 1);
+            }
+            return;
+        }
+
+        if (item instanceof JsonArrayItem arrayItem) {
+            for (JsonValue element : arrayItem.elements()) {
+                validateUniqueKeys(element, depth + 1);
+            }
+        }
     }
 }
