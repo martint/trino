@@ -18,7 +18,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.json.JsonWriteFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -54,7 +53,6 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -202,44 +200,6 @@ public final class JsonItems
         };
     }
 
-    public static JsonValue fromJsonNode(JsonNode jsonNode)
-    {
-        requireNonNull(jsonNode, "jsonNode is null");
-
-        if (jsonNode.isNull()) {
-            return JsonNull.JSON_NULL;
-        }
-        Optional<TypedValue> typedValue = getTypedValue(jsonNode);
-        if (typedValue.isPresent()) {
-            return typedValue.get();
-        }
-        if (jsonNode.isArray()) {
-            List<JsonValue> elements = new ArrayList<>();
-            jsonNode.elements().forEachRemaining(element -> elements.add(fromJsonNode(element)));
-            return new JsonArrayItem(elements);
-        }
-        if (jsonNode.isObject()) {
-            List<JsonObjectMember> members = new ArrayList<>();
-            jsonNode.properties().forEach(field -> members.add(new JsonObjectMember(field.getKey(), fromJsonNode(field.getValue()))));
-            return new JsonObjectItem(members);
-        }
-        throw new JsonOutputConversionException("JSON item cannot be converted to SQL/JSON item");
-    }
-
-    public static JsonNode toJsonNode(JsonPathItem item)
-    {
-        requireNonNull(item, "item is null");
-
-        item = materialize(item);
-        if (item instanceof JsonNode jsonNode) {
-            return jsonNode;
-        }
-        if (item instanceof JsonValue value) {
-            return toJsonNode(value);
-        }
-        throw new IllegalArgumentException("Expected JSON value, but got " + item.getClass().getSimpleName());
-    }
-
     public static Slice jsonText(JsonPathItem item)
     {
         try {
@@ -274,16 +234,6 @@ public final class JsonItems
             return jsonText(view.get());
         }
         throw new IllegalArgumentException("Expected JSON item, but got %s".formatted(object.getClass().getSimpleName()));
-    }
-
-    public static JsonNode toJsonNode(JsonValue item)
-    {
-        try {
-            return JSON_MAPPER.readTree(jsonText(item).getInput());
-        }
-        catch (IOException e) {
-            throw new JsonOutputConversionException(e);
-        }
     }
 
     public static Optional<Slice> scalarText(JsonPathItem item)
