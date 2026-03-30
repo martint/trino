@@ -13,14 +13,15 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
+import io.trino.json.JsonPathItem;
+import io.trino.json.JsonValue;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.TypedValue;
@@ -48,8 +49,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
+import static io.trino.operator.scalar.json.ParameterUtil.toLegacyPathParameters;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -57,16 +58,15 @@ import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryFunction
         extends SqlScalarFunction
 {
     public static final String JSON_QUERY_FUNCTION_NAME = "$json_query";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
-    private static final JsonNode EMPTY_ARRAY_RESULT = new ArrayNode(JsonNodeFactory.instance);
-    private static final JsonNode EMPTY_OBJECT_RESULT = new ObjectNode(JsonNodeFactory.instance);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, Object.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
+    private static final JsonPathItem EMPTY_ARRAY_RESULT = JsonItems.encoded(new JsonArrayItem(ImmutableList.of()));
+    private static final JsonPathItem EMPTY_OBJECT_RESULT = JsonItems.encoded(new JsonObjectItem(ImmutableList.of()));
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -116,14 +116,14 @@ public class JsonQueryFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonQuery(
+    public static Object jsonQuery(
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
             Type parametersRowType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
-            JsonNode inputExpression,
+            Object inputExpression,
             IrJsonPath jsonPath,
             SqlRow parametersRow,
             long wrapperBehavior,
@@ -139,6 +139,7 @@ public class JsonQueryFunction
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
+        Object[] legacyParameters = toLegacyPathParameters(parameters);
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
@@ -149,7 +150,7 @@ public class JsonQueryFunction
         }
         List<Object> pathResult;
         try {
-            pathResult = evaluator.evaluate(inputExpression, parameters);
+            pathResult = evaluator.evaluate(JsonItems.toJsonNode((JsonPathItem) inputExpression), legacyParameters);
         }
         catch (PathEvaluationException e) {
             return handleSpecialCase(errorBehavior, () -> e);
@@ -161,22 +162,16 @@ public class JsonQueryFunction
         }
 
         // translate sequence to JSON items
-        ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
+        ImmutableList.Builder<JsonValue> builder = ImmutableList.builder();
         for (Object item : pathResult) {
             if (item instanceof TypedValue typedValue) {
-                Optional<JsonNode> jsonNode = getJsonNode(typedValue);
-                if (jsonNode.isEmpty()) {
-                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
-                            "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                            typedValue.getType())));
-                }
-                builder.add(jsonNode.get());
+                builder.add(typedValue);
             }
             else {
-                builder.add((JsonNode) item);
+                builder.add(JsonItems.fromJsonNode((com.fasterxml.jackson.databind.JsonNode) item));
             }
         }
-        List<JsonNode> sequence = builder.build();
+        List<JsonValue> sequence = builder.build();
 
         // apply array wrapper behavior
         switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
@@ -184,11 +179,11 @@ public class JsonQueryFunction
                 // do nothing
                 break;
             case UNCONDITIONAL:
-                sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+                sequence = ImmutableList.of(new JsonArrayItem(sequence));
                 break;
             case CONDITIONAL:
-                if (sequence.size() != 1 || (!sequence.get(0).isArray() && !sequence.get(0).isObject())) {
-                    sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+                if (sequence.size() != 1 || (!(sequence.get(0) instanceof JsonArrayItem) && !(sequence.get(0) instanceof JsonObjectItem))) {
+                    sequence = ImmutableList.of(new JsonArrayItem(sequence));
                 }
                 break;
             default:
@@ -204,7 +199,7 @@ public class JsonQueryFunction
         return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path found multiple items"));
     }
 
-    private static JsonNode handleSpecialCase(long behavior, Supplier<TrinoException> error)
+    private static JsonPathItem handleSpecialCase(long behavior, Supplier<TrinoException> error)
     {
         return switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
             case NULL -> null;

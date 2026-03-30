@@ -26,8 +26,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import java.io.IOException;
 import java.util.List;
 
-public class JsonInputErrorNode
+public final class JsonInputErrorNode
         extends JsonNode
+        implements JsonItem
 {
     public static final JsonInputErrorNode JSON_ERROR = new JsonInputErrorNode();
 
