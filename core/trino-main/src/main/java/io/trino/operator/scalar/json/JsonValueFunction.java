@@ -312,9 +312,10 @@ public class JsonValueFunction
             if (jsonView.kind() == JsonValueView.Kind.NULL) {
                 return null;
             }
-            if (jsonView.isTypedValue()) {
-                item = jsonView.typedValue();
+            if (!jsonView.isTypedValue()) {
+                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
             }
+            item = jsonView.typedValue();
         }
         if (!(item instanceof TypedValue resultTypedValue)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));

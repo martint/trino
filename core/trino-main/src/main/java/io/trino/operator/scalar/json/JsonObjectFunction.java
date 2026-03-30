@@ -16,6 +16,7 @@ package io.trino.operator.scalar.json;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonArrayItem;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonObjectItem;
@@ -133,6 +134,9 @@ public class JsonObjectFunction
                 valueNode = TypedValue.fromValueAsObject(valueType, value);
             }
 
+            if (uniqueKeys) {
+                validateUniqueKeys(valueNode);
+            }
             if (uniqueKeys && !uniqueKeyNames.add(keyName)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
             }
@@ -140,5 +144,25 @@ public class JsonObjectFunction
         }
 
         return new JsonObjectItem(members);
+    }
+
+    private static void validateUniqueKeys(JsonValue item)
+    {
+        if (item instanceof JsonObjectItem objectItem) {
+            Set<String> keyNames = new HashSet<>();
+            for (JsonObjectMember member : objectItem.members()) {
+                if (!keyNames.add(member.key())) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                }
+                validateUniqueKeys(member.value());
+            }
+            return;
+        }
+
+        if (item instanceof JsonArrayItem arrayItem) {
+            for (JsonValue element : arrayItem.elements()) {
+                validateUniqueKeys(element);
+            }
+        }
     }
 }
