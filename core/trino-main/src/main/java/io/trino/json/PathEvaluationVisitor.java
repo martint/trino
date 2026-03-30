@@ -93,16 +93,30 @@ import static io.trino.operator.scalar.MathFunctions.ceilingReal;
 import static io.trino.operator.scalar.MathFunctions.floorReal;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.DateTimes.extractTimePrecision;
+import static io.trino.type.DateTimes.extractTimestampPrecision;
+import static io.trino.type.DateTimes.parseTime;
+import static io.trino.type.DateTimes.parseTimeWithTimeZone;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.DateTimes.timeHasTimeZone;
+import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.DecimalCasts.longDecimalToDouble;
 import static io.trino.type.DecimalCasts.shortDecimalToDouble;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -584,9 +598,64 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<JsonPathItem> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context) // TODO
+    protected List<JsonPathItem> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context)
     {
-        throw new UnsupportedOperationException("date method is not yet supported");
+        List<JsonPathItem> sequence = process(node.base(), context);
+
+        if (lax) {
+            sequence = unwrapArrays(sequence);
+        }
+
+        ImmutableList.Builder<JsonPathItem> outputSequence = ImmutableList.builder();
+        for (JsonPathItem object : sequence) {
+            TypedValue value = getTextTypedValue(object)
+                    .orElseThrow(() -> itemTypeError("TEXT", itemTypeName(object)));
+            outputSequence.add(getDatetime(value));
+        }
+
+        return outputSequence.build();
+    }
+
+    private static TypedValue getDatetime(TypedValue typedValue)
+    {
+        String value = getText(typedValue);
+
+        try {
+            return new TypedValue(DATE, (long) parseDate(value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        try {
+            int precision = extractTimePrecision(value);
+            if (timeHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimeWithTimeZoneType(precision), parseTimeWithTimeZone(precision, value));
+            }
+            return new TypedValue(createTimeType(precision), parseTime(value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        try {
+            int precision = extractTimestampPrecision(value);
+            if (timestampHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(precision), parseTimestampWithTimeZone(precision, value));
+            }
+            return TypedValue.fromValueAsObject(createTimestampType(precision), parseTimestamp(precision, value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        throw new PathEvaluationException("invalid datetime item");
+    }
+
+    private static String getText(TypedValue typedValue)
+    {
+        return switch (typedValue.getType()) {
+            case CharType charType -> padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8();
+            case VarcharType _ -> ((Slice) typedValue.getObjectValue()).toStringUtf8();
+            default -> throw itemTypeError("TEXT", typedValue.getType().getDisplayName());
+        };
     }
 
     @Override
