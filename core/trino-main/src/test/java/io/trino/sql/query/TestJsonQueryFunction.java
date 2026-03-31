@@ -336,6 +336,14 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('\"b\"' AS char(10))");
 
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $' RETURNING json)"))
+                .matches("VALUES JSON '[\"a\",\"b\",\"c\"]'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' RETURNING json OMIT QUOTES ON SCALAR STRING)"))
+                .matches("VALUES JSON '\"some scalar text value\"'");
+
         // truncating cast from varchar to expected returned type
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax \"text too long\"' RETURNING char(10))"))
@@ -345,6 +353,11 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax 1' RETURNING tinyint)"))
                 .failure().hasMessage("line 1:8: Cannot output JSON value as tinyint using formatting JSON");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $' RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // returned type varbinary
 

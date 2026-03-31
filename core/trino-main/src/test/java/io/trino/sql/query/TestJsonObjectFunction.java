@@ -238,8 +238,17 @@ public class TestJsonObjectFunction
                 .matches("VALUES VARCHAR '{\"key\":1}'");
 
         assertThat(assertions.query(
+                "SELECT json_object('key' : 1 RETURNING json)"))
+                .matches("VALUES JSON '{\"key\":1}'");
+
+        assertThat(assertions.query(
                 "SELECT json_object('key' : 1 RETURNING varchar(100))"))
                 .matches("VALUES CAST('{\"key\":1}' AS varchar(100))");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : 1 RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // varbinary output
         String output = "{\"key\":1}";

@@ -31,6 +31,7 @@ import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
+import static io.trino.type.JsonType.jsonValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,6 +46,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class JsonOutputFunctions
 {
+    public static final String JSON_TO_JSON_OUTPUT = "$json_to_json_output";
     public static final String JSON_TO_VARCHAR = "$json_to_varchar";
     public static final String JSON_TO_VARBINARY = "$json_to_varbinary";
     public static final String JSON_TO_VARBINARY_UTF8 = "$json_to_varbinary_utf8";
@@ -68,6 +70,17 @@ public final class JsonOutputFunctions
             Slices.copiedBuffer("{}", StandardCharsets.UTF_32LE));
 
     private JsonOutputFunctions() {}
+
+    @SqlNullable
+    @ScalarFunction(value = JSON_TO_JSON_OUTPUT, hidden = true)
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonToJson(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    {
+        // The public JSON type stores JSON text, so JSON_QUERY cannot use OMIT QUOTES
+        // to produce bare scalar text here without manufacturing an invalid JSON value.
+        Slice result = serialize(jsonExpression, UTF_8, errorBehavior, false);
+        return result == null ? null : jsonValue(result);
+    }
 
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARCHAR, hidden = true)

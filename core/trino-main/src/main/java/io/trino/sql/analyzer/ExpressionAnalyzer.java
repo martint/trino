@@ -199,6 +199,7 @@ import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF32_T
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF8_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
 import static io.trino.operator.scalar.json.JsonObjectFunction.JSON_OBJECT_FUNCTION_NAME;
+import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_JSON_OUTPUT;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF16;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF32;
@@ -3073,6 +3074,9 @@ public class ExpressionAnalyzer
         {
             String name = switch (format) {
                 case JSON -> {
+                    if (type.equals(JSON)) {
+                        yield JSON_TO_JSON_OUTPUT;
+                    }
                     if (isCharacterStringType(type)) {
                         yield JSON_TO_VARCHAR;
                     }
