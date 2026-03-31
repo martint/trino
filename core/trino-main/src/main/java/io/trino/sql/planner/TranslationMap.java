@@ -21,6 +21,7 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.JsonLegacySemanticsFunction;
+import io.trino.operator.scalar.JsonVariantLegacyCasts;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -146,6 +147,7 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
@@ -609,18 +611,36 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(Cast expression)
     {
+        Type sourceType = analysis.getType(expression.getExpression());
+        Type targetType = analysis.getType(expression);
+
+        if (!expression.isSafe() && isLegacyJsonSemanticsEnabled(session)) {
+            if (sourceType.equals(JSON) && targetType.equals(VARIANT)) {
+                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName(JsonVariantLegacyCasts.JSON_TO_VARIANT)
+                        .addArgument(JSON, translateExpression(expression.getExpression()))
+                        .build();
+            }
+            if (sourceType.equals(VARIANT) && targetType.equals(JSON)) {
+                return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                        .setName(JsonVariantLegacyCasts.VARIANT_TO_JSON)
+                        .addArgument(VARIANT, translateExpression(expression.getExpression()))
+                        .build();
+            }
+        }
+
         if (expression.isSafe()) {
             return new Call(
                     plannerContext.getMetadata().getCoercion(
                             builtinFunctionName("$try_cast"),
-                            analysis.getType(expression.getExpression()),
-                    analysis.getType(expression)),
+                            sourceType,
+                            targetType),
                     ImmutableList.of(translateExpression(expression.getExpression())));
         }
 
         return new io.trino.sql.ir.Cast(
                 translateExpression(expression.getExpression()),
-                analysis.getType(expression));
+                targetType);
     }
 
     private io.trino.sql.ir.Expression translate(DoubleLiteral expression)

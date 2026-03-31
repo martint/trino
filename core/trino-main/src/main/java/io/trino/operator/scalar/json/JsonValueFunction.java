@@ -308,14 +308,14 @@ public class JsonValueFunction
         }
         Optional<JsonValueView> view = JsonValueView.fromObject(item);
         if (view.isPresent()) {
-            JsonValueView jsonView = view.orElseThrow();
-            if (jsonView.kind() == JsonValueView.Kind.NULL) {
+            JsonValueView valueView = view.orElseThrow();
+            if (valueView.kind() == JsonValueView.Kind.NULL) {
                 return null;
             }
-            if (!jsonView.isTypedValue()) {
+            if (!valueView.isTypedValue()) {
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
             }
-            item = jsonView.typedValue();
+            item = valueView.typedValue();
         }
         if (!(item instanceof TypedValue resultTypedValue)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
