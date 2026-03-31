@@ -11,42 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.scalar.timestamp;
+package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.LongTimestamp;
-
-import java.time.format.DateTimeFormatter;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.util.JsonUtil.createJsonString;
-import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)
-public final class TimestampToJsonCast
+public final class TimestampWithTimeZoneToJsonCast
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-
-    private TimestampToJsonCast() {}
+    private TimestampWithTimeZoneToJsonCast() {}
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long value)
     {
-        return createJsonString(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER));
+        return createJsonString(TimestampWithTimeZoneToVarcharCast.cast(precision, value).toStringUtf8());
     }
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters("p")
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value)
     {
-        return createJsonString(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
+        return createJsonString(TimestampWithTimeZoneToVarcharCast.cast(precision, value).toStringUtf8());
     }
 }

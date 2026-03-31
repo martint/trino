@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.operator.scalar.time.TimeOperators;
@@ -107,6 +108,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.legacyJsonValue;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
@@ -175,6 +177,20 @@ public final class JsonUtil
         return mapper.createGenerator((OutputStream) output);
     }
 
+    public static Slice createJsonString(String value)
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(value.length() + 2);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPED_UNORDERED, output)) {
+                jsonGenerator.writeString(value);
+            }
+            return legacyJsonValue(output.slice());
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON), e);
+        }
+    }
+
     public static String truncateIfNecessaryForErrorMessage(Slice json)
     {
         Slice jsonText = JsonType.jsonText(json);
@@ -198,7 +214,10 @@ public final class JsonUtil
                 type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
+                type instanceof TimeType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof DateType) {
             return true;
         }
