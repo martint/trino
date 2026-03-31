@@ -15,7 +15,6 @@ package io.trino.json;
 
 import io.airlift.slice.Slice;
 import io.trino.json.ir.TypedValue;
-import io.trino.operator.scalar.json.JsonInputConversionException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -30,7 +29,6 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonItems
 {
@@ -87,11 +85,11 @@ public class TestJsonItems
     }
 
     @Test
-    public void testParseJsonRejectsTooLargeNumber()
+    public void testParseJsonPreservesNumberOutsideDecimalRange()
     {
-        assertThatThrownBy(() -> parseJson("1000000000000000000000000000000000000"))
-                .isInstanceOf(JsonInputConversionException.class)
-                .hasMessage("conversion to JSON failed: value too big");
+        // Values outside DECIMAL(<=38) fall back to NUMBER, preserving arbitrary precision.
+        assertThat(parseJson("100000000000000000000000000000000000000000000000000"))
+                .isInstanceOf(TypedValue.class);
     }
 
     @Test

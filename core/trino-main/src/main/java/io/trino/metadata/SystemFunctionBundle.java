@@ -149,6 +149,7 @@ import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
+import io.trino.operator.scalar.JsonLegacySemanticsFunction;
 import io.trino.operator.scalar.JsonOperators;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
@@ -521,6 +522,7 @@ public final class SystemFunctionBundle
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
+                .scalars(JsonLegacySemanticsFunction.class)
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(LuhnCheckFunction.class)

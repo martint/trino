@@ -20,8 +20,8 @@ import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.FormatFunction;
+import io.trino.operator.scalar.JsonLegacySemanticsFunction;
 import io.trino.operator.scalar.TryFunction;
-import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
@@ -121,6 +121,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 import io.trino.type.UnknownType;
 
 import java.util.Arrays;
@@ -135,6 +136,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SystemSessionProperties.isLegacyJsonSemanticsEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -143,6 +145,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -374,9 +377,8 @@ public class TranslationMap
             };
         }
 
-        // Don't add a coercion for the top-level expression. That depends on the context
-        // the expression is used and it's the responsibility of the caller.
-        return isRoot ? result : QueryPlanner.coerceIfNecessary(analysis, expr, result);
+        io.trino.sql.ir.Expression translated = isRoot ? result : QueryPlanner.coerceIfNecessary(analysis, expr, result);
+        return applyJsonSemantics(translated, isRoot);
     }
 
     private io.trino.sql.ir.Expression translate(NullIfExpression expression)
@@ -512,7 +514,7 @@ public class TranslationMap
         Type type = analysis.getType(expression);
 
         if (type.equals(JSON)) {
-            return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
+            return new Constant(type, JsonType.jsonValue(utf8Slice(expression.getValue())));
         }
 
         InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
@@ -520,6 +522,18 @@ public class TranslationMap
         Object value = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(utf8Slice(expression.getValue())));
 
         return new Constant(type, value);
+    }
+
+    private io.trino.sql.ir.Expression applyJsonSemantics(io.trino.sql.ir.Expression result, boolean isRoot)
+    {
+        if (!result.type().equals(JSON) || !isLegacyJsonSemanticsEnabled(session)) {
+            return result;
+        }
+        if (isRoot && result instanceof Reference) {
+            return result;
+        }
+        ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(JsonLegacySemanticsFunction.NAME, fromTypes(JSON));
+        return new Call(function, ImmutableList.of(result));
     }
 
     private io.trino.sql.ir.Expression translate(DecimalLiteral expression)

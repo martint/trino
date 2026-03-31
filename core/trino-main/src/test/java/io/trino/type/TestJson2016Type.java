@@ -112,7 +112,7 @@ class TestJson2016Type
     }
 
     @Test
-    void testGetObjectValueReturnsJsonText()
+    void testGetObjectValueReturnsMaterializedItem()
     {
         BlockBuilder blockBuilder = JSON_2016.createBlockBuilder(null, 3);
         JSON_2016.writeObject(blockBuilder, parseJson("{\"x\":[1,null,\"abc\"]}"));
@@ -121,8 +121,8 @@ class TestJson2016Type
 
         Block block = blockBuilder.buildValueBlock();
 
-        assertThat(JSON_2016.getObjectValue(block, 0)).isEqualTo("{\"x\":[1,null,\"abc\"]}");
-        assertThat(JSON_2016.getObjectValue(block, 1)).isEqualTo("JSON_ERROR");
+        assertThat(JSON_2016.getObjectValue(block, 0)).isEqualTo(parseValue("{\"x\":[1,null,\"abc\"]}"));
+        assertThat(JSON_2016.getObjectValue(block, 1)).isEqualTo(JSON_ERROR);
         assertThat(JSON_2016.getObjectValue(block, 2)).isNull();
     }
 

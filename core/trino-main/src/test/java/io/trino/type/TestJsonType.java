@@ -15,10 +15,17 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonObjectItem;
+import io.trino.json.JsonObjectMember;
+import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.JsonBlock;
 import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.type.JsonType.JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +52,12 @@ public class TestJsonType
         return null;
     }
 
+    @Override
+    protected Object getNonNullValue()
+    {
+        return Slices.utf8Slice("null");
+    }
+
     @Test
     public void testRange()
     {
@@ -66,5 +79,52 @@ public class TestJsonType
         assertThatThrownBy(() -> type.getNextValue(getSampleValue()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Type is not orderable: " + type);
+    }
+
+    @Test
+    public void testBinaryBlockStorageRendersTextLazily()
+    {
+        ValueBlock block = createTestBlock();
+        JsonBlock rawBlock = (JsonBlock) block.getUnderlyingValueBlock();
+
+        Slice jsonText = JsonType.jsonText(JSON.getSlice(block, 0));
+        assertThat(jsonText.toStringUtf8()).isEqualTo("{\"x\":1,\"y\":2}");
+        assertThat(rawBlock.getParsedItemSlice(block.getUnderlyingValuePosition(0))).isNotNull();
+        assertThat(JSON.getObjectValue(block, 0)).isEqualTo("{\"x\":1,\"y\":2}");
+    }
+
+    @Test
+    public void testLegacyMalformedJsonStorage()
+    {
+        BlockBuilder blockBuilder = JSON.createBlockBuilder(null, 1);
+        Slice malformedJson = Slices.utf8Slice("jhfa");
+
+        JSON.writeSlice(blockBuilder, JsonType.legacyJsonValue(malformedJson));
+
+        ValueBlock block = blockBuilder.buildValueBlock();
+        Slice value = JSON.getSlice(block, 0);
+
+        assertThat(JsonType.hasParsedItem(value)).isFalse();
+        assertThat(JsonType.jsonText(value)).isEqualTo(malformedJson);
+        assertThat(JSON.getObjectValue(block, 0)).isEqualTo("jhfa");
+    }
+
+    @Test
+    public void testGetObjectValueReturnsTextRepresentation()
+    {
+        BlockBuilder blockBuilder = JSON.createBlockBuilder(null, 1);
+        JSON.writeSlice(blockBuilder, Slices.utf8Slice("{\"x\":[1,null,\"abc\"]}"));
+
+        ValueBlock block = blockBuilder.buildValueBlock();
+
+        assertThat(JSON.getObjectValue(block, 0)).isEqualTo("{\"x\":[1,null,\"abc\"]}");
+    }
+
+    @Test
+    public void testJsonItemParsesRawJsonTextDirectly()
+    {
+        assertThat(JsonType.jsonItem(Slices.utf8Slice("{\"x\":1}")))
+                .isEqualTo(new JsonObjectItem(List.of(
+                        new JsonObjectMember("x", new TypedValue(INTEGER, 1L)))));
     }
 }

@@ -49,6 +49,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.type.JsonType.jsonText;
+import static io.trino.type.JsonType.legacyJsonValue;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 
@@ -122,7 +124,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
     {
-        return slice;
+        return jsonText(slice);
     }
 
     @ScalarFunction
@@ -130,7 +132,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
     {
-        return JsonTypeUtil.jsonParse(slice);
+        return legacyJsonValue(JsonTypeUtil.jsonParse(slice));
     }
 
     @SqlNullable
@@ -375,7 +377,7 @@ public final class JsonFunctions
                 }
                 if (token == END_ARRAY) {
                     if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                        return legacyJsonValue(utf8Slice(tokens.get(0)));
                     }
 
                     return null;
@@ -390,7 +392,7 @@ public final class JsonFunctions
                 }
 
                 if (count == index) {
-                    return arrayElement == null ? null : utf8Slice(arrayElement);
+                    return arrayElement == null ? null : legacyJsonValue(utf8Slice(arrayElement));
                 }
 
                 if (tokens != null) {
@@ -432,7 +434,8 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : legacyJsonValue(result);
     }
 
     @ScalarFunction
@@ -440,7 +443,8 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : legacyJsonValue(result);
     }
 
     @ScalarFunction("json_size")

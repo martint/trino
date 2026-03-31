@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.singlestore;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
@@ -33,6 +34,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -57,6 +59,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -131,6 +134,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static java.lang.Float.floatToRawIntBits;
@@ -157,6 +161,7 @@ public class SingleStoreClient
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 10;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     private static final Pattern UNSIGNED_TYPE_REGEX = Pattern.compile("(?i).*unsigned$");
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     private final Type jsonType;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -576,7 +581,7 @@ public class SingleStoreClient
             return WriteMapping.longMapping(format("datetime(%s)", SINGLESTORE_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
+            return WriteMapping.sliceMapping("json", jsonWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -766,7 +771,27 @@ public class SingleStoreClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
+                jsonWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.VARCHAR, (statement, index, value) -> statement.setString(index, jsonWriteValue(value)));
+    }
+
+    private String jsonWriteValue(Slice value)
+            throws SQLException
+    {
+        Object jsonObject = jsonType.getObjectValue(writeNativeValue(jsonType, value), 0);
+        if (jsonObject instanceof String text) {
+            return text;
+        }
+        try {
+            return JSON_MAPPER.writeValueAsString(jsonObject);
+        }
+        catch (IOException e) {
+            throw new SQLException("Failed to serialize JSON value", e);
+        }
     }
 }

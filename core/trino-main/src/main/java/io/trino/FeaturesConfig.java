@@ -123,6 +123,7 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
 
     private boolean legacyCatalogRoles;
+    private boolean legacyJsonSemanticsEnabled;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     private boolean hideInaccessibleColumns;
@@ -452,6 +453,19 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
     {
         this.legacyCatalogRoles = legacyCatalogRoles;
+        return this;
+    }
+
+    public boolean isLegacyJsonSemanticsEnabled()
+    {
+        return legacyJsonSemanticsEnabled;
+    }
+
+    @Config("legacy-json-semantics-enabled")
+    @ConfigDescription("Enable legacy semantics for the JSON type")
+    public FeaturesConfig setLegacyJsonSemanticsEnabled(boolean legacyJsonSemanticsEnabled)
+    {
+        this.legacyJsonSemanticsEnabled = legacyJsonSemanticsEnabled;
         return this;
     }
 

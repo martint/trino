@@ -13,14 +13,24 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
-/**
- * A materialized SQL/JSON value. Unlike execution-only sentinels and storage wrappers, this
- * represents an actual SQL/JSON value.
- */
-@JsonSerialize(using = JsonValueSerializer.class)
-public non-sealed interface JsonValue
-        extends JsonItem
+import java.io.IOException;
+
+public final class JsonValueSerializer
+        extends StdSerializer<JsonValue>
 {
+    public JsonValueSerializer()
+    {
+        super(JsonValue.class);
+    }
+
+    @Override
+    public void serialize(JsonValue value, JsonGenerator generator, SerializerProvider provider)
+            throws IOException
+    {
+        JsonItems.writeJson(generator, value, false);
+    }
 }

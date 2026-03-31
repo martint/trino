@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.variant.Metadata;
+import io.trino.type.JsonType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -75,7 +76,7 @@ final class JsonVariantWriter
             return NULL_PLANNED_VALUE;
         }
 
-        Slice json = (Slice) value;
+        Slice json = JsonType.jsonText((Slice) value);
 
         try (InputStream input = json.getInput(); JsonParser parser = JSON_FACTORY.createParser(input)) {
             JsonToken token = parser.nextToken();
@@ -106,17 +107,24 @@ final class JsonVariantWriter
             case ID_TRUE -> new PlannedBooleanValue(true);
             case ID_FALSE -> new PlannedBooleanValue(false);
             case ID_STRING -> new PlannedStringValue(utf8Slice(parser.getText()));
-            case ID_NUMBER_INT, ID_NUMBER_FLOAT -> switch (parser.getNumberType()) {
+            case ID_NUMBER_INT -> switch (parser.getNumberType()) {
                 case INT -> new PlannedIntValue(parser.getIntValue());
                 case LONG -> new PlannedLongValue(parser.getLongValue());
                 case BIG_INTEGER -> new PlannedDecimal16Value(parser.getBigIntegerValue(), 0);
-                case FLOAT -> new PlannedFloatValue(parser.getFloatValue());
-                case DOUBLE -> new PlannedDoubleValue(parser.getDoubleValue());
-                case BIG_DECIMAL -> {
+                // Jackson never reports floating-point number types for integer-shaped tokens,
+                // so the remaining branches are unreachable.
+                default -> throw new IllegalArgumentException("Unexpected integer number type: " + parser.getNumberType());
+            };
+            // Floating-point tokens: preserve the BigDecimal scale rather than following Jackson's
+            // default DOUBLE/FLOAT choice, which would silently drop trailing zeros (e.g. "1234.50"
+            // -> 1234.5). Values like NaN and Infinity that BigDecimal can't represent remain DOUBLE.
+            case ID_NUMBER_FLOAT -> {
+                if (!parser.isNaN()) {
                     BigDecimal decimal = parser.getDecimalValue();
                     yield new PlannedDecimal16Value(decimal.unscaledValue(), decimal.scale());
                 }
-            };
+                yield new PlannedDoubleValue(parser.getDoubleValue());
+            }
             case ID_START_OBJECT -> planObject(parser, metadataBuilder);
             case ID_START_ARRAY -> planArray(parser, metadataBuilder);
 

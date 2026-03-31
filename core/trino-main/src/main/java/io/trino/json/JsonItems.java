@@ -205,16 +205,7 @@ public final class JsonItems
         try {
             SliceOutput output = new DynamicSliceOutput(64);
             try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
-                if (item instanceof EncodedJsonItem encodedItem && JsonItemEncoding.isEncoding(encodedItem.encoding())) {
-                    JsonItemEncoding.writeJson(encodedItem.encoding(), generator);
-                }
-                else {
-                    item = materialize(item);
-                    if (!(item instanceof JsonValue value)) {
-                        throw new JsonOutputConversionException("unsupported SQL/JSON item type: " + item.getClass().getSimpleName());
-                    }
-                    writeJson(generator, value);
-                }
+                writeJson(generator, item, false);
             }
             return output.slice();
         }
@@ -231,9 +222,34 @@ public final class JsonItems
         }
         Optional<JsonValueView> view = JsonValueView.fromObject(object);
         if (view.isPresent()) {
-            return jsonText(view.get());
+            try {
+                SliceOutput output = new DynamicSliceOutput(64);
+                try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
+                    view.get().writeJson(generator, false);
+                }
+                return output.slice();
+            }
+            catch (IOException e) {
+                throw new JsonOutputConversionException(e);
+            }
         }
         throw new IllegalArgumentException("Expected JSON item, but got %s".formatted(object.getClass().getSimpleName()));
+    }
+
+    public static Slice surrogateJsonText(JsonPathItem item)
+    {
+        requireNonNull(item, "item is null");
+
+        try {
+            SliceOutput output = new DynamicSliceOutput(64);
+            try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
+                writeJson(generator, item, true);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new JsonOutputConversionException(e);
+        }
     }
 
     public static Optional<Slice> scalarText(JsonPathItem item)
@@ -261,11 +277,8 @@ public final class JsonItems
         if (object instanceof JsonPathItem item) {
             return scalarText(item);
         }
-        Optional<JsonValueView> view = JsonValueView.fromObject(object);
-        if (view.isPresent()) {
-            return view.get().scalarText();
-        }
-        return Optional.empty();
+        return JsonValueView.fromObject(object)
+                .flatMap(JsonValueView::scalarText);
     }
 
     static String typedValueText(TypedValue typedValue)
@@ -283,9 +296,17 @@ public final class JsonItems
         return requireNonNull(objectValue, "objectValue is null").toString();
     }
 
-    private static void writeJson(JsonGenerator generator, JsonValue item)
+    static void writeJson(JsonGenerator generator, JsonPathItem item, boolean stringifyUnsupportedScalars)
             throws IOException
     {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            view.get().writeJson(generator, stringifyUnsupportedScalars);
+            return;
+        }
+        if (item instanceof EncodedJsonItem) {
+            item = materialize(item);
+        }
         if (item == JsonNull.JSON_NULL) {
             generator.writeNull();
             return;
@@ -294,7 +315,7 @@ public final class JsonItems
             generator.writeStartObject();
             for (JsonObjectMember member : objectItem.members()) {
                 generator.writeFieldName(member.key());
-                writeJson(generator, member.value());
+                writeJson(generator, member.value(), stringifyUnsupportedScalars);
             }
             generator.writeEndObject();
             return;
@@ -302,13 +323,13 @@ public final class JsonItems
         if (item instanceof JsonArrayItem arrayItem) {
             generator.writeStartArray();
             for (JsonValue element : arrayItem.elements()) {
-                writeJson(generator, element);
+                writeJson(generator, element, stringifyUnsupportedScalars);
             }
             generator.writeEndArray();
             return;
         }
         if (item instanceof TypedValue typedValue) {
-            writeTypedValue(generator, typedValue);
+            writeTypedValue(generator, typedValue, stringifyUnsupportedScalars);
             return;
         }
 
@@ -334,7 +355,7 @@ public final class JsonItems
         if (value.bitLength() < Long.SIZE) {
             return new TypedValue(BIGINT, value.longValue());
         }
-        throw new JsonInputConversionException("value too big");
+        return parseBigDecimal(new BigDecimal(value));
     }
 
     private static TypedValue parseDecimal(JsonParser parser)
@@ -369,7 +390,7 @@ public final class JsonItems
         return TypedValue.fromValueAsObject(type, encoded);
     }
 
-    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue)
+    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue, boolean stringifyUnsupportedScalars)
             throws IOException
     {
         Type type = typedValue.getType();
@@ -388,7 +409,13 @@ public final class JsonItems
             case DoubleType _ -> generator.writeNumber(typedValue.getDoubleValue());
             case RealType _ -> generator.writeNumber(intBitsToFloat(toIntExact(typedValue.getLongValue())));
             case NumberType _ -> generator.writeNumber(((TrinoNumber) typedValue.getObjectValue()).toString());
-            default -> throw new JsonOutputConversionException("SQL value cannot be represented as JSON");
+            default -> {
+                if (stringifyUnsupportedScalars) {
+                    generator.writeString(typedValueText(typedValue));
+                    return;
+                }
+                throw new JsonOutputConversionException("SQL/JSON value of type " + type.getDisplayName() + " cannot be serialized to JSON text");
+            }
         }
     }
 }

@@ -147,16 +147,18 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
+        Slice jsonText = JsonType.jsonText(json);
+
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass java.io.Reader or an InputStreamReader instead.
         // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
         // is still valid for small inputs.
-        if (json.length() < STRING_READER_LENGTH_LIMIT) {
+        if (jsonText.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return mapper.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.createParser(Reader.of(jsonText.toStringUtf8()));
         }
 
-        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(jsonText.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
@@ -167,10 +169,11 @@ public final class JsonUtil
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
     {
-        if (json.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
-            return json.toStringUtf8();
+        Slice jsonText = JsonType.jsonText(json);
+        if (jsonText.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
+            return jsonText.toStringUtf8();
         }
-        return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
+        return jsonText.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
     }
 
     public static boolean canCastToJson(Type type)
@@ -553,7 +556,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Slice value = JSON.getSlice(block, position);
+                Slice value = JsonType.jsonText(JSON.getSlice(block, position));
                 jsonGenerator.writeRawValue(value.toStringUtf8());
             }
         }

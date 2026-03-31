@@ -15,6 +15,7 @@ package io.trino.plugin.mysql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +23,7 @@ import com.google.inject.Inject;
 import com.mysql.cj.jdbc.JdbcStatement;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -48,6 +50,7 @@ import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -99,6 +102,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -209,6 +213,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -243,6 +248,7 @@ public class MySqlClient
     // An empty character means that the table doesn't have a comment in MySQL
     private static final String NO_COMMENT = "";
 
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
     private static final JsonCodec<ColumnHistogram> HISTOGRAM_CODEC = jsonCodec(ColumnHistogram.class);
 
     private final Type jsonType;
@@ -938,7 +944,7 @@ public class MySqlClient
         }
 
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
+            return WriteMapping.sliceMapping("json", jsonWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -1369,8 +1375,28 @@ public class MySqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
+                jsonWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.VARCHAR, (statement, index, value) -> statement.setString(index, jsonWriteValue(value)));
+    }
+
+    private String jsonWriteValue(Slice value)
+            throws SQLException
+    {
+        Object jsonObject = jsonType.getObjectValue(writeNativeValue(jsonType, value), 0);
+        if (jsonObject instanceof String text) {
+            return text;
+        }
+        try {
+            return JSON_MAPPER.writeValueAsString(jsonObject);
+        }
+        catch (IOException e) {
+            throw new SQLException("Failed to serialize JSON value", e);
+        }
     }
 
     private static boolean isGtidMode(Connection connection)

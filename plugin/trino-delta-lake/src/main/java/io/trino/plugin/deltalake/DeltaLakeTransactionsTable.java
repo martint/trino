@@ -25,6 +25,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 
@@ -39,6 +40,7 @@ public class DeltaLakeTransactionsTable
         extends BaseTransactionsTable
 {
     private static final JsonCodec<List<DeltaLakeTransactionLogEntry>> TRANSACTION_LOG_ENTRIES_CODEC = listJsonCodec(DeltaLakeTransactionLogEntry.class);
+    private final Type transactionType;
 
     public DeltaLakeTransactionsTable(
             DeltaMetastoreTable table,
@@ -57,6 +59,7 @@ public class DeltaLakeTransactionsTable
                                 .add(new ColumnMetadata("version", BIGINT))
                                 .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
                                 .build()));
+        this.transactionType = typeManager.getType(new TypeSignature(JSON));
     }
 
     @Override
@@ -65,7 +68,7 @@ public class DeltaLakeTransactionsTable
         for (Transaction transaction : transactions) {
             pagesBuilder.beginRow();
             pagesBuilder.appendBigint(transaction.transactionId());
-            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(
+            pagesBuilder.appendNativeValue(transactionType, TRANSACTION_LOG_ENTRIES_CODEC.toJson(
                     transaction.transactionEntries().getEntriesList(fileSystem)));
             pagesBuilder.endRow();
         }

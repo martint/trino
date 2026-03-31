@@ -765,4 +765,11 @@ public class TestJsonFunctions
         assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'null'")::evaluate)
                 .hasMessage("Invalid JSON path: 'null'");
     }
+
+    @Test
+    public void testJsonFormatRoundTripsLegacyStringPayload()
+    {
+        assertThat(assertions.query("SELECT json_format(x) FROM (VALUES json_array_get('[\"jhfa\"]', 0)) t(x)"))
+                .matches("VALUES VARCHAR 'jhfa'");
+    }
 }

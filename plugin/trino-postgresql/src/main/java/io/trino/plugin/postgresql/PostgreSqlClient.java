@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -238,6 +239,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -259,6 +261,7 @@ import static java.util.stream.Collectors.joining;
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final JsonMapper JSON_MAPPER = new JsonMapper();
     private static final Logger log = Logger.get(PostgreSqlClient.class);
 
     /**
@@ -870,7 +873,7 @@ public class PostgreSqlClient
             return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
+            return WriteMapping.sliceMapping("jsonb", jsonWriteFunction("json"));
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
@@ -1797,8 +1800,41 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                typedVarcharWriteFunction("json"),
+                jsonWriteFunction("json"),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction(String jdbcTypeName)
+    {
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String quotedJdbcTypeName = jdbcTypeName.startsWith("\"") && jdbcTypeName.endsWith("\"") ? jdbcTypeName : "\"%s\"".formatted(jdbcTypeName.replace("\"", "\"\""));
+        String bindExpression = format("CAST(? AS %s)", quotedJdbcTypeName);
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                Object jsonObject = jsonType.getObjectValue(writeNativeValue(jsonType, value), 0);
+                if (jsonObject instanceof String text) {
+                    statement.setString(index, text);
+                    return;
+                }
+                try {
+                    statement.setString(index, JSON_MAPPER.writeValueAsString(jsonObject));
+                }
+                catch (IOException e) {
+                    throw new SQLException("Failed to serialize JSON value", e);
+                }
+            }
+        };
     }
 
     private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
