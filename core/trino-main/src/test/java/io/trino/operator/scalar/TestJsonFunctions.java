@@ -106,6 +106,50 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonScalar()
+    {
+        assertThat(assertions.function("json_scalar", "null"))
+                .hasType(JSON)
+                .isEqualTo("null");
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123 +08:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123+08:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123 UTC'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123 UTC\"");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Cannot construct a JSON scalar from array(integer)");
+    }
+
+    @Test
     public void testJsonArrayLength()
     {
         assertThat(assertions.function("json_array_length", "'[]'"))

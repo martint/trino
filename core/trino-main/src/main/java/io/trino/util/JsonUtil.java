@@ -22,6 +22,9 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.operator.scalar.time.TimeOperators;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -40,7 +43,9 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
@@ -48,7 +53,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -334,8 +342,17 @@ public final class JsonUtil
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
             }
+            if (type instanceof TimeType timeType) {
+                return new TimeJsonGeneratorWriter(timeType);
+            }
+            if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+                return new TimeWithTimeZoneJsonGeneratorWriter(timeWithTimeZoneType);
+            }
             if (type instanceof TimestampType timestampType) {
                 return new TimestampJsonGeneratorWriter(timestampType);
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                return new TimestampWithTimeZoneJsonGeneratorWriter(timestampWithTimeZoneType);
             }
             if (type instanceof DateType) {
                 return new DateGeneratorWriter();
@@ -562,6 +579,55 @@ public final class JsonUtil
         }
     }
 
+    private static class TimeJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimeType type;
+
+        public TimeJsonGeneratorWriter(TimeType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                jsonGenerator.writeString(TimeOperators.castToVarchar(Integer.MAX_VALUE, type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+        }
+    }
+
+    private static class TimeWithTimeZoneJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimeWithTimeZoneType type;
+
+        public TimeWithTimeZoneJsonGeneratorWriter(TimeWithTimeZoneType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else if (type.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+                jsonGenerator.writeString(TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+            else {
+                jsonGenerator.writeString(TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimeWithTimeZone) type.getObject(block, position)).toStringUtf8());
+            }
+        }
+    }
+
     private static class TimestampJsonGeneratorWriter
             implements JsonGeneratorWriter
     {
@@ -594,6 +660,32 @@ public final class JsonUtil
                 }
 
                 jsonGenerator.writeString(formatTimestamp(type.getPrecision(), epochMicros, fraction, UTC));
+            }
+        }
+    }
+
+    private static class TimestampWithTimeZoneJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimestampWithTimeZoneType type;
+
+        public TimestampWithTimeZoneJsonGeneratorWriter(TimestampWithTimeZoneType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else if (type.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                jsonGenerator.writeString(TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+            else {
+                jsonGenerator.writeString(TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimestampWithTimeZone) type.getObject(block, position)).toStringUtf8());
             }
         }
     }
