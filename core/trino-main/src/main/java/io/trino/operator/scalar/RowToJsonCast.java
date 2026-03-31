@@ -107,7 +107,7 @@ public class RowToJsonCast
                 }
                 jsonGenerator.writeEndObject();
             }
-            return output.slice();
+            return io.trino.type.JsonType.jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new RuntimeException(e);

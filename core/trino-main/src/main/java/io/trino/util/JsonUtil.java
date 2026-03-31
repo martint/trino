@@ -108,7 +108,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.type.JsonType.legacyJsonValue;
+import static io.trino.type.JsonType.jsonValue;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
@@ -184,7 +184,7 @@ public final class JsonUtil
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPED_UNORDERED, output)) {
                 jsonGenerator.writeString(value);
             }
-            return legacyJsonValue(output.slice());
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON), e);

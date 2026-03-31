@@ -384,11 +384,13 @@ public final class JsonFunctions
                 }
 
                 String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
+                if (token == JsonToken.VALUE_NULL) {
+                    arrayElement = null;
                 }
                 else {
-                    arrayElement = parser.getValueAsString();
+                    // Always serialize via the tree so the output is valid JSON regardless of token kind
+                    // (strings are emitted with quotes, primitives keep their canonical text form).
+                    arrayElement = parser.readValueAsTree().toString();
                 }
 
                 if (count == index) {

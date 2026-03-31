@@ -15,7 +15,6 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.query.QueryAssertions;
@@ -25,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.SystemSessionProperties.LEGACY_JSON_SEMANTICS_ENABLED;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -1145,29 +1143,15 @@ public class TestJsonOperators
     }
 
     @Test
-    public void testLegacyJsonSemanticsSessionProperty()
+    public void testSemanticEqualityAndDistinct()
     {
-        Session legacySession = assertions.sessionBuilder()
-                .setSystemProperty(LEGACY_JSON_SEMANTICS_ENABLED, "true")
-                .build();
-
+        // Typed-item storage preserves duplicate object keys in canonical text form.
         assertThat(assertions.execute("SELECT json_format(JSON '{\"a\":1,\"a\":2}')").getOnlyValue())
                 .isEqualTo("{\"a\":1,\"a\":2}");
 
-        assertThat(assertions.execute(legacySession, "SELECT json_format(JSON '{\"a\":1,\"a\":2}')").getOnlyValue())
-                .isEqualTo("{\"a\":2}");
-
-        assertThat(assertions.execute(legacySession, "SELECT JSON '1' = JSON '1.0'").getOnlyValue())
-                .isEqualTo(false);
-
+        // DISTINCT uses SQL/JSON semantic equality: JSON '1' and JSON '1.0' are one value.
         assertThat(assertions.query("SELECT count(DISTINCT x) FROM (VALUES JSON '1', JSON '1.0') t(x)"))
                 .matches("VALUES BIGINT '1'");
-
-        assertThat(assertions.query(legacySession, "SELECT count(DISTINCT x) FROM (VALUES JSON '1', JSON '1.0') t(x)"))
-                .matches("VALUES BIGINT '2'");
-
-        assertThat(assertions.execute(legacySession, "SELECT JSON '{\"a\":1,\"a\":2}' = JSON '{\"a\":2}'").getOnlyValue())
-                .isEqualTo(true);
     }
 
     @Test

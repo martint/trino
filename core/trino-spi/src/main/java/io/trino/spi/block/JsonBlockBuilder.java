@@ -27,9 +27,9 @@ public class JsonBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(JsonBlockBuilder.class);
-    // Per-position overhead reported to the memory manager — matches JsonBlock.getSizeInBytes
-    // (one byte per position for the isNull flag). Previously this counted an extra Integer.BYTES,
-    // which over-reported by ~Integer.BYTES * positionCount.
+    // Per-position overhead reported to the memory manager — one byte per position for the
+    // isNull flag. The variable-width payload contributes its own per-position bookkeeping
+    // through the underlying VariableWidthBlockBuilder.
     private static final int JSON_ENTRY_SIZE = Byte.BYTES;
     private static final JsonBlock NULL_VALUE_BLOCK = JsonBlock.createInternal(
             0,

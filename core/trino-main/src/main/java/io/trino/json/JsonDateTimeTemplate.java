@@ -152,8 +152,8 @@ public final class JsonDateTimeTemplate
     private TypedValue buildTypedValue(ParsedValues parsedValues)
     {
         // Per SQL:2023 §9.46, default values for unspecified fields are fixed constants, not
-        // session-dependent values. Using session.getStart() would make the same query yield
-        // different results depending on when it's evaluated.
+        // session-dependent values, so the same query yields the same result regardless of
+        // when it is evaluated.
         int year = parsedValues.resolveYear();
         if (parsedValues.dayOfYear.isPresent()) {
             LocalDate date = LocalDate.ofYearDay(year, parsedValues.dayOfYear.getAsInt());

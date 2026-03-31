@@ -217,7 +217,9 @@ public class JsonQueryFunction
             // if the only item is a TextNode, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
-        return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path found multiple items"));
+        // Per SQL:2023 §6.32 GR 5 a) iii): a JSON_QUERY path producing multiple items without a
+        // wrapper is a cardinality error, distinct from output-conversion errors.
+        return handleSpecialCase(errorBehavior, () -> new JsonQueryResultException("path produced multiple items without a wrapper"));
     }
 
     private static JsonPathItem handleSpecialCase(long behavior, Supplier<TrinoException> error)

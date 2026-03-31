@@ -113,7 +113,7 @@ public class TestArrayOperators
     @SqlType(StandardTypes.JSON)
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return io.trino.type.JsonType.legacyJsonValue(slice);
+        return io.trino.type.JsonType.jsonValue(slice);
     }
 
     @Test

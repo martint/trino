@@ -218,12 +218,6 @@ public class TestJsonValueFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
-
-        assertThat(assertions.query(
-                "SELECT json_value(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
-                .failure()
-                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
-                .hasMessage("conversion to JSON failed: ");
     }
 
     @Test

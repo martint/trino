@@ -34,6 +34,14 @@ public enum ClientCapabilities
     NUMBER,
 
     /**
+     * Whether clients support the `{text, item}` envelope representation of `JSON` columns,
+     * which includes both the canonical JSON text and (when available) a binary-encoded typed
+     * SQL/JSON item. When this capability is not set, the server returns `JSON` columns as plain
+     * text strings.
+     */
+    JSON_PARSED_ITEM_ENCODING,
+
+    /**
      * Whether clients support the session authorization set/reset feature
      */
     SESSION_AUTHORIZATION;

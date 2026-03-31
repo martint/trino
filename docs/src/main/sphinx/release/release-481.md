@@ -58,3 +58,14 @@
   the new encoding; operators must drain spill state before upgrading.
   Connectors that produce JSON blocks should use `JsonType#createBlockBuilder`
   to construct blocks.
+
+## JDBC driver
+
+* Add support for the typed JSON client protocol, enabled by the
+  `JSON_PARSED_ITEM_ENCODING` client capability. `ResultSet#getObject` on a
+  `JSON` column continues to return the JSON text as a `String`. Callers that
+  want the typed representation can ask for it explicitly with
+  `ResultSet#getObject(column, io.trino.client.JsonColumnValue.class)`; the
+  returned `JsonColumnValue` exposes both the JSON text and the binary-encoded
+  parsed item. The parsed-item encoding is an implementation detail of the
+  server-client protocol and is not stable across Trino versions.

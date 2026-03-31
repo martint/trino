@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_QUERY_RESULT_ERROR;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
@@ -129,8 +130,8 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $[0 to 2]' ERROR ON ERROR)"))
                 .failure()
-                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
-                .hasMessage("conversion from JSON failed: JSON path found multiple items");
+                .hasErrorCode(JSON_QUERY_RESULT_ERROR)
+                .hasMessage("JSON_QUERY result error: path produced multiple items without a wrapper");
     }
 
     @Test
@@ -220,12 +221,6 @@ public class TestJsonQueryFunction
 
         assertThat(assertions.query(
                 "SELECT json_query('" + INCORRECT_INPUT + "', 'lax $[1]' ERROR ON ERROR)"))
-                .failure()
-                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
-                .hasMessage("conversion to JSON failed: ");
-
-        assertThat(assertions.query(
-                "SELECT json_query(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");

@@ -80,7 +80,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.type.JsonType.standardJsonValue;
+import static io.trino.type.JsonType.jsonValue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -397,7 +397,7 @@ public class BenchmarkJsonFunctions
 
                 Slice jsonText = slice.slice();
                 VARCHAR.writeSlice(varcharBlockBuilder, jsonText);
-                JSON.writeSlice(jsonBlockBuilder, standardJsonValue(jsonText));
+                JSON.writeSlice(jsonBlockBuilder, jsonValue(jsonText));
             }
             return new GeneratedChannels(varcharBlockBuilder.build(), jsonBlockBuilder.build());
         }

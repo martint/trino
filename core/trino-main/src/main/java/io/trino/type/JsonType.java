@@ -127,7 +127,9 @@ public class JsonType
         if (JsonItemEncoding.isJsonError(payload)) {
             return JsonInputErrorNode.JSON_ERROR;
         }
-        return JsonItems.jsonText(JsonItemEncoding.decode(payload)).toStringUtf8();
+        // Use the surrogate-text path so typed scalars without a native JSON representation
+        // (datetimes, etc.) render as quoted text rather than failing.
+        return JsonItems.surrogateJsonText(JsonItemEncoding.decode(payload)).toStringUtf8();
     }
 
     @Override
@@ -356,31 +358,48 @@ public class JsonType
         return JsonItemSemantics.hash(JsonValueView.root(getFlatPayload(fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset)));
     }
 
-    /// Renders the canonical JSON text of a stored {@link JsonType} payload.
+    /// Renders the canonical JSON text of a {@link JsonType} payload. Accepts either the
+    /// typed-item encoding produced by {@link #jsonValue} or raw JSON text. Typed scalars
+    /// without a native JSON representation (datetimes, etc.) render as quoted text using
+    /// their canonical SQL form.
     public static Slice jsonText(Slice value)
     {
-        return JsonItems.jsonText(JsonItemEncoding.decode(value));
+        if (JsonItemEncoding.isEncoding(value)) {
+            return JsonItems.surrogateJsonText(JsonItemEncoding.decode(value));
+        }
+        return value;
     }
 
-    /// Decodes a stored {@link JsonType} payload back to a materialized {@link JsonValue}.
+    /// Decodes a {@link JsonType} payload to a materialized {@link JsonValue}. Accepts
+    /// either the typed-item encoding or raw JSON text (parsed on demand).
     public static JsonValue jsonItem(Slice value)
     {
-        return JsonItemEncoding.decodeValue(value);
+        if (JsonItemEncoding.isEncoding(value)) {
+            return JsonItemEncoding.decodeValue(value);
+        }
+        return jsonValueFromText(value);
     }
 
-    /// Encodes raw JSON text as a {@link JsonType} payload.
-    ///
-    /// Throws {@link IllegalArgumentException} if the text is not valid JSON or cannot
-    /// be represented in the typed SQL/JSON item model.
-    public static Slice jsonValue(Slice jsonText)
+    private static JsonValue jsonValueFromText(Slice jsonText)
     {
         try {
-            JsonValue item = JsonItems.parseJson(new InputStreamReader(jsonText.getInput(), StandardCharsets.UTF_8));
-            return JsonItemEncoding.encode(item);
+            return JsonItems.parseJson(new InputStreamReader(jsonText.getInput(), StandardCharsets.UTF_8));
         }
         catch (IOException | RuntimeException e) {
             throw new IllegalArgumentException("Invalid JSON text", e);
         }
+    }
+
+    /// Encodes raw JSON text as a {@link JsonType} payload. If the input is already an
+    /// encoded payload, it is returned unchanged. Throws {@link IllegalArgumentException}
+    /// if the text is not valid JSON or cannot be represented in the typed SQL/JSON item
+    /// model.
+    public static Slice jsonValue(Slice jsonText)
+    {
+        if (JsonItemEncoding.isEncoding(jsonText)) {
+            return jsonText;
+        }
+        return JsonItemEncoding.encode(jsonValueFromText(jsonText));
     }
 
     /// Encodes a materialized {@link JsonValue} as a {@link JsonType} payload.
