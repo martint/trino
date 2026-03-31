@@ -20,6 +20,7 @@ import io.trino.json.JsonValueView;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.type.JsonType;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -46,6 +47,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  */
 public final class JsonInputFunctions
 {
+    public static final String JSON_TO_JSON = "$json_to_json";
     public static final String VARCHAR_TO_JSON = "$varchar_to_json";
     public static final String VARBINARY_TO_JSON = "$varbinary_to_json";
     public static final String VARBINARY_UTF8_TO_JSON = "$varbinary_utf8_to_json";
@@ -53,6 +55,17 @@ public final class JsonInputFunctions
     public static final String VARBINARY_UTF32_TO_JSON = "$varbinary_utf32_to_json";
 
     private JsonInputFunctions() {}
+
+    @ScalarFunction(value = JSON_TO_JSON, hidden = true)
+    @SqlType(StandardTypes.JSON_2016)
+    public static Object jsonToJson(@SqlType(StandardTypes.JSON) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    {
+        if (JsonType.hasParsedItem(inputExpression)) {
+            return JsonValueView.root(JsonType.parsedItemEncoding(inputExpression));
+        }
+        Reader reader = new InputStreamReader(JsonType.jsonText(inputExpression).getInput(), UTF_8);
+        return toJson(reader, failOnError);
+    }
 
     @ScalarFunction(value = VARCHAR_TO_JSON, hidden = true)
     @SqlType(StandardTypes.JSON_2016)

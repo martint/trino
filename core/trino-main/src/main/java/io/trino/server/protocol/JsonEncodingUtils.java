@@ -46,6 +46,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.VariantType;
 import io.trino.spi.variant.Variant;
+import io.trino.type.JsonType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantUtil;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SystemSessionProperties.isLegacyJsonSemanticsEnabled;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -92,13 +94,15 @@ public final class JsonEncodingUtils
         boolean supportsParametricDateTime = requireNonNull(session, "session is null")
                 .getClientCapabilities()
                 .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+        boolean supportsJsonType = session.getClientCapabilities().contains(ClientCapabilities.JSON_TYPE.toString());
+        boolean legacyJsonSemantics = isLegacyJsonSemanticsEnabled(session);
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsJsonType, legacyJsonSemantics))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsJsonType, boolean legacyJsonSemantics)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -110,14 +114,15 @@ public final class JsonEncodingUtils
             case TinyintType _ -> TINYINT_ENCODER;
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
+            case JsonType _ -> new JsonEncoder(supportsJsonType && !legacyJsonSemantics);
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> VARIANT_ENCODER;
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsJsonType, legacyJsonSemantics));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsJsonType, legacyJsonSemantics));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsJsonType, legacyJsonSemantics))
                     .toArray(TypeEncoder[]::new));
             case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
@@ -332,6 +337,41 @@ public final class JsonEncodingUtils
 
             Variant variant = VARIANT.getObject(block, position);
             generator.writeRawValue(VariantUtil.asJson(variant).toStringUtf8());
+        }
+    }
+
+    private static final class JsonEncoder
+            implements TypeEncoder
+    {
+        private final boolean typedJsonEncoding;
+
+        private JsonEncoder(boolean typedJsonEncoding)
+        {
+            this.typedJsonEncoding = typedJsonEncoding;
+        }
+
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            Slice value = JsonType.JSON.getSlice(block, position);
+            Slice jsonText = JsonType.jsonText(value);
+            if (!typedJsonEncoding) {
+                generator.writeString(jsonText.toStringUtf8());
+                return;
+            }
+
+            generator.writeStartObject();
+            generator.writeStringField("text", jsonText.toStringUtf8());
+            if (JsonType.hasParsedItem(value)) {
+                generator.writeBinaryField("item", JsonType.parsedItemEncoding(value).getBytes());
+            }
+            generator.writeEndObject();
         }
     }
 

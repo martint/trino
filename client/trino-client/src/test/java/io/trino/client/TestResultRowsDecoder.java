@@ -76,6 +76,18 @@ class TestResultRowsDecoder
     }
 
     @Test
+    public void testTypedJsonValueMaterialization()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.of(new Column("json_col", "json", new ClientTypeSignature("json", ImmutableList.of())));
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder();
+                JsonParser parser = JSON_MAPPER.createParser("[[{\"text\":\"\\\"2024-01-02\\\"\",\"item\":\"AQID\"}]]")) {
+            assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(columns, new JsonQueryData(parser.readValueAsTree())))))
+                    .containsExactly(ImmutableList.of(JsonValue.fromJsonText("\"2024-01-02\"", new byte[] {1, 2, 3})));
+        }
+    }
+
+    @Test
     public void testInlineJsonNodeMaterialization()
             throws Exception
     {
@@ -254,12 +266,17 @@ class TestResultRowsDecoder
 
     private static QueryResults fromQueryData(QueryData queryData)
     {
+        return fromQueryData(ImmutableList.of(new Column("id", "integer", new ClientTypeSignature("integer", ImmutableList.of()))), queryData);
+    }
+
+    private static QueryResults fromQueryData(List<Column> columns, QueryData queryData)
+    {
         return new QueryResults(
                 "id",
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
-                ImmutableList.of(new Column("id", "integer", new ClientTypeSignature("integer", ImmutableList.of()))),
+                columns,
                 queryData,
                 StatementStats.builder()
                         .setState("FINISHED")

@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
+import io.trino.client.JsonValue;
 import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
@@ -272,6 +273,7 @@ class ColumnInfo
                 return new TypeInfo(Types.JAVA_OBJECT, Row.class);
 
             case ClientStandardTypes.JSON:
+                return new TypeInfo(Types.JAVA_OBJECT, JsonValue.class);
             case ClientStandardTypes.IPADDRESS:
             case ClientStandardTypes.UUID:
                 return new TypeInfo(Types.JAVA_OBJECT, String.class);

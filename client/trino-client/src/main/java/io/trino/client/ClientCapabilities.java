@@ -34,6 +34,12 @@ public enum ClientCapabilities
     NUMBER,
 
     /**
+     * Whether clients support the typed SQL/JSON `JSON` protocol representation.
+     * When this capability is not set, the server returns `JSON` columns as strings.
+     */
+    JSON_TYPE,
+
+    /**
      * Whether clients support the session authorization set/reset feature
      */
     SESSION_AUTHORIZATION;

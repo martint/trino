@@ -25,6 +25,7 @@ import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
+import io.trino.client.JsonValue;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -262,6 +263,9 @@ abstract class AbstractTrinoResultSet
             return null;
         }
         ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (columnTypeSignature.getRawType().equals("json") && value instanceof JsonValue) {
+            return ((JsonValue) value).jsonText();
+        }
         if (TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), String.class)) {
             return TYPE_CONVERSIONS.convert(columnTypeSignature, value, String.class);
         }
@@ -661,6 +665,9 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         ColumnInfo columnInfo = columnInfo(columnIndex);
+        if (columnInfo.getColumnTypeSignature().getRawType().equals("json")) {
+            return getObject(columnIndex, JsonValue.class);
+        }
 
         if (columnInfo.getColumnType() == Types.ARRAY) {
             // Array requires special treatment due to element metadata provided by the Array object
@@ -1831,6 +1838,24 @@ abstract class AbstractTrinoResultSet
         }
 
         ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (columnTypeSignature.getRawType().equals("json")) {
+            if (type == JsonValue.class) {
+                if (object instanceof JsonValue) {
+                    return type.cast(object);
+                }
+                if (object instanceof String) {
+                    return type.cast(JsonValue.fromJsonText((String) object));
+                }
+            }
+            if (type == String.class) {
+                if (object instanceof JsonValue) {
+                    return type.cast(((JsonValue) object).jsonText());
+                }
+                if (object instanceof String) {
+                    return type.cast(object);
+                }
+            }
+        }
         if (type.isInstance(object) && !TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), type)) {
             return type.cast(object);
         }
