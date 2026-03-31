@@ -198,6 +198,7 @@ import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF32_T
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF8_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
 import static io.trino.operator.scalar.json.JsonObjectFunction.JSON_OBJECT_FUNCTION_NAME;
+import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_JSON_OUTPUT;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF16;
 import static io.trino.operator.scalar.json.JsonOutputFunctions.JSON_TO_VARBINARY_UTF32;
@@ -571,7 +572,8 @@ public class ExpressionAnalyzer
                 column.getQuotesBehavior(),
                 pathInvocationArgumentTypes,
                 Optional.of(column.getType()),
-                Optional.of(column.getFormat()));
+                Optional.of(column.getFormat()),
+                false);
     }
 
     private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode, CorrelationSupport correlationSupport)
@@ -2857,8 +2859,21 @@ public class ExpressionAnalyzer
                     node.getQuotesBehavior(),
                     pathInvocationArgumentTypes,
                     node.getReturnedType(),
-                    node.getOutputFormat());
+                    node.getOutputFormat(),
+                    isJsonTypedInput(node.getJsonPathInvocation().getInputExpression()));
             return setExpressionType(node, returnedType);
+        }
+
+        private boolean isJsonTypedInput(Expression inputExpression)
+        {
+            // Per SQL:2023 §6.35 SR 1, the implicit returning type is JSON when the input is JSON-typed.
+            // Mirrors the implicit FORMAT JSON detection used for path parameters: a JSON column or a
+            // JSON-producing function (JSON_QUERY, JSON_OBJECT, JSON_ARRAY) counts as JSON input.
+            Type inputType = getExpressionType(inputExpression);
+            return JSON.equals(inputType)
+                    || inputExpression instanceof JsonQuery
+                    || inputExpression instanceof JsonObject
+                    || inputExpression instanceof JsonArray;
         }
 
         private Type analyzeJsonQueryExpression(
@@ -2867,7 +2882,8 @@ public class ExpressionAnalyzer
                 Optional<JsonQuery.QuotesBehavior> quotesBehavior,
                 List<Type> pathInvocationArgumentTypes,
                 Optional<DataType> declaredReturnedType,
-                Optional<JsonFormat> declaredOutputFormat)
+                Optional<JsonFormat> declaredOutputFormat,
+                boolean isJsonTypedInput)
         {
             // wrapper behavior, empty behavior and error behavior will be passed as arguments to function
             // quotes behavior is handled by the corresponding output function
@@ -2905,6 +2921,17 @@ public class ExpressionAnalyzer
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
+            }
+
+            // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
+            // OMIT QUOTES would require emitting a bare unquoted scalar, which is not valid JSON; the spec
+            // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
+            // QUOTES parameter). The "effective" type is JSON when RETURNING JSON is declared, or — per SR 1 —
+            // when the input is JSON-typed and no RETURNING clause is given.
+            boolean returnsJson = io.trino.type.JsonType.JSON.equals(returnedType)
+                    || (declaredReturnedType.isEmpty() && isJsonTypedInput);
+            if (quotesBehavior.filter(q -> q == JsonQuery.QuotesBehavior.OMIT).isPresent() && returnsJson) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON (SQL:2023 §6.35 SR 3)");
             }
             JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 
@@ -3071,6 +3098,9 @@ public class ExpressionAnalyzer
         {
             String name = switch (format) {
                 case JSON -> {
+                    if (type.equals(JSON)) {
+                        yield JSON_TO_JSON_OUTPUT;
+                    }
                     if (isCharacterStringType(type)) {
                         yield JSON_TO_VARCHAR;
                     }
