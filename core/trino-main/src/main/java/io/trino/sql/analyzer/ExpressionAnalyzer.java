@@ -111,6 +111,7 @@ import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -2734,6 +2735,23 @@ public class ExpressionAnalyzer
                     node.getErrorDefault(),
                     context);
             return setExpressionType(node, returnedType);
+        }
+
+        @Override
+        public Type visitJsonConstructor(JsonConstructor node, Context context)
+        {
+            Expression inputExpression = node.getExpression();
+            Type inputType = process(inputExpression, context);
+
+            ResolvedFunction inputFunction = getInputFunction(inputType, node.getFormat(), inputExpression);
+            Type expectedType = inputFunction.signature().getArgumentType(0);
+            coerceType(inputExpression, inputType, expectedType, "JSON input argument");
+            jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
+
+            ResolvedFunction outputFunction = getOutputFunction(JSON, JsonFormat.JSON, node);
+            jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
+
+            return setExpressionType(node, JSON);
         }
 
         private Type analyzeJsonValueExpression(

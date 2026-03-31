@@ -251,6 +251,11 @@ public class SqlParser
         @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
+            replaceKeywordWithIdentifier(context);
+        }
+
+        private void replaceKeywordWithIdentifier(ParserRuleContext context)
+        {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
             // Otherwise, ANTLR gets confused and fires spurious notifications.
             if (!(context.getChild(0) instanceof TerminalNode)) {
