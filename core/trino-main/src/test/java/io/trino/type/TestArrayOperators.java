@@ -113,7 +113,7 @@ public class TestArrayOperators
     @SqlType(StandardTypes.JSON)
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return io.trino.type.JsonType.legacyJsonValue(slice);
     }
 
     @Test
@@ -302,102 +302,102 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[]"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[null, null]"))
                 .hasType(JSON)
-                .isEqualTo("[null,null]");
+                .isEqualTo(jsonValueOf("[null,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[true, false, null]"))
                 .hasType(JSON)
-                .isEqualTo("[true,false,null]");
+                .isEqualTo(jsonValueOf("[true,false,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ARRAY[1, 2, null] AS ARRAY(TINYINT))"))
                 .hasType(JSON)
-                .isEqualTo("[1,2,null]");
+                .isEqualTo(jsonValueOf("[1,2,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ARRAY[12345, -12345, null] AS ARRAY(SMALLINT))"))
                 .hasType(JSON)
-                .isEqualTo("[12345,-12345,null]");
+                .isEqualTo(jsonValueOf("[12345,-12345,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ARRAY[123456789, -123456789, null] AS ARRAY(INTEGER))"))
                 .hasType(JSON)
-                .isEqualTo("[123456789,-123456789,null]");
+                .isEqualTo(jsonValueOf("[123456789,-123456789,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ARRAY[1234567890123456789, -1234567890123456789, null] AS ARRAY(BIGINT))"))
                 .hasType(JSON)
-                .isEqualTo("[1234567890123456789,-1234567890123456789,null]");
+                .isEqualTo(jsonValueOf("[1234567890123456789,-1234567890123456789,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ARRAY[3.14E0, nan(), infinity(), -infinity(), null] AS ARRAY(REAL))"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+                .isEqualTo(jsonValueOf("[3.14,\"NaN\",\"Infinity\",\"-Infinity\",null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null]"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+                .isEqualTo(jsonValueOf("[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DECIMAL '3.14', null]"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,null]");
+                .isEqualTo(jsonValueOf("[3.14,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DECIMAL '12345678901234567890.123456789012345678', null]"))
                 .hasType(JSON)
-                .isEqualTo("[12345678901234567890.123456789012345678,null]");
+                .isEqualTo(jsonValueOf("[12345678901234567890.123456789012345678,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY['a', 'bb', null]"))
                 .hasType(JSON)
-                .isEqualTo("[\"a\",\"bb\",null]");
+                .isEqualTo(jsonValueOf("[\"a\",\"bb\",null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', null]"))
                 .hasType(JSON)
-                .isEqualTo("[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]");
+                .isEqualTo(jsonValueOf("[123,3.14,false,\"abc\",[1,\"a\",null],{\"a\":1,\"b\":\"str\",\"c\":null},null,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', null]"))
                 .hasType(JSON)
-                .isEqualTo(format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo(jsonValueOf(format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0))));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]"))
                 .hasType(JSON)
-                .isEqualTo("[\"2001-08-22\",\"2001-08-23\",null]");
+                .isEqualTo(jsonValueOf("[\"2001-08-22\",\"2001-08-23\",null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null]"))
                 .hasType(JSON)
-                .isEqualTo("[[1,2],[3,null],[],[null,null],null]");
+                .isEqualTo(jsonValueOf("[[1,2],[3,null],[],[null,null],null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), null]"))
                 .hasType(JSON)
-                .isEqualTo("[{\"a\":1,\"b\":2},{\"none\":null,\"three\":3},{},{\"h1\":null,\"h2\":null},null]");
+                .isEqualTo(jsonValueOf("[{\"a\":1,\"b\":2},{\"none\":null,\"three\":3},{},{\"h1\":null,\"h2\":null},null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null]"))
                 .hasType(JSON)
-                .isEqualTo("[{\"\":1,\"\":2},{\"\":3,\"\":null},{\"\":null,\"\":null},null]");
+                .isEqualTo(jsonValueOf("[{\"\":1,\"\":2},{\"\":3,\"\":null},{\"\":null,\"\":null},null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[12345.12345, 12345.12345, 3.0]"))
                 .hasType(JSON)
-                .isEqualTo("[12345.12345,12345.12345,3.00000]");
+                .isEqualTo(jsonValueOf("[12345.12345,12345.12345,3.00000]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[123456789012345678901234567890.87654321, 123456789012345678901234567890.12345678]"))
                 .hasType(JSON)
-                .isEqualTo("[123456789012345678901234567890.87654321,123456789012345678901234567890.12345678]");
+                .isEqualTo(jsonValueOf("[123456789012345678901234567890.87654321,123456789012345678901234567890.12345678]"));
     }
 
     @Test
@@ -494,12 +494,20 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .isEqualTo(asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                .isEqualTo(asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
 
         assertThat(assertions.expression("CAST(a AS array(JSON))")
                 .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
                 .hasType(new ArrayType(JSON))
-                .isEqualTo(ImmutableList.of("5", "3.14", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
+                .isEqualTo(ImmutableList.of(
+                        jsonValueOf("5"),
+                        jsonValueOf("3.14"),
+                        jsonValueOf("[1,2,3]"),
+                        jsonValueOf("\"e\""),
+                        jsonValueOf("{\"a\":\"b\"}"),
+                        jsonValueOf("null"),
+                        jsonValueOf("\"null\""),
+                        jsonValueOf("[null]")));
 
         // nested array/map
         assertThat(assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
@@ -1209,7 +1217,11 @@ public class TestArrayOperators
 
         // array with various types including scientific notation and string "null"
         String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
-        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]";
+        // Numbers render from BigDecimal.toPlainString so precision is preserved and trailing zeros in
+        // decimal notation (e.g. "0.000000000000000") survive. Values with extreme exponents where
+        // Jackson already simplifies the token (e.g. "0e1000" -> "0", "100...e-68" -> "1") pass
+        // through as-is from the simplified token text.
+        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '12.3', '12.3', '0', '0.000000000000000', '0', '0', '1', '1', '0.100000000000000', 'puppies', 'kittens', 'null', null]";
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
@@ -1285,31 +1297,31 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(BOOLEAN))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[true, false, true]"))
                 .hasType(JSON)
-                .isEqualTo("[true,false,true]");
+                .isEqualTo(jsonValueOf("[true,false,true]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[true, null, false]"))
                 .hasType(JSON)
-                .isEqualTo("[true,null,false]");
+                .isEqualTo(jsonValueOf("[true,null,false]"));
 
         // array with all true
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[true, true, true]"))
                 .hasType(JSON)
-                .isEqualTo("[true,true,true]");
+                .isEqualTo(jsonValueOf("[true,true,true]"));
 
         // array with all false
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[false, false]"))
                 .hasType(JSON)
-                .isEqualTo("[false,false]");
+                .isEqualTo(jsonValueOf("[false,false]"));
     }
 
     @Test
@@ -1324,25 +1336,25 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(TINYINT))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[TINYINT '12', TINYINT '34', TINYINT '56']"))
                 .hasType(JSON)
-                .isEqualTo("[12,34,56]");
+                .isEqualTo(jsonValueOf("[12,34,56]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[TINYINT '1', null, TINYINT '3']"))
                 .hasType(JSON)
-                .isEqualTo("[1,null,3]");
+                .isEqualTo(jsonValueOf("[1,null,3]"));
 
         // array with extreme values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[TINYINT '127', TINYINT '-128']"))
                 .hasType(JSON)
-                .isEqualTo("[127,-128]");
+                .isEqualTo(jsonValueOf("[127,-128]"));
     }
 
     @Test
@@ -1357,25 +1369,25 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(SMALLINT))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[SMALLINT '128', SMALLINT '256', SMALLINT '512']"))
                 .hasType(JSON)
-                .isEqualTo("[128,256,512]");
+                .isEqualTo(jsonValueOf("[128,256,512]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[SMALLINT '1', null, SMALLINT '3']"))
                 .hasType(JSON)
-                .isEqualTo("[1,null,3]");
+                .isEqualTo(jsonValueOf("[1,null,3]"));
 
         // array with extreme values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[SMALLINT '32767', SMALLINT '-32768']"))
                 .hasType(JSON)
-                .isEqualTo("[32767,-32768]");
+                .isEqualTo(jsonValueOf("[32767,-32768]"));
     }
 
     @Test
@@ -1390,31 +1402,31 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(INTEGER))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[128, 256, 512]"))
                 .hasType(JSON)
-                .isEqualTo("[128,256,512]");
+                .isEqualTo(jsonValueOf("[128,256,512]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[1, null, 3]"))
                 .hasType(JSON)
-                .isEqualTo("[1,null,3]");
+                .isEqualTo(jsonValueOf("[1,null,3]"));
 
         // array with negative values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[-100, 0, 100]"))
                 .hasType(JSON)
-                .isEqualTo("[-100,0,100]");
+                .isEqualTo(jsonValueOf("[-100,0,100]"));
 
         // array with extreme values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[2147483647, -2147483648]"))
                 .hasType(JSON)
-                .isEqualTo("[2147483647,-2147483648]");
+                .isEqualTo(jsonValueOf("[2147483647,-2147483648]"));
     }
 
     @Test
@@ -1429,37 +1441,37 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(BIGINT))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with single element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[BIGINT '128']"))
                 .hasType(JSON)
-                .isEqualTo("[128]");
+                .isEqualTo(jsonValueOf("[128]"));
 
         // array with multiple elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[BIGINT '1', BIGINT '2', BIGINT '3', BIGINT '4', BIGINT '5']"))
                 .hasType(JSON)
-                .isEqualTo("[1,2,3,4,5]");
+                .isEqualTo(jsonValueOf("[1,2,3,4,5]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[BIGINT '1', null, BIGINT '3']"))
                 .hasType(JSON)
-                .isEqualTo("[1,null,3]");
+                .isEqualTo(jsonValueOf("[1,null,3]"));
 
         // array with negative values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[BIGINT '-100', BIGINT '0', BIGINT '100']"))
                 .hasType(JSON)
-                .isEqualTo("[-100,0,100]");
+                .isEqualTo(jsonValueOf("[-100,0,100]"));
 
         // array with extreme values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[BIGINT '9223372036854775807', BIGINT '-9223372036854775808']"))
                 .hasType(JSON)
-                .isEqualTo("[9223372036854775807,-9223372036854775808]");
+                .isEqualTo(jsonValueOf("[9223372036854775807,-9223372036854775808]"));
     }
 
     @Test
@@ -1474,31 +1486,31 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(REAL))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[REAL '3.14', REAL '2.71', REAL '1.41']"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,2.71,1.41]");
+                .isEqualTo(jsonValueOf("[3.14,2.71,1.41]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[REAL '1.5', null, REAL '3.7']"))
                 .hasType(JSON)
-                .isEqualTo("[1.5,null,3.7]");
+                .isEqualTo(jsonValueOf("[1.5,null,3.7]"));
 
         // array with special values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[cast(nan() as REAL), cast(infinity() as REAL), cast(-infinity() as REAL)]"))
                 .hasType(JSON)
-                .isEqualTo("[\"NaN\",\"Infinity\",\"-Infinity\"]");
+                .isEqualTo(jsonValueOf("[\"NaN\",\"Infinity\",\"-Infinity\"]"));
 
         // array with negative values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[REAL '-100.5', REAL '0.0', REAL '100.5']"))
                 .hasType(JSON)
-                .isEqualTo("[-100.5,0.0,100.5]");
+                .isEqualTo(jsonValueOf("[-100.5,0.0,100.5]"));
     }
 
     @Test
@@ -1513,31 +1525,31 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(DOUBLE))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[3.14, 2.71, 1.41]"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,2.71,1.41]");
+                .isEqualTo(jsonValueOf("[3.14,2.71,1.41]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[1.5, null, 3.7]"))
                 .hasType(JSON)
-                .isEqualTo("[1.5,null,3.7]");
+                .isEqualTo(jsonValueOf("[1.5,null,3.7]"));
 
         // array with special values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[nan(), infinity(), -infinity()]"))
                 .hasType(JSON)
-                .isEqualTo("[\"NaN\",\"Infinity\",\"-Infinity\"]");
+                .isEqualTo(jsonValueOf("[\"NaN\",\"Infinity\",\"-Infinity\"]"));
 
         // array with negative values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[-100.123, 0.0, 100.456]"))
                 .hasType(JSON)
-                .isEqualTo("[-100.123,0.000,100.456]");
+                .isEqualTo(jsonValueOf("[-100.123,0.000,100.456]"));
     }
 
     @Test
@@ -1552,43 +1564,43 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(DECIMAL(10,3)))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with single element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[DECIMAL '3.14']"))
                 .hasType(JSON)
-                .isEqualTo("[3.14]");
+                .isEqualTo(jsonValueOf("[3.14]"));
 
         // array with multiple elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[DECIMAL '123.456', DECIMAL '789.012', DECIMAL '345.678']"))
                 .hasType(JSON)
-                .isEqualTo("[123.456,789.012,345.678]");
+                .isEqualTo(jsonValueOf("[123.456,789.012,345.678]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[DECIMAL '1.5', null, DECIMAL '3.7']"))
                 .hasType(JSON)
-                .isEqualTo("[1.5,null,3.7]");
+                .isEqualTo(jsonValueOf("[1.5,null,3.7]"));
 
         // array with negative values
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[DECIMAL '-100.123', DECIMAL '0.000', DECIMAL '100.456']"))
                 .hasType(JSON)
-                .isEqualTo("[-100.123,0.000,100.456]");
+                .isEqualTo(jsonValueOf("[-100.123,0.000,100.456]"));
 
         // array with large decimal
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[DECIMAL '12345678901234567890.123456789012345678']"))
                 .hasType(JSON)
-                .isEqualTo("[12345678901234567890.123456789012345678]");
+                .isEqualTo(jsonValueOf("[12345678901234567890.123456789012345678]"));
 
         // array with all nulls
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY[cast(null as DECIMAL(10,3)), cast(null as DECIMAL(10,3))]"))
                 .hasType(JSON)
-                .isEqualTo("[null,null]");
+                .isEqualTo(jsonValueOf("[null,null]"));
     }
 
     @Test
@@ -1601,22 +1613,22 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[]"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[NUMBER '1', NUMBER '2.5', NUMBER '3.14159', null]"))
                 .hasType(JSON)
-                .isEqualTo("[1,2.5,3.14159,null]");
+                .isEqualTo(jsonValueOf("[1,2.5,3.14159,null]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[NUMBER '12345678901234567890.123456789012345678', null, NUMBER '123456789012345678901234567890.123456789012345678901234567890']"))
                 .hasType(JSON)
-                .isEqualTo("[12345678901234567890.123456789012345678,null,123456789012345678901234567890.12345678901234567890123456789]");
+                .isEqualTo(jsonValueOf("[12345678901234567890.123456789012345678,null,123456789012345678901234567890.12345678901234567890123456789]"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[NUMBER 'NaN', NUMBER '+Infinity', NUMBER '-Infinity', NUMBER '0', null]"))
                 .hasType(JSON)
-                .isEqualTo("[\"NaN\",\"+Infinity\",\"-Infinity\",0,null]");
+                .isEqualTo(jsonValueOf("[\"NaN\",\"+Infinity\",\"-Infinity\",0,null]"));
     }
 
     @Test
@@ -1631,31 +1643,31 @@ public class TestArrayOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "CAST(ARRAY[] AS ARRAY(VARCHAR))"))
                 .hasType(JSON)
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // array with elements
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY['hello', 'world', 'test']"))
                 .hasType(JSON)
-                .isEqualTo("[\"hello\",\"world\",\"test\"]");
+                .isEqualTo(jsonValueOf("[\"hello\",\"world\",\"test\"]"));
 
         // array with null element
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY['foo', null, 'bar']"))
                 .hasType(JSON)
-                .isEqualTo("[\"foo\",null,\"bar\"]");
+                .isEqualTo(jsonValueOf("[\"foo\",null,\"bar\"]"));
 
         // array with empty string
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY['test', '', 'data']"))
                 .hasType(JSON)
-                .isEqualTo("[\"test\",\"\",\"data\"]");
+                .isEqualTo(jsonValueOf("[\"test\",\"\",\"data\"]"));
 
         // array with special characters
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "ARRAY['\"quoted\"', 'tab\tchar', 'new\nline']"))
                 .hasType(JSON)
-                .isEqualTo("[\"\\\"quoted\\\"\",\"tab\\tchar\",\"new\\nline\"]");
+                .isEqualTo(jsonValueOf("[\"\\\"quoted\\\"\",\"tab\\tchar\",\"new\\nline\"]"));
     }
 
     @Test
@@ -2022,13 +2034,13 @@ public class TestArrayOperators
                 .binding("a", "ARRAY[DATE '2001-08-22']")
                 .binding("b", "DATE '2001-08-23'"))
                 .hasType(JSON)
-                .isEqualTo("[\"2001-08-22\",\"2001-08-23\"]");
+                .isEqualTo(jsonValueOf("[\"2001-08-22\",\"2001-08-23\"]"));
 
         assertThat(assertions.expression("CAST(a || b AS JSON)")
                 .binding("a", "DATE '2001-08-23'")
                 .binding("b", "ARRAY[DATE '2001-08-22']"))
                 .hasType(JSON)
-                .isEqualTo("[\"2001-08-23\",\"2001-08-22\"]");
+                .isEqualTo(jsonValueOf("[\"2001-08-23\",\"2001-08-22\"]"));
 
         assertThat(assertions.expression("a || b")
                 .binding("a", "1")
@@ -3020,37 +3032,37 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY[true]"))
                 .hasType(JSON)
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
 
         // long
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY[1234]"))
                 .hasType(JSON)
-                .isEqualTo("1234");
+                .isEqualTo(jsonValueOf("1234"));
 
         // double
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY[1.23]"))
                 .hasType(JSON)
-                .isEqualTo("1.23");
+                .isEqualTo(jsonValueOf("1.23"));
 
         // Slice
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY['vc']"))
                 .hasType(JSON)
-                .isEqualTo("\"vc\"");
+                .isEqualTo(jsonValueOf("\"vc\""));
 
         // Object (LongTimestamp)
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY[TIMESTAMP '1970-01-01 00:00:00.000000001']"))
                 .hasType(JSON)
-                .isEqualTo("\"1970-01-01 00:00:00.000000001\"");
+                .isEqualTo(jsonValueOf("\"1970-01-01 00:00:00.000000001\""));
 
         // Block
         assertThat(assertions.expression("CAST(a[1] AS JSON)")
                 .binding("a", "ARRAY[ARRAY[1]]"))
                 .hasType(JSON)
-                .isEqualTo("[1]");
+                .isEqualTo(jsonValueOf("[1]"));
     }
 
     @Test
@@ -5889,5 +5901,15 @@ public class TestArrayOperators
         assertThat(assertions.function("flatten", "ARRAY[NULL, ARRAY[MAP(ARRAY[3, 4], ARRAY[3, 4])]]"))
                 .hasType(new ArrayType(mapType(INTEGER, INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+    }
+
+    private static io.trino.json.JsonValue jsonValueOf(String jsonText)
+    {
+        try {
+            return io.trino.json.JsonItems.parseJson(java.io.Reader.of(jsonText));
+        }
+        catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 }

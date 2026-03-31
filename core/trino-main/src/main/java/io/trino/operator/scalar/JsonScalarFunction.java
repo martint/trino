@@ -13,15 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonValue;
+import io.trino.json.ir.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -42,20 +39,16 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.UnknownType;
-import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.standardJsonValue;
 import static io.trino.util.Failures.checkCondition;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -64,8 +57,7 @@ public class JsonScalarFunction
 {
     public static final JsonScalarFunction JSON_SCALAR_FUNCTION = new JsonScalarFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonScalarFunction.class, "jsonScalar", Type.class, JsonGeneratorWriter.class, Object.class);
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonScalarFunction.class, "jsonScalar", Type.class, Object.class);
 
     private JsonScalarFunction()
     {
@@ -86,8 +78,7 @@ public class JsonScalarFunction
         Type type = boundSignature.getArgumentType(0);
         checkCondition(canConstructJsonScalar(type), INVALID_FUNCTION_ARGUMENT, "Cannot construct a JSON scalar from %s", type.getDisplayName());
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(type);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type).bindTo(writer);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(type);
         methodHandle = methodHandle.asType(methodType(Slice.class, wrap(type.getJavaType())));
 
         return new ChoicesSpecializedSqlScalarFunction(
@@ -97,22 +88,10 @@ public class JsonScalarFunction
                 methodHandle);
     }
 
-    public static Slice jsonScalar(Type type, JsonGeneratorWriter writer, Object value)
+    public static Slice jsonScalar(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        writeNativeValue(type, blockBuilder, value);
-        Block block = blockBuilder.build();
-
-        try {
-            SliceOutput output = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                writer.writeJsonValue(jsonGenerator, block, 0);
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        JsonValue item = value == null ? JsonNull.JSON_NULL : TypedValue.fromValueAsObject(type, value);
+        return standardJsonValue(item);
     }
 
     private static boolean canConstructJsonScalar(Type type)

@@ -2496,7 +2496,7 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertThat(assertions.function("json_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(JSON)
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : jsonValueOfLegacyEncoded(JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern))));
 
                 assertThat(assertions.function("json_extract_scalar", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? createUnboundedVarcharType() : createVarcharType(value.length()))
@@ -2865,5 +2865,26 @@ public class TestExpressionCompiler
     private static String toString(Slice value)
     {
         return value == null ? null : value.toStringUtf8();
+    }
+
+    private static io.trino.json.JsonValue jsonValueOf(String jsonText)
+    {
+        if (jsonText == null) {
+            return null;
+        }
+        try {
+            return io.trino.json.JsonItems.parseJson(java.io.Reader.of(jsonText));
+        }
+        catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    private static io.trino.json.JsonValue jsonValueOfLegacyEncoded(Slice legacyEncoded)
+    {
+        if (legacyEncoded == null) {
+            return null;
+        }
+        return jsonValueOf(io.trino.type.JsonType.jsonText(legacyEncoded).toStringUtf8());
     }
 }

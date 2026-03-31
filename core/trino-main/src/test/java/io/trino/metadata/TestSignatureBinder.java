@@ -1153,9 +1153,12 @@ public class TestSignatureBinder
                 .produces(new BindingsBuilder()
                         .setTypeVariable("E", TINYINT)
                         .build());
+        // TIMESTAMP is now castable from JSON (SQL/JSON typed-item model).
         assertThat(multiCast)
                 .boundTo(new ArrayType(TIMESTAMP_MILLIS), JSON)
-                .fails();
+                .produces(new BindingsBuilder()
+                        .setTypeVariable("E", TIMESTAMP_MILLIS)
+                        .build());
     }
 
     @Test

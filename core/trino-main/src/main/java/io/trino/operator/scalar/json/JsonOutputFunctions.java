@@ -31,7 +31,7 @@ import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
-import static io.trino.type.JsonType.jsonValue;
+import static io.trino.type.JsonType.standardJsonValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,8 +78,7 @@ public final class JsonOutputFunctions
     {
         // The public JSON type stores JSON text, so JSON_QUERY cannot use OMIT QUOTES
         // to produce bare scalar text here without manufacturing an invalid JSON value.
-        Slice result = serialize(jsonExpression, UTF_8, errorBehavior, false);
-        return result == null ? null : jsonValue(result);
+        return standardJsonValue(JsonItems.asJsonValue(jsonExpression));
     }
 
     @SqlNullable

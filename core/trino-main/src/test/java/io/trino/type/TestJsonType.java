@@ -15,8 +15,11 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonNull;
 import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonObjectMember;
+import io.trino.json.JsonValue;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.JsonBlock;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,7 +39,7 @@ public class TestJsonType
 {
     public TestJsonType()
     {
-        super(JSON, String.class, createTestBlock());
+        super(JSON, JsonValue.class, createTestBlock());
     }
 
     public static ValueBlock createTestBlock()
@@ -90,7 +94,10 @@ public class TestJsonType
         Slice jsonText = JsonType.jsonText(JSON.getSlice(block, 0));
         assertThat(jsonText.toStringUtf8()).isEqualTo("{\"x\":1,\"y\":2}");
         assertThat(rawBlock.getParsedItemSlice(block.getUnderlyingValuePosition(0))).isNotNull();
-        assertThat(JSON.getObjectValue(block, 0)).isEqualTo("{\"x\":1,\"y\":2}");
+        assertThat(JSON.getObjectValue(block, 0))
+                .isEqualTo(new JsonObjectItem(List.of(
+                        new JsonObjectMember("x", new TypedValue(INTEGER, 1L)),
+                        new JsonObjectMember("y", new TypedValue(INTEGER, 2L)))));
     }
 
     @Test
@@ -106,18 +113,24 @@ public class TestJsonType
 
         assertThat(JsonType.hasParsedItem(value)).isFalse();
         assertThat(JsonType.jsonText(value)).isEqualTo(malformedJson);
+        // Malformed JSON can't be represented as a typed item; getObjectValue falls back to the raw text.
         assertThat(JSON.getObjectValue(block, 0)).isEqualTo("jhfa");
     }
 
     @Test
-    public void testGetObjectValueReturnsTextRepresentation()
+    public void testGetObjectValueReturnsMaterializedJsonValue()
     {
         BlockBuilder blockBuilder = JSON.createBlockBuilder(null, 1);
         JSON.writeSlice(blockBuilder, Slices.utf8Slice("{\"x\":[1,null,\"abc\"]}"));
 
         ValueBlock block = blockBuilder.buildValueBlock();
 
-        assertThat(JSON.getObjectValue(block, 0)).isEqualTo("{\"x\":[1,null,\"abc\"]}");
+        assertThat(JSON.getObjectValue(block, 0))
+                .isEqualTo(new JsonObjectItem(List.of(
+                        new JsonObjectMember("x", new JsonArrayItem(List.of(
+                                new TypedValue(INTEGER, 1L),
+                                JsonNull.JSON_NULL,
+                                new TypedValue(VARCHAR, Slices.utf8Slice("abc"))))))));
     }
 
     @Test

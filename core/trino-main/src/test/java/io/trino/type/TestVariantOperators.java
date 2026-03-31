@@ -806,7 +806,7 @@ class TestVariantOperators
         BigDecimal bigDecimal = new BigDecimal("12345678901234567890123456789012345678");
         assertCastToVariant("JSON '%s'".formatted(bigDecimal), bigDecimal);
 
-        assertCastToVariant("JSON '1234.50'", 1234.5);
+        assertCastToVariant("JSON '1234.50'", new BigDecimal("1234.50"));
 
         assertCastToVariant("JSON '\"hello\"'", "hello");
         assertCastToVariant("JSON '\"emoji 😊\"'", "emoji 😊");

@@ -124,7 +124,15 @@ public class JsonType
         JsonBlock valueBlock = (JsonBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice payload = valueBlock.getParsedItemSlice(valuePosition);
-        return JsonTypeEncoding.decodeText(payload).toStringUtf8();
+        try {
+            return JsonTypeEncoding.decodeItem(payload);
+        }
+        catch (RuntimeException ignored) {
+            // Legacy/malformed JSON that's stored as raw text can't be parsed into the
+            // typed-item model. Fall back to the raw text form so callers can still retrieve
+            // the value via .toString() or JsonType.jsonText.
+            return JsonTypeEncoding.decodeText(payload).toStringUtf8();
+        }
     }
 
     @Override

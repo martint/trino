@@ -54,6 +54,10 @@ public class TestJsonSerializeFunction
 
         assertThat(assertions.query("SELECT JSON_SERIALIZE(JSON_QUERY('" + INPUT + "', 'lax $[1]' RETURNING JSON))"))
                 .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query("SELECT JSON_SERIALIZE(json_scalar(DATE '2024-01-02'))"))
+                .failure()
+                .hasMessageContaining("SQL/JSON value of type date cannot be serialized to JSON text");
     }
 
     @Test

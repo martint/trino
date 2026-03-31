@@ -816,14 +816,37 @@ public final class JsonUtil
     }
 
     // utility classes and functions for cast from JSON
+    /**
+     * Renders a parsed JSON number as VARCHAR, matching how the typed-item JSON→VARCHAR
+     * cast paths render values: values that fit DECIMAL(38) use plain decimal notation
+     * (preserving trailing zeros); values outside that range fall back to NumberType
+     * rendering (stripped + scientific notation via {@link BigDecimal#toString()}).
+     */
+    private static String renderBigDecimalAsVarchar(BigDecimal value)
+    {
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+        int precision = Math.max(value.precision(), value.scale());
+        if (precision > io.trino.spi.type.Decimals.MAX_PRECISION) {
+            // NUMBER fallback: mirror TrinoNumber.toString → BigDecimal.toString (scientific for extreme magnitudes)
+            return value.stripTrailingZeros().toString();
+        }
+        return value.toPlainString();
+    }
+
     public static Slice currentTokenAsVarchar(JsonParser parser)
             throws IOException
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> utf8Slice(parser.getText());
-            // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
+            // NaN and Infinity can't be represented as BigDecimal, fall back to DOUBLE rendering there.
+            // Otherwise, render via BigDecimal so precision and trailing zeros survive - matching how the typed JSON
+            // path renders numbers.
+            case VALUE_NUMBER_FLOAT -> parser.isNaN()
+                    ? DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue())
+                    : utf8Slice(renderBigDecimalAsVarchar(parser.getDecimalValue()));
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
             case VALUE_NUMBER_INT -> utf8Slice(parser.getText());
