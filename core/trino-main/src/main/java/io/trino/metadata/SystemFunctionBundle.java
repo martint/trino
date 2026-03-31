@@ -208,6 +208,7 @@ import io.trino.operator.scalar.timestamp.ExtractYear;
 import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.trino.operator.scalar.timestamp.FormatDateTime;
 import io.trino.operator.scalar.timestamp.HumanReadableSeconds;
+import io.trino.operator.scalar.timestamp.JsonToTimestampCast;
 import io.trino.operator.scalar.timestamp.LastDayOfMonth;
 import io.trino.operator.scalar.timestamp.LocalTimestamp;
 import io.trino.operator.scalar.timestamp.SequenceIntervalDayToSecond;
@@ -228,6 +229,7 @@ import io.trino.operator.scalar.timestamptz.AtTimeZone;
 import io.trino.operator.scalar.timestamptz.AtTimeZoneWithOffset;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamptz.JsonToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToJsonCast;
@@ -239,6 +241,7 @@ import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.trino.operator.scalar.timestamptz.ToUnixTime;
 import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.CurrentTime;
+import io.trino.operator.scalar.timetz.JsonToTimeWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneOperators;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToJsonCast;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeCast;
@@ -662,6 +665,7 @@ public final class SystemFunctionBundle
                 .scalar(TimestampToTimeWithTimeZoneCast.class)
                 .scalar(TimestampToTimestampWithTimeZoneCast.class)
                 .scalar(TimestampToDateCast.class)
+                .scalar(JsonToTimestampCast.class)
                 .scalar(TimestampToVarcharCast.class)
                 .scalar(TimestampToJsonCast.class)
                 .scalar(DateToTimestampCast.class)
@@ -730,6 +734,7 @@ public final class SystemFunctionBundle
                 .scalar(AtTimeZone.class)
                 .scalar(AtTimeZoneWithOffset.class)
                 .scalar(DateToTimestampWithTimeZoneCast.class)
+                .scalar(JsonToTimestampWithTimeZoneCast.class)
                 .scalar(TimestampWithTimeZoneToDateCast.class)
                 .scalar(TimestampWithTimeZoneToTimeCast.class)
                 .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
@@ -753,6 +758,7 @@ public final class SystemFunctionBundle
                 .scalar(TimeWithTimeZoneOperators.IntervalDayToSecondPlusTime.class)
                 .scalar(TimeWithTimeZoneOperators.TimeMinusIntervalDayToSecond.class)
                 .scalar(TimeWithTimeZoneOperators.TimeMinusTime.class)
+                .scalar(JsonToTimeWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToJsonCast.class)
                 .scalar(TimeWithTimeZoneToTimeCast.class)
                 .scalar(TimeWithTimeZoneToTimeWithTimeZoneCast.class)
