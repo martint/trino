@@ -124,12 +124,12 @@ public final class JsonOutputFunctions
             }
             return Slices.copiedBuffer(utf8Json.toStringUtf8(), constants.charset);
         }
-        catch (RuntimeException e) {
+        catch (JsonOutputConversionException e) {
             if (errorBehavior == NULL.ordinal()) {
                 return null;
             }
             if (errorBehavior == ERROR.ordinal()) {
-                throw new JsonOutputConversionException(e);
+                throw e;
             }
             if (errorBehavior == EMPTY_ARRAY.ordinal()) {
                 return constants.emptyArray;

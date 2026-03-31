@@ -255,6 +255,20 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
                 .matches("VALUES cast(null AS varchar)");
 
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" EMPTY ARRAY ON ERROR)"))
+                .matches("VALUES VARCHAR '[]'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" EMPTY OBJECT ON ERROR)"))
+                .matches("VALUES VARCHAR '{}'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
+                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
+
         // parameter cast to varchar
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING INTERVAL '2' DAY AS \"parameter\")"))
@@ -272,6 +286,20 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax 1')"))
                 .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()')"))
+                .matches("VALUES cast(null AS varchar)");
+
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()' EMPTY ARRAY ON ERROR)"))
+                .matches("VALUES VARCHAR '[]'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
+                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
 
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax true' RETURNING varchar FORMAT JSON)"))
