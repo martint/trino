@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -26,6 +27,7 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.type.DateOperators;
 import io.trino.type.JsonType;
 import io.trino.util.JsonCastException;
 
@@ -233,6 +235,39 @@ public final class JsonOperators
         }
         catch (IOException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), BOOLEAN), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(DATE)
+    public static Long castToDate(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+            parser.nextToken();
+            Slice result = currentTokenAsVarchar(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DATE");
+            return (result == null) ? null : DateOperators.castFromVarchar(result);
+        }
+        catch (IOException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), DATE), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("time(p)")
+    public static Long castToTime(@LiteralParameter("p") long precision, @SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+            parser.nextToken();
+            Slice result = currentTokenAsVarchar(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to TIME");
+            return (result == null) ? null : TimeOperators.castFromVarchar(precision, result);
+        }
+        catch (IOException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to time(%s)", JsonType.jsonText(json).toStringUtf8(), precision), e);
         }
     }
 
