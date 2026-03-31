@@ -192,6 +192,7 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
+import static io.trino.operator.scalar.json.JsonInputFunctions.JSON_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF16_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF32_TO_JSON;
@@ -2976,16 +2977,14 @@ public class ExpressionAnalyzer
                 if (parameter instanceof LambdaExpression) {
                     throw semanticException(NOT_SUPPORTED, parameter, "%s is not supported as JSON path parameter", parameter.getClass().getSimpleName());
                 }
-                // if the input expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((parameter instanceof JsonQuery ||
+                Type parameterType = process(parameter, context);
+                // JSON-typed expressions and SQL/JSON-returning functions are consumed as JSON by default.
+                if (parameterFormat.isEmpty() && (parameterType.equals(JSON) ||
+                        parameter instanceof JsonQuery ||
                         parameter instanceof JsonObject ||
-                        parameter instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        parameterFormat.isEmpty()) {
+                        parameter instanceof JsonArray)) { // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
                     parameterFormat = Optional.of(JsonFormat.JSON);
                 }
-
-                Type parameterType = process(parameter, context);
                 if (parameterFormat.isPresent()) {
                     // resolve function to read the parameter as JSON
                     ResolvedFunction parameterInputFunction = getInputFunction(parameterType, parameterFormat.get(), parameter);
@@ -3046,6 +3045,9 @@ public class ExpressionAnalyzer
         {
             String name = switch (format) {
                 case JSON -> {
+                    if (type.equals(JSON)) {
+                        yield JSON_TO_JSON;
+                    }
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
                         yield VARCHAR_TO_JSON;
                     }
@@ -3135,16 +3137,13 @@ public class ExpressionAnalyzer
                 // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
                 // - all other values are cast to VARCHAR
 
-                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((value instanceof JsonQuery ||
+                Type valueType = process(value, context);
+                if (format.isEmpty() && (valueType.equals(JSON) ||
+                        value instanceof JsonQuery ||
                         value instanceof JsonObject ||
-                        value instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        format.isEmpty()) {
+                        value instanceof JsonArray)) { // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
                     format = Optional.of(JsonFormat.JSON);
                 }
-
-                Type valueType = process(value, context);
 
                 if (format.isPresent()) {
                     // resolve function to read the value as JSON
@@ -3247,16 +3246,13 @@ public class ExpressionAnalyzer
                 // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
                 // - all other values are cast to VARCHAR
 
-                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((element instanceof JsonQuery ||
+                Type elementType = process(element, context);
+                if (format.isEmpty() && (elementType.equals(JSON) ||
+                        element instanceof JsonQuery ||
                         element instanceof JsonObject ||
-                        element instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        format.isEmpty()) {
+                        element instanceof JsonArray)) { // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
                     format = Optional.of(JsonFormat.JSON);
                 }
-
-                Type elementType = process(element, context);
 
                 if (format.isPresent()) {
                     // resolve function to read the value as JSON
