@@ -384,31 +384,31 @@ public class TestJsonOperators
     {
         assertThat(assertions.expression("JSON '123'"))
                 .hasType(JSON)
-                .isEqualTo("123");
+                .isEqualTo(jsonValueOf("123"));
 
         assertThat(assertions.expression("JSON '[4,5,6]'"))
                 .hasType(JSON)
-                .isEqualTo("[4,5,6]");
+                .isEqualTo(jsonValueOf("[4,5,6]"));
 
         assertThat(assertions.expression("JSON '{ \"a\": 789 }'"))
                 .hasType(JSON)
-                .isEqualTo("{\"a\":789}");
+                .isEqualTo(jsonValueOf("{\"a\":789}"));
 
         assertThat(assertions.expression("JSON 'null'"))
                 .hasType(JSON)
-                .isEqualTo("null");
+                .isEqualTo(jsonValueOf("null"));
 
         assertThat(assertions.expression("JSON '[null]'"))
                 .hasType(JSON)
-                .isEqualTo("[null]");
+                .isEqualTo(jsonValueOf("[null]"));
 
         assertThat(assertions.expression("JSON '[13,null,42]'"))
                 .hasType(JSON)
-                .isEqualTo("[13,null,42]");
+                .isEqualTo(jsonValueOf("[13,null,42]"));
 
         assertThat(assertions.expression("JSON '{\"x\": null}'"))
                 .hasType(JSON)
-                .isEqualTo("{\"x\":null}");
+                .isEqualTo(jsonValueOf("{\"x\":null}"));
 
         assertTrinoExceptionThrownBy(assertions.expression("JSON '{}{'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
@@ -448,22 +448,22 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "128"))
                 .hasType(JSON)
-                .isEqualTo("128");
+                .isEqualTo(jsonValueOf("128"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "BIGINT '128'"))
                 .hasType(JSON)
-                .isEqualTo("128");
+                .isEqualTo(jsonValueOf("128"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "SMALLINT '128'"))
                 .hasType(JSON)
-                .isEqualTo("128");
+                .isEqualTo(jsonValueOf("128"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "TINYINT '127'"))
                 .hasType(JSON)
-                .isEqualTo("127");
+                .isEqualTo(jsonValueOf("127"));
     }
 
     @Test
@@ -560,22 +560,22 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "3.14E0"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "nan()"))
                 .hasType(JSON)
-                .isEqualTo("\"NaN\"");
+                .isEqualTo(jsonValueOf("\"NaN\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "infinity()"))
                 .hasType(JSON)
-                .isEqualTo("\"Infinity\"");
+                .isEqualTo(jsonValueOf("\"Infinity\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "-infinity()"))
                 .hasType(JSON)
-                .isEqualTo("\"-Infinity\"");
+                .isEqualTo(jsonValueOf("\"-Infinity\""));
     }
 
     @Test
@@ -588,22 +588,22 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "REAL '3.14'"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "cast(nan() as REAL)"))
                 .hasType(JSON)
-                .isEqualTo("\"NaN\"");
+                .isEqualTo(jsonValueOf("\"NaN\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "cast(infinity() as REAL)"))
                 .hasType(JSON)
-                .isEqualTo("\"Infinity\"");
+                .isEqualTo(jsonValueOf("\"Infinity\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "cast(-infinity() as REAL)"))
                 .hasType(JSON)
-                .isEqualTo("\"-Infinity\"");
+                .isEqualTo(jsonValueOf("\"-Infinity\""));
     }
 
     @Test
@@ -760,12 +760,12 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "DECIMAL '3.14'"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "DECIMAL '12345678901234567890.123456789012345678'"))
                 .hasType(JSON)
-                .isEqualTo("12345678901234567890.123456789012345678");
+                .isEqualTo(jsonValueOf("12345678901234567890.123456789012345678"));
     }
 
     @Test
@@ -853,12 +853,12 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "TRUE"))
                 .hasType(JSON)
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "FALSE"))
                 .hasType(JSON)
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
     }
 
     @Test
@@ -881,7 +881,7 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.000000000000000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0.000000000000000");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e1000'"))
@@ -906,7 +906,7 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.100000000000000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.0E-1");
+                .isEqualTo("0.100000000000000");
 
         // overflow if parsed as long, no loss of precision
         assertThat(assertions.expression("cast(a as VARCHAR)")
@@ -917,25 +917,26 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '128.9'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.289E2");
+                .isEqualTo("128.9");
 
-        // smaller than minimum subnormal positive
+        // Subnormal double territory: typed NUMBER fallback preserves the arbitrary-precision value
+        // rather than underflowing to 0.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e-324'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("1E-324");
 
-        // overflow
+        // Double-overflow territory: typed NUMBER fallback preserves the arbitrary-precision value
+        // rather than overflowing to Infinity.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("Infinity");
+                .isEqualTo("1E+309");
 
-        // underflow
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '-1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("-Infinity");
+                .isEqualTo("-1E+309");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON 'true'"))
@@ -1037,6 +1038,37 @@ public class TestJsonOperators
         // (SQL:2023 §8.2 GR 10 with PAD SPACE collation).
         assertThat(assertions.operator(EQUAL, "JSON '\"ab   \"'", "JSON '\"ab\"'"))
                 .isEqualTo(true);
+
+        // CHAR and VARCHAR items carry distinct typed tags but compare PAD-SPACE-equal
+        // when their non-trailing content matches.
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(CAST('ab' AS CHAR(5)))",
+                "json_scalar(CAST('ab' AS VARCHAR))"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(CAST('ab' AS CHAR(3)))",
+                "json_scalar(CAST('ab' AS CHAR(5)))"))
+                .isEqualTo(true);
+
+        // Cross-type non-finite numeric equality: +Infinity and -Infinity compare equal
+        // across REAL and DOUBLE; NaN compares equal to NaN (Trino's general DOUBLE/REAL
+        // convention for hashing and bucketing; see the release notes).
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL 'Infinity')",
+                "json_scalar(DOUBLE 'Infinity')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL '-Infinity')",
+                "json_scalar(DOUBLE '-Infinity')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL 'NaN')",
+                "json_scalar(DOUBLE 'NaN')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(DOUBLE 'Infinity')",
+                "json_scalar(DOUBLE '-Infinity')"))
+                .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "JSON '{\"a\":1,\"a\":2}'", "JSON '{\"a\":2}'"))
                 .isEqualTo(false);
@@ -1151,12 +1183,12 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "'abc'"))
                 .hasType(JSON)
-                .isEqualTo("\"abc\"");
+                .isEqualTo(jsonValueOf("\"abc\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "'\"a\":2'"))
                 .hasType(JSON)
-                .isEqualTo("\"\\\"a\\\":2\"");
+                .isEqualTo(jsonValueOf("\"\\\"a\\\":2\""));
     }
 
     @Test
@@ -1169,7 +1201,62 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
                 .hasType(JSON)
-                .isEqualTo(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo(jsonValueOf(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0))));
+    }
+
+    @Test
+    public void testCastFromTime()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as time)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("\"03:04:05.123\""));
+    }
+
+    @Test
+    public void testCastFromTimeWithTimeZone()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as time with time zone)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIME '03:04:05.123 +08:00'"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("\"03:04:05.123+08:00\""));
+    }
+
+    @Test
+    public void testCastFromTimestampWithTimeZone()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as timestamp with time zone)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIMESTAMP '2024-01-02 03:04:05.123 UTC'"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("\"2024-01-02 03:04:05.123 UTC\""));
+    }
+
+    @Test
+    public void testCastContainersWithDatetimeScalars()
+    {
+        assertThat(assertions.expression("CAST(ARRAY[TIME '03:04:05.123', NULL] AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("[\"03:04:05.123\",null]"));
+
+        assertThat(assertions.expression("CAST(MAP(ARRAY['time'], ARRAY[TIME '03:04:05.123 +08:00']) AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("{\"time\":\"03:04:05.123+08:00\"}"));
+
+        assertThat(assertions.expression("CAST(CAST(ROW(TIMESTAMP '2024-01-02 03:04:05.123 UTC') AS ROW(ts TIMESTAMP(3) WITH TIME ZONE)) AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo(jsonValueOf("{\"ts\":\"2024-01-02 03:04:05.123 UTC\"}"));
     }
 
     @Test
@@ -1393,26 +1480,31 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "NUMBER '3.14'"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "NUMBER '12345678901234567890.123456789012345678'"))
                 .hasType(JSON)
-                .isEqualTo("12345678901234567890.123456789012345678");
+                .isEqualTo(jsonValueOf("12345678901234567890.123456789012345678"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "NUMBER 'NaN'"))
                 .hasType(JSON)
-                .isEqualTo("\"NaN\"");
+                .isEqualTo(jsonValueOf("\"NaN\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "NUMBER '+Infinity'"))
                 .hasType(JSON)
-                .isEqualTo("\"+Infinity\"");
+                .isEqualTo(jsonValueOf("\"+Infinity\""));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "NUMBER '-Infinity'"))
                 .hasType(JSON)
-                .isEqualTo("\"-Infinity\"");
+                .isEqualTo(jsonValueOf("\"-Infinity\""));
+    }
+
+    private static String jsonValueOf(String jsonText)
+    {
+        return jsonText;
     }
 }

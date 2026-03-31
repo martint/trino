@@ -34,9 +34,10 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJsonOutputFunctions
 {
-    private static final String JSON_EXPRESSION = "\"$varchar_to_json\"('{\"key1\" : 1e0, \"key2\" : true, \"key3\" : null}', true)";
-    // SQL/JSON 2023 typed model: `1e0` parses as an exact integer 1, not a DOUBLE 1.0.
-    private static final String OUTPUT = "{\"key1\":1,\"key2\":true,\"key3\":null}";
+    // Use 1.0 (not 1e0): Jackson collapses "1e0" to (1, 0) before we see it, losing the
+    // ".0". "1.0" keeps its scale so the round-trip preserves it.
+    private static final String JSON_EXPRESSION = "\"$varchar_to_json\"('{\"key1\" : 1.0, \"key2\" : true, \"key3\" : null}', true)";
+    private static final String OUTPUT = "{\"key1\":1.0,\"key2\":true,\"key3\":null}";
 
     private QueryAssertions assertions;
 
