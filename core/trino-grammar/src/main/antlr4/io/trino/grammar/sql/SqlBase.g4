@@ -652,6 +652,10 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_SERIALIZE '('
+        jsonValueExpression
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+      ')'                                                                                 #jsonSerialize
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -1204,6 +1208,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_SERIALIZE: 'JSON_SERIALIZE';
 JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';
