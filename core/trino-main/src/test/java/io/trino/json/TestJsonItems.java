@@ -15,6 +15,7 @@ package io.trino.json;
 
 import io.airlift.slice.Slice;
 import io.trino.json.ir.TypedValue;
+import io.trino.operator.scalar.json.JsonOutputConversionException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonItems
 {
@@ -91,6 +93,14 @@ public class TestJsonItems
         // Values outside DECIMAL(<=38) fall back to NUMBER, preserving arbitrary precision.
         assertThat(parseJson("100000000000000000000000000000000000000000000000000"))
                 .isInstanceOf(TypedValue.class);
+    }
+
+    @Test
+    public void testJsonTextRejectsDatetimeValue()
+    {
+        assertThatThrownBy(() -> JsonItems.jsonText(new TypedValue(DATE, 1L)))
+                .isInstanceOf(JsonOutputConversionException.class)
+                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
     }
 
     @Test

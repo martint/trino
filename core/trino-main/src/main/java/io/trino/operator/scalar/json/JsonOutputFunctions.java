@@ -122,10 +122,10 @@ public final class JsonOutputFunctions
             }
             return Slices.copiedBuffer(utf8Json.toStringUtf8(), constants.charset);
         }
-        catch (RuntimeException e) {
+        catch (JsonOutputConversionException e) {
             return switch (EmptyOrErrorBehavior.values()[(int) errorBehavior]) {
                 case NULL -> null;
-                case ERROR -> throw new JsonOutputConversionException(e);
+                case ERROR -> throw e;
                 case EMPTY_ARRAY -> constants.emptyArray;
                 case EMPTY_OBJECT -> constants.emptyObject;
             };
