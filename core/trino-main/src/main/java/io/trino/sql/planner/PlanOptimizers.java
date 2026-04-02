@@ -235,6 +235,7 @@ import io.trino.sql.planner.iterative.rule.TransformCorrelatedGroupedAggregation
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedGroupedAggregationWithoutProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedJoinToJoin;
+import io.trino.sql.planner.iterative.rule.TransformCorrelatedLateralTopNToJoin;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
@@ -550,6 +551,7 @@ public class PlanOptimizers
                                 new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new TransformCorrelatedLateralTopNToJoin(plannerContext),
                                 new TransformCorrelatedJoinToJoin(plannerContext),
                                 new DecorrelateInnerUnnestWithGlobalAggregation(metadata),
                                 new DecorrelateLeftUnnestWithGlobalAggregation(),

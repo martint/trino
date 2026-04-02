@@ -382,6 +382,42 @@ public class TestSubqueries
                         "(2, 'w'), " +
                         "(3, null), " +
                         "(null, null)");
+        assertThat(assertions.query(
+                "SELECT * " +
+                        "FROM (VALUES ('A', 10), ('A', 12), ('B', 7)) trades(symbol, ts) " +
+                        "CROSS JOIN LATERAL (" +
+                        "    SELECT quote_ts, bid " +
+                        "    FROM (VALUES " +
+                        "        ('A', 5, 100), " +
+                        "        ('A', 9, 101), " +
+                        "        ('A', 11, 102), " +
+                        "        ('B', 8, 200)) quotes(symbol, quote_ts, bid) " +
+                        "    WHERE quotes.symbol = trades.symbol " +
+                        "      AND quotes.quote_ts <= trades.ts " +
+                        "    ORDER BY quotes.quote_ts DESC " +
+                        "    FETCH FIRST 1 ROW ONLY)"))
+                .matches("VALUES " +
+                        "('A', 10, 9, 101), " +
+                        "('A', 12, 11, 102)");
+        assertThat(assertions.query(
+                "SELECT * " +
+                        "FROM (VALUES ('A', 10), ('A', 12), ('B', 7)) trades(symbol, ts) " +
+                        "LEFT JOIN LATERAL (" +
+                        "    SELECT quote_ts, bid " +
+                        "    FROM (VALUES " +
+                        "        ('A', 5, 100), " +
+                        "        ('A', 9, 101), " +
+                        "        ('A', 11, 102), " +
+                        "        ('B', 8, 200)) quotes(symbol, quote_ts, bid) " +
+                        "    WHERE quotes.symbol = trades.symbol " +
+                        "      AND quotes.quote_ts <= trades.ts " +
+                        "    ORDER BY quotes.quote_ts DESC " +
+                        "    FETCH FIRST 1 ROW ONLY) " +
+                        "ON TRUE"))
+                .matches("VALUES " +
+                        "('A', 10, 9, 101), " +
+                        "('A', 12, 11, 102), " +
+                        "('B', 7, null, null)");
         // correlated symbol in predicate not bound to inner relation + Limit
         assertThat(assertions.query(
                 "SELECT * " +
