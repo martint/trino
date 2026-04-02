@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.junit.jupiter.api.Test;
 
@@ -66,5 +67,20 @@ public class TestRemoveRedundantSort
                                         .singleGroupingSet(p.symbol("foo"))
                                         .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testForAtMostScalar()
+    {
+        tester().assertThat(new RemoveRedundantSort())
+                .on(p ->
+                        p.sort(
+                                ImmutableList.of(p.symbol("c")),
+                                p.limit(
+                                        1,
+                                        p.values(20, p.symbol("c")))))
+                .matches(
+                        node(LimitNode.class,
+                                node(ValuesNode.class)));
     }
 }

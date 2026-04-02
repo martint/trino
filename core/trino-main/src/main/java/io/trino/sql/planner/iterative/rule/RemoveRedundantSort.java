@@ -41,7 +41,7 @@ public class RemoveRedundantSort
         if (cardinality.isEmpty()) {
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
-        if (cardinality.isScalar()) {
+        if (cardinality.isAtMostScalar()) {
             return Result.ofPlanNode(node.getSource());
         }
         return Result.empty();
