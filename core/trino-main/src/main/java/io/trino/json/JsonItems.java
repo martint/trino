@@ -17,50 +17,67 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.json.ir.TypedValue;
 import io.trino.operator.scalar.json.JsonInputConversionException;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
+import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.JsonUtil.createJsonGenerator;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonItems
 {
     private static final JsonFactory JSON_FACTORY = jsonFactory();
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder()
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(JsonUtils.jsonFactoryBuilder()
             // prevent characters outside the BMP (e.g. emoji) from being split into surrogate-pair escapes
-            .enable(com.fasterxml.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8)
+            .enable(JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8)
             .build());
 
     private JsonItems() {}
@@ -175,29 +192,14 @@ public final class JsonItems
             return new JsonObjectItem(members);
         }
 
-        JsonNode scalar = switch (token) {
-            case VALUE_TRUE -> BooleanNode.TRUE;
-            case VALUE_FALSE -> BooleanNode.FALSE;
-            case VALUE_STRING -> TextNode.valueOf(parser.getText());
-            case VALUE_NUMBER_INT -> switch (parser.getNumberType()) {
-                case INT -> IntNode.valueOf(parser.getIntValue());
-                case LONG -> LongNode.valueOf(parser.getLongValue());
-                case BIG_INTEGER -> BigIntegerNode.valueOf(parser.getBigIntegerValue());
-                default -> throw new JsonInputConversionException("unsupported JSON integer representation");
-            };
-            case VALUE_NUMBER_FLOAT -> switch (parser.getNumberType()) {
-                case FLOAT -> FloatNode.valueOf(parser.getFloatValue());
-                case DOUBLE -> DoubleNode.valueOf(parser.getDoubleValue());
-                case BIG_DECIMAL -> DecimalNode.valueOf(parser.getDecimalValue());
-                default -> throw new JsonInputConversionException("unsupported JSON number representation");
-            };
+        return switch (token) {
+            case VALUE_TRUE -> new TypedValue(BOOLEAN, true);
+            case VALUE_FALSE -> new TypedValue(BOOLEAN, false);
+            case VALUE_STRING -> new TypedValue(VARCHAR, utf8Slice(parser.getText()));
+            case VALUE_NUMBER_INT -> parseInteger(parser);
+            case VALUE_NUMBER_FLOAT -> parseDecimal(parser);
             default -> throw new JsonInputConversionException("unexpected JSON token: " + token);
         };
-        Optional<TypedValue> typedValue = getTypedValue(scalar);
-        if (typedValue.isEmpty()) {
-            throw new JsonInputConversionException("JSON item cannot be converted to SQL/JSON scalar");
-        }
-        return typedValue.get();
     }
 
     public static JsonValue fromJsonNode(JsonNode jsonNode)
@@ -292,9 +294,12 @@ public final class JsonItems
         }
         item = materialize(item);
         if (item instanceof TypedValue typedValue) {
-            Optional<JsonNode> jsonNode = getJsonNode(typedValue);
-            if (jsonNode.isPresent() && jsonNode.get().isTextual()) {
-                return Optional.of(utf8Slice(jsonNode.get().textValue()));
+            Type type = typedValue.getType();
+            if (type instanceof CharType charType) {
+                return Optional.of(utf8Slice(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8()));
+            }
+            if (type instanceof VarcharType) {
+                return Optional.of((Slice) typedValue.getObjectValue());
             }
         }
         return Optional.empty();
@@ -353,12 +358,87 @@ public final class JsonItems
             return;
         }
         if (item instanceof TypedValue typedValue) {
-            JsonNode jsonNode = getJsonNode(typedValue)
-                    .orElseThrow(() -> new JsonOutputConversionException("SQL value cannot be represented as JSON"));
-            generator.writeTree(jsonNode);
+            writeTypedValue(generator, typedValue);
             return;
         }
 
         throw new JsonOutputConversionException("unsupported SQL/JSON item type: " + item.getClass().getSimpleName());
+    }
+
+    private static TypedValue parseInteger(JsonParser parser)
+            throws IOException
+    {
+        return switch (parser.getNumberType()) {
+            case INT -> new TypedValue(INTEGER, (long) parser.getIntValue());
+            case LONG -> new TypedValue(BIGINT, parser.getLongValue());
+            case BIG_INTEGER -> parseBigInteger(parser.getBigIntegerValue());
+            default -> throw new JsonInputConversionException("unsupported JSON integer representation");
+        };
+    }
+
+    private static TypedValue parseBigInteger(BigInteger value)
+    {
+        if (value.bitLength() < Integer.SIZE) {
+            return new TypedValue(INTEGER, value.longValue());
+        }
+        if (value.bitLength() < Long.SIZE) {
+            return new TypedValue(BIGINT, value.longValue());
+        }
+        throw new JsonInputConversionException("value too big");
+    }
+
+    private static TypedValue parseDecimal(JsonParser parser)
+            throws IOException
+    {
+        // JSON numbers are canonicalized: 1, 1.0, 1e0 all map to the same stored value.
+        // Significant digits are preserved (no rounding, no truncation); only cosmetic
+        // trailing zeros / exponent notation collapses.
+        return parseBigDecimal(parser.getDecimalValue());
+    }
+
+    private static TypedValue parseBigDecimal(BigDecimal value)
+    {
+        // Preserve every significant digit the input supplied, including trailing zeros in
+        // decimal notation ("1.20" stays (120, 2), "0.000" stays (0, 3)). Jackson already
+        // collapses scientific notation without a fractional part ("1e0" → (1, 0)), so we
+        // don't need to normalize further.
+        if (value.scale() < 0) {
+            // e.g. BigInteger-backed "10000000000" parses to scale=-10; rescale so the
+            // value fits a DECIMAL(precision, 0).
+            value = value.setScale(0);
+        }
+        int scale = value.scale();
+        // BigDecimal.precision is always >= 1, even for zero; DECIMAL requires precision >= scale.
+        int precision = Math.max(value.precision(), scale);
+        if (precision > MAX_PRECISION) {
+            // Fall back to the arbitrary-precision NUMBER type for values that don't fit DECIMAL(<=38).
+            return new TypedValue(NumberType.NUMBER, TrinoNumber.from(value));
+        }
+        DecimalType type = createDecimalType(precision, scale);
+        Object encoded = type.isShort() ? encodeShortScaledValue(value, scale) : encodeScaledValue(value, scale);
+        return TypedValue.fromValueAsObject(type, encoded);
+    }
+
+    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue)
+            throws IOException
+    {
+        Type type = typedValue.getType();
+        switch (type) {
+            case BooleanType _ -> generator.writeBoolean(typedValue.getBooleanValue());
+            case CharType charType -> generator.writeString(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8());
+            case VarcharType _ -> generator.writeString(((Slice) typedValue.getObjectValue()).toStringUtf8());
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _ -> generator.writeNumber(typedValue.getLongValue());
+            case DecimalType decimalType -> {
+                BigInteger unscaledValue = decimalType.isShort() ?
+                        BigInteger.valueOf(typedValue.getLongValue()) :
+                        ((Int128) typedValue.getObjectValue()).toBigInteger();
+                // Emit the plain string so trailing zeros (e.g. DECIMAL(2,1) value 1.0) survive.
+                generator.writeNumber(new BigDecimal(unscaledValue, decimalType.getScale()).toPlainString());
+            }
+            case DoubleType _ -> generator.writeNumber(typedValue.getDoubleValue());
+            case RealType _ -> generator.writeNumber(intBitsToFloat(toIntExact(typedValue.getLongValue())));
+            case NumberType _ -> generator.writeNumber(((TrinoNumber) typedValue.getObjectValue()).toString());
+            default -> throw new JsonOutputConversionException("SQL value cannot be represented as JSON");
+        }
     }
 }
