@@ -308,7 +308,7 @@ class PathEvaluationVisitor
             throw new PathEvaluationException(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
         }
 
-        Object leftInput = left.getValueAsObject();
+        Object leftInput = left.value();
         if (operators.getLeftCoercion().isPresent()) {
             try {
                 leftInput = invoker.invoke(operators.getLeftCoercion().get(), ImmutableList.of(leftInput));
@@ -318,7 +318,7 @@ class PathEvaluationVisitor
             }
         }
 
-        Object rightInput = right.getValueAsObject();
+        Object rightInput = right.value();
         if (operators.getRightCoercion().isPresent()) {
             try {
                 rightInput = invoker.invoke(operators.getRightCoercion().get(), ImmutableList.of(rightInput));

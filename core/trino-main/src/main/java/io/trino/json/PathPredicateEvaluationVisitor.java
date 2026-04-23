@@ -256,26 +256,26 @@ class PathPredicateEvaluationVisitor
         IrComparisonPredicate.Operator comparisonOperator = node.operator();
         ComparisonExpression.Operator operator;
         Type firstType = left.getType();
-        Object firstValue = left.getValueAsObject();
+        Object firstValue = left.value();
         Type secondType = right.getType();
-        Object secondValue = right.getValueAsObject();
+        Object secondValue = right.value();
         switch (comparisonOperator) {
             case EQUAL, NOT_EQUAL -> operator = ComparisonExpression.Operator.EQUAL;
             case LESS_THAN -> operator = ComparisonExpression.Operator.LESS_THAN;
             case GREATER_THAN -> {
                 operator = ComparisonExpression.Operator.LESS_THAN;
                 firstType = right.getType();
-                firstValue = right.getValueAsObject();
+                firstValue = right.value();
                 secondType = left.getType();
-                secondValue = left.getValueAsObject();
+                secondValue = left.value();
             }
             case LESS_THAN_OR_EQUAL -> operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
             case GREATER_THAN_OR_EQUAL -> {
                 operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
                 firstType = right.getType();
-                firstValue = right.getValueAsObject();
+                firstValue = right.value();
                 secondType = left.getType();
-                secondValue = left.getValueAsObject();
+                secondValue = left.value();
             }
             default -> throw new UnsupportedOperationException("Unexpected comparison operator " + comparisonOperator);
         }

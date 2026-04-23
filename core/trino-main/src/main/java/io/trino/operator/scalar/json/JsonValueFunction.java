@@ -325,7 +325,7 @@ public class JsonValueFunction
             typedValue = (TypedValue) item;
         }
         if (returnType.equals(typedValue.getType())) {
-            return typedValue.getValueAsObject();
+            return typedValue.value();
         }
         ResolvedFunction coercion;
         try {
@@ -338,7 +338,7 @@ public class JsonValueFunction
                     returnType)));
         }
         try {
-            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.getValueAsObject()));
+            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.value()));
         }
         catch (RuntimeException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
