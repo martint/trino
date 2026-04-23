@@ -142,6 +142,14 @@ public class TestJsonValueFunction
                 .matches("VALUES VARCHAR 'b'");
 
         assertThat(assertions.query(
+                "SELECT json_value(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES VARCHAR 'b'");
+
+        assertThat(assertions.query(
+                "SELECT json_value(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES VARCHAR 'b'");
+
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
                 .failure()
                 .hasErrorCode(TYPE_MISMATCH)
@@ -210,6 +218,12 @@ public class TestJsonValueFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        assertThat(assertions.query(
+                "SELECT json_value(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
+                .hasMessage("conversion to JSON failed: ");
     }
 
     @Test
@@ -229,6 +243,14 @@ public class TestJsonValueFunction
         // JSON parameter
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
                 .matches("VALUES VARCHAR '1'");
 
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause

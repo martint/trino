@@ -14,7 +14,6 @@
 package io.trino.operator.scalar.json;
 
 import io.airlift.slice.Slice;
-import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonValueView;
 import io.trino.spi.function.ScalarFunction;
@@ -46,6 +45,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  */
 public final class JsonInputFunctions
 {
+    public static final String JSON_TO_JSON = "$json_to_json";
     public static final String VARCHAR_TO_JSON = "$varchar_to_json";
     public static final String VARBINARY_TO_JSON = "$varbinary_to_json";
     public static final String VARBINARY_UTF8_TO_JSON = "$varbinary_utf8_to_json";
@@ -54,55 +54,65 @@ public final class JsonInputFunctions
 
     private JsonInputFunctions() {}
 
+    @ScalarFunction(value = JSON_TO_JSON, hidden = true)
+    @SqlType(StandardTypes.JSON)
+    public static Slice jsonToJson(@SqlType(StandardTypes.JSON) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    {
+        if (failOnError && io.trino.json.JsonItemEncoding.isEncoding(inputExpression) && io.trino.json.JsonItemEncoding.isJsonError(inputExpression)) {
+            throw new JsonInputConversionException(new IllegalArgumentException("malformed JSON"));
+        }
+        return inputExpression;
+    }
+
     @ScalarFunction(value = VARCHAR_TO_JSON, hidden = true)
-    @SqlType(StandardTypes.JSON_2016)
-    public static Object varcharToJson(@SqlType(StandardTypes.VARCHAR) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    @SqlType(StandardTypes.JSON)
+    public static Slice varcharToJson(@SqlType(StandardTypes.VARCHAR) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
         Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_8);
         return toJson(reader, failOnError);
     }
 
     @ScalarFunction(value = VARBINARY_TO_JSON, hidden = true)
-    @SqlType(StandardTypes.JSON_2016)
-    public static Object varbinaryToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    @SqlType(StandardTypes.JSON)
+    public static Slice varbinaryToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
         return varbinaryUtf8ToJson(inputExpression, failOnError);
     }
 
     @ScalarFunction(value = VARBINARY_UTF8_TO_JSON, hidden = true)
-    @SqlType(StandardTypes.JSON_2016)
-    public static Object varbinaryUtf8ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    @SqlType(StandardTypes.JSON)
+    public static Slice varbinaryUtf8ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
         Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_8);
         return toJson(reader, failOnError);
     }
 
     @ScalarFunction(value = VARBINARY_UTF16_TO_JSON, hidden = true)
-    @SqlType(StandardTypes.JSON_2016)
-    public static Object varbinaryUtf16ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    @SqlType(StandardTypes.JSON)
+    public static Slice varbinaryUtf16ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
         Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_16LE);
         return toJson(reader, failOnError);
     }
 
     @ScalarFunction(value = VARBINARY_UTF32_TO_JSON, hidden = true)
-    @SqlType(StandardTypes.JSON_2016)
-    public static Object varbinaryUtf32ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
+    @SqlType(StandardTypes.JSON)
+    public static Slice varbinaryUtf32ToJson(@SqlType(StandardTypes.VARBINARY) Slice inputExpression, @SqlType(StandardTypes.BOOLEAN) boolean failOnError)
     {
         Reader reader = new InputStreamReader(inputExpression.getInput(), UTF_32LE);
         return toJson(reader, failOnError);
     }
 
-    private static Object toJson(Reader reader, boolean failOnError)
+    private static Slice toJson(Reader reader, boolean failOnError)
     {
         try {
-            return JsonValueView.root(JsonItemEncoding.encode(JsonItems.parseJson(reader)));
+            return io.trino.type.JsonType.jsonValue(JsonItems.parseJson(reader));
         }
         catch (RuntimeException | IOException e) {
             if (failOnError) {
                 throw new JsonInputConversionException(e);
             }
-            return JsonValueView.jsonError();
+            return io.trino.type.JsonType.fromPathItem(JsonValueView.jsonError());
         }
     }
 }

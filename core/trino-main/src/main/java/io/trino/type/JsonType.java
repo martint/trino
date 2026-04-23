@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItemSemantics;
 import io.trino.json.JsonItems;
@@ -123,6 +124,9 @@ public class JsonType
         JsonBlock valueBlock = (JsonBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice payload = valueBlock.getParsedItemSlice(valuePosition);
+        if (JsonItemEncoding.isJsonError(payload)) {
+            return JsonInputErrorNode.JSON_ERROR;
+        }
         return JsonItems.jsonText(JsonItemEncoding.decode(payload)).toStringUtf8();
     }
 
@@ -383,6 +387,34 @@ public class JsonType
     public static Slice jsonValue(JsonValue item)
     {
         return JsonItemEncoding.encode(item);
+    }
+
+    /// Encodes a {@link io.trino.json.JsonPathItem} (value, view, or error sentinel) as a
+    /// {@link JsonType} payload. Used at SQL/JSON function boundaries to bridge path-item
+    /// results back into the public JSON type.
+    public static Slice fromPathItem(io.trino.json.JsonPathItem item)
+    {
+        if (item == null) {
+            return null;
+        }
+        if (item instanceof JsonValueView view) {
+            return view.copyEncoding();
+        }
+        return JsonItemEncoding.encode(item);
+    }
+
+    /// Decodes a {@link JsonType} payload to a {@link io.trino.json.JsonPathItem}. The
+    /// JSON_ERROR sentinel is returned as {@link JsonInputErrorNode#JSON_ERROR}; every
+    /// other payload yields a {@link JsonValueView} over the stored bytes.
+    public static io.trino.json.JsonPathItem toPathItem(Slice slice)
+    {
+        if (slice == null) {
+            return null;
+        }
+        if (JsonItemEncoding.isJsonError(slice)) {
+            return JsonInputErrorNode.JSON_ERROR;
+        }
+        return JsonValueView.root(slice);
     }
 
     private static Slice getFlatPayload(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)

@@ -63,7 +63,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -96,7 +96,7 @@ public class JsonValueFunction
                         .typeVariable("D")
                         .returnType(new TypeSignature("R"))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
+                                new TypeSignature(JSON),
                                 new TypeSignature(JsonPath2016Type.NAME),
                                 new TypeSignature("T"),
                                 new TypeSignature("R"),
@@ -269,7 +269,10 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        if (JsonValueView.isJsonError(inputExpression)) {
+        JsonPathItem inputItem = inputExpression instanceof io.airlift.slice.Slice slice
+                ? io.trino.type.JsonType.toPathItem(slice)
+                : (JsonPathItem) inputExpression;
+        if (inputItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
@@ -278,7 +281,6 @@ public class JsonValueFunction
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonPathItem inputItem = (JsonPathItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.

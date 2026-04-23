@@ -886,12 +886,12 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e1000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e-1000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1'"))
@@ -901,7 +901,7 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '100000000000000000000000000000000000000000000000000000000000000000000e-68'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.0E0");
+                .isEqualTo("1");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.100000000000000'"))

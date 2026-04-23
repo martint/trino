@@ -21,7 +21,6 @@ import io.trino.json.JsonNull;
 import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonObjectMember;
 import io.trino.json.JsonValue;
-import io.trino.json.JsonValueView;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
@@ -32,9 +31,10 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.type.Json2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -49,7 +49,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
@@ -68,7 +67,7 @@ public class JsonObjectFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeSignature(JSON_2016))
+                        .returnType(new TypeSignature(StandardTypes.JSON))
                         .argumentTypes(ImmutableList.of(new TypeSignature("K"), new TypeSignature("V"), new TypeSignature(BOOLEAN), new TypeSignature(BOOLEAN)))
                         .build())
                 .argumentNullability(true, true, false, false)
@@ -94,7 +93,12 @@ public class JsonObjectFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonValue jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
+    public static Slice jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
+    {
+        return JsonType.jsonValue(buildObject(keysRowType, valuesRowType, keysRow, valuesRow, nullOnNull, uniqueKeys));
+    }
+
+    private static JsonValue buildObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(keysRowType)) {
             return EMPTY_OBJECT;
@@ -115,7 +119,6 @@ public class JsonObjectFunction
 
             Type valueType = valuesRowType.getFields().get(i).getType();
             Object value = readNativeValue(valueType, valuesRow.getRawFieldBlock(i), valuesRawIndex);
-            checkState(!JsonValueView.isJsonError(value), "malformed JSON error suppressed in the input function");
 
             JsonValue valueNode;
             if (value == null) {
@@ -126,8 +129,10 @@ public class JsonObjectFunction
                     continue;
                 }
             }
-            else if (valueType.equals(Json2016Type.JSON_2016)) {
-                valueNode = JsonItems.asJsonValue((io.trino.json.JsonPathItem) value);
+            else if (valueType.equals(JsonType.JSON)) {
+                io.trino.json.JsonPathItem pathItem = JsonType.toPathItem((Slice) value);
+                checkState(pathItem != io.trino.json.JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                valueNode = JsonItems.asJsonValue(pathItem);
             }
             else {
                 valueNode = TypedValue.fromValueAsObject(valueType, value);

@@ -22,7 +22,7 @@ import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.type.Json2016Type;
+import io.trino.type.JsonType;
 
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -58,15 +58,18 @@ public final class ParameterUtil
         for (int i = 0; i < rowType.getFields().size(); i++) {
             Type type = rowType.getFields().get(i).getType();
             Object value = readNativeValue(type, parametersRow.getRawFieldBlock(i), rawIndex);
-            if (type.equals(Json2016Type.JSON_2016)) {
+            if (type.equals(JsonType.JSON)) {
                 if (value == null) {
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence
                 }
-                else if (JsonValueView.isJsonError(value)) {
-                    array[i] = JsonValueView.jsonError();
-                }
                 else {
-                    array[i] = new JsonPathParameter(JsonItems.asJsonValue((JsonPathItem) value));
+                    JsonPathItem pathItem = JsonType.toPathItem((io.airlift.slice.Slice) value);
+                    if (pathItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
+                        array[i] = JsonValueView.jsonError();
+                    }
+                    else {
+                        array[i] = new JsonPathParameter(JsonItems.asJsonValue(pathItem));
+                    }
                 }
             }
             else if (value == null) {

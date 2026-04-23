@@ -191,6 +191,7 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
+import static io.trino.operator.scalar.json.JsonInputFunctions.JSON_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF16_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_UTF32_TO_JSON;
@@ -299,7 +300,6 @@ import static io.trino.type.DateTimes.timeHasTimeZone;
 import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
-import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
@@ -547,7 +547,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonValueExpression(ValueColumn column, JsonPathAnalysis pathAnalysis, Scope scope, CorrelationSupport correlationSupport)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonValueExpression(
                 "JSON_TABLE",
                 column,
@@ -564,7 +564,7 @@ public class ExpressionAnalyzer
     private Type analyzeJsonQueryExpression(QueryColumn column, Scope scope)
     {
         Visitor visitor = new Visitor(scope, warningCollector);
-        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON_2016, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
+        List<Type> pathInvocationArgumentTypes = ImmutableList.of(JSON, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), JSON_NO_PARAMETERS_ROW_TYPE);
         return visitor.analyzeJsonQueryExpression(
                 column,
                 column.getWrapperBehavior(),
@@ -2964,7 +2964,7 @@ public class ExpressionAnalyzer
 
                 // type of the parameter passed to the JSON path:
                 // - parameters of types numeric, string, boolean, date,... are passed as-is
-                // - parameters with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
+                // - parameters with explicit or implicit FORMAT, are converted to JSON (type JSON)
                 // - all other parameters are cast to VARCHAR
                 Type passedType;
 
@@ -2975,23 +2975,21 @@ public class ExpressionAnalyzer
                 if (parameter instanceof LambdaExpression) {
                     throw semanticException(NOT_SUPPORTED, parameter, "%s is not supported as JSON path parameter", parameter.getClass().getSimpleName());
                 }
-                // if the input expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((parameter instanceof JsonQuery ||
+                Type parameterType = process(parameter, context);
+                // JSON-typed expressions and SQL/JSON-returning functions are consumed as JSON by default.
+                if (parameterFormat.isEmpty() && (parameterType.equals(JSON) ||
+                        parameter instanceof JsonQuery ||
                         parameter instanceof JsonObject ||
-                        parameter instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        parameterFormat.isEmpty()) {
+                        parameter instanceof JsonArray)) {
                     parameterFormat = Optional.of(JsonFormat.JSON);
                 }
-
-                Type parameterType = process(parameter, context);
                 if (parameterFormat.isPresent()) {
                     // resolve function to read the parameter as JSON
                     ResolvedFunction parameterInputFunction = getInputFunction(parameterType, parameterFormat.get(), parameter);
                     Type expectedParameterType = parameterInputFunction.signature().getArgumentType(0);
                     coerceType(parameter, parameterType, expectedParameterType, format("%s function JSON path parameter", functionName));
                     jsonInputFunctions.put(NodeRef.of(parameter), parameterInputFunction);
-                    passedType = JSON_2016;
+                    passedType = JSON;
                 }
                 else {
                     if (isStringType(parameterType)) {
@@ -3036,7 +3034,7 @@ public class ExpressionAnalyzer
             jsonPathAnalyses.put(NodeRef.of(node), pathAnalysis);
 
             return ImmutableList.of(
-                    JSON_2016, // input expression
+                    JSON, // input expression
                     plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)), // parsed JSON path representation
                     parametersRowType); // passed parameters
         }
@@ -3045,6 +3043,9 @@ public class ExpressionAnalyzer
         {
             String name = switch (format) {
                 case JSON -> {
+                    if (type.equals(JSON)) {
+                        yield JSON_TO_JSON;
+                    }
                     if (UNKNOWN.equals(type) || isCharacterStringType(type)) {
                         yield VARCHAR_TO_JSON;
                     }
@@ -3099,7 +3100,7 @@ public class ExpressionAnalyzer
             };
 
             try {
-                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(JSON_2016, TINYINT, BOOLEAN));
+                return plannerContext.getMetadata().resolveBuiltinFunction(name, fromTypes(JSON, TINYINT, BOOLEAN));
             }
             catch (TrinoException e) {
                 throw new TrinoException(TYPE_MISMATCH, extractLocation(node), format("Cannot output JSON value as %s using formatting %s", type, format), e);
@@ -3131,19 +3132,16 @@ public class ExpressionAnalyzer
 
                 // types accepted for values of a JSON object:
                 // - values of types numeric, string, and boolean are passed as-is
-                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
+                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON)
                 // - all other values are cast to VARCHAR
 
-                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((value instanceof JsonQuery ||
+                Type valueType = process(value, context);
+                if (format.isEmpty() && (valueType.equals(JSON) ||
+                        value instanceof JsonQuery ||
                         value instanceof JsonObject ||
-                        value instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        format.isEmpty()) {
+                        value instanceof JsonArray)) {
                     format = Optional.of(JsonFormat.JSON);
                 }
-
-                Type valueType = process(value, context);
 
                 if (format.isPresent()) {
                     // in case when there is an input expression with FORMAT option, the only supported behavior
@@ -3157,7 +3155,7 @@ public class ExpressionAnalyzer
                     Type expectedValueType = inputFunction.signature().getArgumentType(0);
                     coerceType(value, valueType, expectedValueType, "value passed to JSON_OBJECT function");
                     jsonInputFunctions.put(NodeRef.of(value), inputFunction);
-                    valueType = JSON_2016;
+                    valueType = JSON;
                 }
                 else {
                     if (isStringType(valueType)) {
@@ -3249,19 +3247,16 @@ public class ExpressionAnalyzer
 
                 // types accepted for elements of a JSON array:
                 // - values of types numeric, string, and boolean are passed as-is
-                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON_2016)
+                // - values with explicit or implicit FORMAT, are converted to JSON (type JSON)
                 // - all other values are cast to VARCHAR
 
-                // if the value expression is a JSON-returning function, there should be an explicit or implicit input format (spec p.817)
-                // JSON-returning functions are: JSON_OBJECT, JSON_OBJECTAGG, JSON_ARRAY, JSON_ARRAYAGG and JSON_QUERY
-                if ((element instanceof JsonQuery ||
+                Type elementType = process(element, context);
+                if (format.isEmpty() && (elementType.equals(JSON) ||
+                        element instanceof JsonQuery ||
                         element instanceof JsonObject ||
-                        element instanceof JsonArray) && // TODO add JSON_OBJECTAGG, JSON_ARRAYAGG when supported
-                        format.isEmpty()) {
+                        element instanceof JsonArray)) {
                     format = Optional.of(JsonFormat.JSON);
                 }
-
-                Type elementType = process(element, context);
 
                 if (format.isPresent()) {
                     // resolve function to read the value as JSON
@@ -3269,7 +3264,7 @@ public class ExpressionAnalyzer
                     Type expectedElementType = inputFunction.signature().getArgumentType(0);
                     coerceType(element, elementType, expectedElementType, "value passed to JSON_ARRAY function");
                     jsonInputFunctions.put(NodeRef.of(element), inputFunction);
-                    elementType = JSON_2016;
+                    elementType = JSON;
                 }
                 else {
                     if (isStringType(elementType)) {
