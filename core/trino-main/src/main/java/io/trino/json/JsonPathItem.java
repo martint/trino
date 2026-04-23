@@ -21,6 +21,6 @@ package io.trino.json;
 /// - parameter wrappers
 /// - view-backed or encoded wrappers that avoid eager materialization
 public sealed interface JsonPathItem
-        permits EncodedJsonItem, JsonItem, JsonValueView
+        permits EncodedJsonItem, JsonEmptySequenceNode, JsonItem, JsonPathParameter, JsonValueView
 {
 }

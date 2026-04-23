@@ -13,34 +13,111 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.JsonValue;
 import io.trino.spi.type.Type;
 
+import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public record IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
+public final class IrConstantJsonSequence
         implements IrPathNode
 {
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
+    private static final Base64.Decoder BASE64_DECODER = Base64.getDecoder();
+
     public static final IrConstantJsonSequence EMPTY_SEQUENCE = new IrConstantJsonSequence(ImmutableList.of(), Optional.empty());
 
-    public static IrConstantJsonSequence singletonSequence(JsonNode jsonNode, Optional<Type> type)
+    private final List<JsonValue> sequence;
+    private final Optional<Type> type;
+
+    public static IrConstantJsonSequence singletonSequence(JsonValue item, Optional<Type> type)
     {
-        return new IrConstantJsonSequence(ImmutableList.of(jsonNode), type);
+        return new IrConstantJsonSequence(ImmutableList.of(item), type);
     }
 
-    public IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
+    @JsonCreator
+    public static IrConstantJsonSequence fromJson(@JsonProperty("sequence") List<String> sequence, @JsonProperty("type") Type type)
     {
+        return new IrConstantJsonSequence(
+                requireNonNull(sequence, "sequence is null").stream()
+                        .map(IrConstantJsonSequence::decodeItem)
+                        .collect(toImmutableList()),
+                Optional.ofNullable(type));
+    }
+
+    public IrConstantJsonSequence(List<JsonValue> sequence, Optional<Type> type)
+    {
+        this.sequence = ImmutableList.copyOf(requireNonNull(sequence, "sequence is null"));
         this.type = requireNonNull(type, "type is null");
-        this.sequence = ImmutableList.copyOf(sequence);
+    }
+
+    public List<JsonValue> sequence()
+    {
+        return sequence;
+    }
+
+    @Override
+    public Optional<Type> type()
+    {
+        return type;
+    }
+
+    @JsonProperty("sequence")
+    public List<String> getSequenceAsJson()
+    {
+        return sequence.stream()
+                .map(IrConstantJsonSequence::encodeItem)
+                .collect(toImmutableList());
+    }
+
+    @JsonProperty
+    public Type getType()
+    {
+        return type.orElse(null);
     }
 
     @Override
     public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrConstantJsonSequence(this, context);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof IrConstantJsonSequence other)) {
+            return false;
+        }
+        return Objects.equals(sequence, other.sequence) &&
+                Objects.equals(type, other.type);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(sequence, type);
+    }
+
+    private static String encodeItem(JsonValue item)
+    {
+        return BASE64_ENCODER.encodeToString(JsonItemEncoding.encode(item).getBytes());
+    }
+
+    private static JsonValue decodeItem(String value)
+    {
+        return JsonItemEncoding.decodeValue(Slices.wrappedBuffer(BASE64_DECODER.decode(requireNonNull(value, "value is null"))));
     }
 }

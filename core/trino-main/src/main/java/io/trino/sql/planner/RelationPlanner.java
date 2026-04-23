@@ -1547,6 +1547,7 @@ class RelationPlanner
         Map<NodeRef<JsonTableColumnDefinition>, Integer> outputIndexMapping = IntStream.range(0, orderedColumns.size())
                 .boxed()
                 .collect(toImmutableMap(orderedColumns::get, Function.identity()));
+        RelationType jsonTableRelationType = analysis.getScope(jsonTable).getRelationType();
         JsonTablePlanNode executionPlan;
         boolean defaultErrorOnError = jsonTable.getErrorBehavior().map(errorBehavior -> errorBehavior == JsonTable.ErrorBehavior.ERROR).orElse(false);
         if (jsonTable.getPlan().isEmpty()) {
@@ -1563,7 +1564,6 @@ class RelationPlanner
         // These are the types produced by the table function.
         // For ordinality and value columns, the types match the expected output type.
         // Query columns return JSON_2016. Later we need to apply an output function, and potentially a coercion to match the declared output type.
-        RelationType jsonTableRelationType = analysis.getScope(jsonTable).getRelationType();
         List<Symbol> properOutputs = IntStream.range(0, orderedColumns.size())
                 .mapToObj(index -> {
                     if (orderedColumns.get(index).getNode() instanceof QueryColumn queryColumn) {

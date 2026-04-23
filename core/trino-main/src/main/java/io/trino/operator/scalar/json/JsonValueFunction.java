@@ -13,20 +13,17 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.JsonPathItem;
+import io.trino.json.JsonValueView;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -61,10 +58,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
-import static io.trino.operator.scalar.json.ParameterUtil.toLegacyPathParameters;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -275,16 +269,16 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        if (inputExpression.equals(JSON_ERROR)) {
+        if (JsonValueView.isJsonError(inputExpression)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
-        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (JsonValueView.isJsonError(parameter)) {
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        Object[] legacyParameters = toLegacyPathParameters(parameters);
+        JsonPathItem inputItem = (JsonPathItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.
@@ -293,9 +287,9 @@ public class JsonValueFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<JsonPathItem> pathResult;
         try {
-            pathResult = evaluator.evaluate(JsonItems.toJsonNode((JsonPathItem) inputExpression), legacyParameters);
+            pathResult = evaluator.evaluate(inputItem, parameters);
         }
         catch (PathEvaluationException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> e);
@@ -308,29 +302,22 @@ public class JsonValueFunction
         if (pathResult.size() > 1) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found multiple items"));
         }
-        Object item = getOnlyElement(pathResult);
-        TypedValue typedValue;
+        JsonPathItem item = getOnlyElement(pathResult);
         if (item == JsonNull.JSON_NULL) {
             return null;
         }
-        if (item instanceof JsonNode jsonNode) {
-            if (item.equals(NullNode.instance)) {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (jsonView.kind() == JsonValueView.Kind.NULL) {
                 return null;
             }
-            Optional<TypedValue> itemValue;
-            try {
-                itemValue = getTypedValue(jsonNode);
+            if (jsonView.isTypedValue()) {
+                item = jsonView.typedValue();
             }
-            catch (JsonLiteralConversionException e) {
-                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value", e));
-            }
-            if (itemValue.isEmpty()) {
-                return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
-            }
-            typedValue = itemValue.get();
         }
-        else {
-            typedValue = (TypedValue) item;
+        if (!(item instanceof TypedValue typedValue)) {
+            return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
         }
         if (returnType.equals(typedValue.getType())) {
             return typedValue.value();
@@ -346,7 +333,7 @@ public class JsonValueFunction
                     returnType)));
         }
         try {
-            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.value()));
+            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, typedValue.value());
         }
         catch (RuntimeException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(

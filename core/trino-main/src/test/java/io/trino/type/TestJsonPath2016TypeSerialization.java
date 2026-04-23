@@ -14,15 +14,16 @@
 package io.trino.type;
 
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.block.BlockJsonSerde;
+import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonObjectItem;
+import io.trino.json.JsonObjectMember;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticUnary;
@@ -43,6 +44,7 @@ import io.trino.json.ir.IrNamedJsonVariable;
 import io.trino.json.ir.IrNamedValueVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -65,6 +67,7 @@ import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -204,13 +207,22 @@ public class TestJsonPath2016TypeSerialization
         assertJsonRoundTrip(new IrJsonPath(true, EMPTY_SEQUENCE));
 
         // singleton sequence
-        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(NullNode.getInstance(), Optional.empty())));
-        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(BooleanNode.TRUE, Optional.of(BOOLEAN))));
+        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(JsonNull.JSON_NULL, Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(new TypedValue(BOOLEAN, true), Optional.of(BOOLEAN))));
+        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(new TypedValue(DATE, 7L), Optional.of(DATE))));
 
         // long sequence
         assertJsonRoundTrip(new IrJsonPath(true, new IrConstantJsonSequence(
-                ImmutableList.of(IntNode.valueOf(1), IntNode.valueOf(2), IntNode.valueOf(3)),
+                ImmutableList.of(new TypedValue(INTEGER, 1L), new TypedValue(INTEGER, 2L), new TypedValue(INTEGER, 3L)),
                 Optional.of(INTEGER))));
+
+        // duplicate-preserving object sequence
+        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(
+                new JsonObjectItem(ImmutableList.of(
+                        new JsonObjectMember("key", new TypedValue(BOOLEAN, true)),
+                        new JsonObjectMember("key", JsonNull.JSON_NULL),
+                        new JsonObjectMember("nested", new JsonArrayItem(ImmutableList.of(new TypedValue(INTEGER, 1L), new TypedValue(INTEGER, 2L)))))),
+                Optional.empty())));
     }
 
     @Test
