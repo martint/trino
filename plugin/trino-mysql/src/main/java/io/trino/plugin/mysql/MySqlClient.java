@@ -48,6 +48,7 @@ import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -140,6 +141,7 @@ import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -938,7 +940,7 @@ public class MySqlClient
         }
 
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
+            return WriteMapping.sliceMapping("json", jsonWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -1369,8 +1371,14 @@ public class MySqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
+                jsonWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.VARCHAR, (statement, index, value) ->
+                statement.setString(index, jsonText(jsonType, value)));
     }
 
     private static boolean isGtidMode(Connection connection)

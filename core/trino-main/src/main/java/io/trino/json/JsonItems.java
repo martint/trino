@@ -51,7 +51,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -66,7 +65,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonItems
@@ -205,16 +203,23 @@ public final class JsonItems
         try {
             SliceOutput output = new DynamicSliceOutput(64);
             try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
-                if (item instanceof EncodedJsonItem encodedItem && JsonItemEncoding.isEncoding(encodedItem.encoding())) {
-                    JsonItemEncoding.writeJson(encodedItem.encoding(), generator);
-                }
-                else {
-                    item = materialize(item);
-                    if (!(item instanceof JsonValue value)) {
-                        throw new JsonOutputConversionException("unsupported SQL/JSON item type: " + item.getClass().getSimpleName());
-                    }
-                    writeJson(generator, value);
-                }
+                writeJson(generator, item, false);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new JsonOutputConversionException(e);
+        }
+    }
+
+    public static Slice surrogateJsonText(JsonPathItem item)
+    {
+        requireNonNull(item, "item is null");
+
+        try {
+            SliceOutput output = new DynamicSliceOutput(64);
+            try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
+                writeJson(generator, item, true);
             }
             return output.slice();
         }
@@ -257,9 +262,17 @@ public final class JsonItems
         return requireNonNull(objectValue, "objectValue is null").toString();
     }
 
-    private static void writeJson(JsonGenerator generator, JsonValue item)
+    static void writeJson(JsonGenerator generator, JsonPathItem item, boolean stringifyUnsupportedScalars)
             throws IOException
     {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            view.get().writeJson(generator, stringifyUnsupportedScalars);
+            return;
+        }
+        if (item instanceof EncodedJsonItem) {
+            item = materialize(item);
+        }
         if (item == JsonNull.JSON_NULL) {
             generator.writeNull();
             return;
@@ -268,7 +281,7 @@ public final class JsonItems
             generator.writeStartObject();
             for (JsonObjectMember member : objectItem.members()) {
                 generator.writeFieldName(member.key());
-                writeJson(generator, member.value());
+                writeJson(generator, member.value(), stringifyUnsupportedScalars);
             }
             generator.writeEndObject();
             return;
@@ -276,13 +289,13 @@ public final class JsonItems
         if (item instanceof JsonArrayItem arrayItem) {
             generator.writeStartArray();
             for (JsonValue element : arrayItem.elements()) {
-                writeJson(generator, element);
+                writeJson(generator, element, stringifyUnsupportedScalars);
             }
             generator.writeEndArray();
             return;
         }
         if (item instanceof TypedValue typedValue) {
-            writeTypedValue(generator, typedValue);
+            writeTypedValue(generator, typedValue, stringifyUnsupportedScalars);
             return;
         }
 
@@ -308,7 +321,7 @@ public final class JsonItems
         if (value.bitLength() < Long.SIZE) {
             return new TypedValue(BIGINT, value.longValue());
         }
-        throw new JsonInputConversionException("value too big");
+        return parseBigDecimal(new BigDecimal(value));
     }
 
     private static TypedValue parseDecimal(JsonParser parser)
@@ -343,7 +356,7 @@ public final class JsonItems
         return TypedValue.fromValueAsObject(type, encoded);
     }
 
-    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue)
+    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue, boolean stringifyUnsupportedScalars)
             throws IOException
     {
         Type type = typedValue.getType();
@@ -362,7 +375,13 @@ public final class JsonItems
             case DoubleType _ -> generator.writeNumber(typedValue.getDoubleValue());
             case RealType _ -> generator.writeNumber(intBitsToFloat(toIntExact(typedValue.getLongValue())));
             case NumberType _ -> generator.writeNumber(((TrinoNumber) typedValue.getObjectValue()).toString());
-            default -> throw new JsonOutputConversionException("SQL value cannot be represented as JSON");
+            default -> {
+                if (stringifyUnsupportedScalars) {
+                    generator.writeString(typedValueText(typedValue));
+                    return;
+                }
+                throw new JsonOutputConversionException("SQL/JSON value of type " + type.getDisplayName() + " cannot be serialized to JSON text");
+            }
         }
     }
 }

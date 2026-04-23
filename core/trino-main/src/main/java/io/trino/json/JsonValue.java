@@ -13,6 +13,8 @@
  */
 package io.trino.json;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
 /**
  * A materialized SQL/JSON value. Unlike execution-only sentinels and storage wrappers, this
  * represents an actual SQL/JSON value.
@@ -26,6 +28,7 @@ package io.trino.json;
  * deduplicate across representations (e.g. mixing an {@link EncodedJsonItem} with the same
  * value as a materialized {@link JsonArrayItem} in a {@code HashSet}).
  */
+@JsonSerialize(using = JsonValueSerializer.class)
 public non-sealed interface JsonValue
         extends JsonItem
 {

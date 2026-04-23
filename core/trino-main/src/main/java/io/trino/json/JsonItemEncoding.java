@@ -73,13 +73,32 @@ import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 
+/**
+ * Binary encoding for SQL/JSON items.
+ *
+ * <p>Wire format:
+ * <pre>
+ *   encoding := version (1 byte) item
+ *   item     := itemTag (1 byte) item-body
+ *   array    := ARRAY int32-count item*
+ *   object   := OBJECT int32-count (string item)*
+ *   typed    := TYPED_VALUE typeTag (1 byte) type-body
+ *   string   := int32-length UTF-8 bytes
+ * </pre>
+ *
+ * <p>Endianness: numeric fixed-width fields (int, long, double bit-pattern, variable-width length
+ * prefixes) are written little-endian via {@link SliceOutput} / {@link SliceInput}. The one
+ * exception is {@link Int128}, which is serialized via its canonical big-endian byte form to
+ * match the layout used elsewhere in the SPI for decimal values.
+ */
 public final class JsonItemEncoding
 {
     // Version byte chosen from the 0xF0..0xFF range so it cannot be the first byte of valid
-    // UTF-8 JSON text (which can only be ASCII for JSON structural bytes) and so it cannot be
-    // confused with any ItemTag or TypeTag value. This closes the §3.2.1 ambiguity where
-    // VERSION_1 = 1 collided with ItemTag.JSON_ERROR.encoded() = 1.
-    private static final byte VERSION_1 = (byte) 0xF3;
+    // UTF-8 JSON text (which can only be ASCII for JSON structural bytes) and so it cannot
+    // collide with any ItemTag or TypeTag value.
+    private static final byte VERSION = (byte) 0xF3;
+    // Guard against pathologically deep input encodings; matches Jackson's default nesting limit.
+    private static final int MAX_DEPTH = 1000;
 
     enum ItemTag
     {
@@ -175,8 +194,8 @@ public final class JsonItemEncoding
     public static Slice encode(JsonPathItem item)
     {
         SliceOutput output = new DynamicSliceOutput(128);
-        output.appendByte(VERSION_1);
-        writeItem(output, item);
+        output.appendByte(VERSION);
+        writeItem(output, item, 0);
         return output.slice();
     }
 
@@ -185,7 +204,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
         JsonPathItem item = readItem(input);
@@ -210,7 +229,7 @@ public final class JsonItemEncoding
     /// Returns `true` if the slice starts with the current SQL/JSON item encoding version marker.
     public static boolean isEncoding(Slice slice)
     {
-        return slice.length() > 0 && slice.getByte(0) == VERSION_1;
+        return slice.length() > 0 && slice.getByte(0) == VERSION;
     }
 
     static int rootItemOffset(Slice slice)
@@ -224,7 +243,7 @@ public final class JsonItemEncoding
     /// Returns `true` if the slice is the canonical encoding of the `JSON_ERROR` sentinel.
     public static boolean isJsonError(Slice slice)
     {
-        return slice.length() == 2 && slice.getByte(0) == VERSION_1 && slice.getByte(1) == ItemTag.JSON_ERROR.encoded();
+        return slice.length() == 2 && slice.getByte(0) == VERSION && slice.getByte(1) == ItemTag.JSON_ERROR.encoded();
     }
 
     /// Writes a binary-encoded SQL/JSON item to a JSON generator as JSON text.
@@ -243,7 +262,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
         writeJson(input, generator, stringifyUnsupportedScalars);
@@ -269,7 +288,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
 
@@ -309,7 +328,9 @@ public final class JsonItemEncoding
         if (itemTag(slice, offset) != ItemTag.ARRAY) {
             throw new IllegalArgumentException("Expected ARRAY item");
         }
-        return slice.getInt(offset + Byte.BYTES);
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        return count;
     }
 
     static int objectSize(Slice slice, int offset)
@@ -317,7 +338,9 @@ public final class JsonItemEncoding
         if (itemTag(slice, offset) != ItemTag.OBJECT) {
             throw new IllegalArgumentException("Expected OBJECT item");
         }
-        return slice.getInt(offset + Byte.BYTES);
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        return count;
     }
 
     static int stringEndOffset(Slice slice, int offset)
@@ -371,13 +394,16 @@ public final class JsonItemEncoding
     static Slice copyItemEncoding(Slice slice, int itemOffset, int endOffset)
     {
         SliceOutput output = new DynamicSliceOutput(endOffset - itemOffset + 1);
-        output.appendByte(VERSION_1);
+        output.appendByte(VERSION);
         output.writeBytes(slice, itemOffset, endOffset - itemOffset);
         return output.slice();
     }
 
-    private static void writeItem(SliceOutput output, JsonPathItem item)
+    private static void writeItem(SliceOutput output, JsonPathItem item, int depth)
     {
+        if (depth > MAX_DEPTH) {
+            throw new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH);
+        }
         if (item == JSON_ERROR) {
             output.appendByte(ItemTag.JSON_ERROR.encoded());
             return;
@@ -388,7 +414,7 @@ public final class JsonItemEncoding
         }
         if (item instanceof EncodedJsonItem encoded) {
             Slice encoding = encoded.encoding();
-            if (encoding.length() > 1 && encoding.getByte(0) == VERSION_1) {
+            if (encoding.length() > 1 && encoding.getByte(0) == VERSION) {
                 byte innerTag = encoding.getByte(1);
                 if (innerTag == ItemTag.JSON_ERROR.encoded()) {
                     throw new IllegalArgumentException("JSON_ERROR sentinel cannot be written as a JSON value");
@@ -396,14 +422,14 @@ public final class JsonItemEncoding
                 output.writeBytes(encoding, 1, encoding.length() - 1);
                 return;
             }
-            writeItem(output, JsonItems.materialize(encoded));
+            writeItem(output, JsonItems.materialize(encoded), depth);
             return;
         }
         if (item instanceof JsonArrayItem arrayItem) {
             output.appendByte(ItemTag.ARRAY.encoded());
             output.appendInt(arrayItem.elements().size());
             for (JsonValue element : arrayItem.elements()) {
-                writeItem(output, element);
+                writeItem(output, element, depth + 1);
             }
             return;
         }
@@ -412,7 +438,7 @@ public final class JsonItemEncoding
             output.appendInt(objectItem.members().size());
             for (JsonObjectMember member : objectItem.members()) {
                 writeSlice(output, utf8Slice(member.key()));
-                writeItem(output, member.value());
+                writeItem(output, member.value(), depth + 1);
             }
             return;
         }
@@ -426,11 +452,19 @@ public final class JsonItemEncoding
 
     private static JsonPathItem readItem(SliceInput input)
     {
+        return readItem(input, 0);
+    }
+
+    private static JsonPathItem readItem(SliceInput input, int depth)
+    {
+        if (depth > MAX_DEPTH) {
+            throw new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH);
+        }
         return switch (ItemTag.fromEncoded(input.readByte())) {
             case JSON_ERROR -> JSON_ERROR;
             case JSON_NULL -> JsonNull.JSON_NULL;
-            case ARRAY -> readArray(input);
-            case OBJECT -> readObject(input);
+            case ARRAY -> readArray(input, depth + 1);
+            case OBJECT -> readObject(input, depth + 1);
             case TYPED_VALUE -> readTypedValue(input);
         };
     }
@@ -438,34 +472,45 @@ public final class JsonItemEncoding
     private static void writeJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
             throws IOException
     {
+        writeJson(input, generator, stringifyUnsupportedScalars, 0);
+    }
+
+    private static void writeJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
+            throws IOException
+    {
+        if (depth > MAX_DEPTH) {
+            throw new JsonOutputConversionException(new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH));
+        }
         switch (ItemTag.fromEncoded(input.readByte())) {
             case JSON_ERROR -> throw new JsonOutputConversionException("JSON item cannot be represented as JSON");
             case JSON_NULL -> generator.writeNull();
-            case ARRAY -> writeArrayJson(input, generator, stringifyUnsupportedScalars);
-            case OBJECT -> writeObjectJson(input, generator, stringifyUnsupportedScalars);
+            case ARRAY -> writeArrayJson(input, generator, stringifyUnsupportedScalars, depth + 1);
+            case OBJECT -> writeObjectJson(input, generator, stringifyUnsupportedScalars, depth + 1);
             case TYPED_VALUE -> writeTypedValueJson(input, generator, stringifyUnsupportedScalars);
         }
     }
 
-    private static void writeArrayJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
+    private static void writeArrayJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
             throws IOException
     {
         int count = input.readInt();
+        validateCount(count);
         generator.writeStartArray();
         for (int i = 0; i < count; i++) {
-            writeJson(input, generator, stringifyUnsupportedScalars);
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
         }
         generator.writeEndArray();
     }
 
-    private static void writeObjectJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
+    private static void writeObjectJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
             throws IOException
     {
         int count = input.readInt();
+        validateCount(count);
         generator.writeStartObject();
         for (int i = 0; i < count; i++) {
             generator.writeFieldName(readSlice(input).toStringUtf8());
-            writeJson(input, generator, stringifyUnsupportedScalars);
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
         }
         generator.writeEndObject();
     }
@@ -481,9 +526,12 @@ public final class JsonItemEncoding
                 CharType type = createCharType(input.readInt());
                 generator.writeString(Chars.padSpaces(readSlice(input), type).toStringUtf8());
             }
-            case BIGINT, INTEGER, SMALLINT, TINYINT -> generator.writeNumber(input.readLong());
+            case BIGINT -> generator.writeNumber(input.readLong());
+            case INTEGER -> generator.writeNumber(input.readInt());
+            case SMALLINT -> generator.writeNumber(input.readShort());
+            case TINYINT -> generator.writeNumber(input.readByte());
             case DOUBLE -> generator.writeNumber(longBitsToDouble(input.readLong()));
-            case REAL -> generator.writeNumber(intBitsToFloat(toIntExact(input.readLong())));
+            case REAL -> generator.writeNumber(intBitsToFloat(input.readInt()));
             case DECIMAL -> writeDecimalJson(input, generator);
             case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> {
                 TypedValue typedValue = readTypedValue(input, typeTag);
@@ -532,33 +580,42 @@ public final class JsonItemEncoding
         };
     }
 
-    private static JsonArrayItem readArray(SliceInput input)
+    private static JsonArrayItem readArray(SliceInput input, int depth)
     {
         int count = input.readInt();
+        validateCount(count);
         List<JsonValue> elements = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            elements.add(readValue(input));
+            elements.add(readValue(input, depth));
         }
         return new JsonArrayItem(elements);
     }
 
-    private static JsonObjectItem readObject(SliceInput input)
+    private static JsonObjectItem readObject(SliceInput input, int depth)
     {
         int count = input.readInt();
+        validateCount(count);
         List<JsonObjectMember> members = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            members.add(new JsonObjectMember(readSlice(input).toStringUtf8(), readValue(input)));
+            members.add(new JsonObjectMember(readSlice(input).toStringUtf8(), readValue(input, depth)));
         }
         return new JsonObjectItem(members);
     }
 
-    private static JsonValue readValue(SliceInput input)
+    private static JsonValue readValue(SliceInput input, int depth)
     {
-        JsonPathItem item = readItem(input);
+        JsonPathItem item = readItem(input, depth);
         if (item instanceof JsonValue value) {
             return value;
         }
         throw new IllegalArgumentException("Expected SQL/JSON value");
+    }
+
+    private static void validateCount(int count)
+    {
+        if (count < 0) {
+            throw new IllegalArgumentException("Negative SQL/JSON container count: " + count);
+        }
     }
 
     private static void writeTypedValue(SliceOutput output, TypedValue typedValue)
@@ -586,15 +643,23 @@ public final class JsonItemEncoding
             }
             case IntegerType _ -> {
                 output.appendByte(TypeTag.INTEGER.encoded());
-                output.appendLong(typedValue.getLongValue());
+                output.appendInt(toIntExact(typedValue.getLongValue()));
             }
             case SmallintType _ -> {
                 output.appendByte(TypeTag.SMALLINT.encoded());
-                output.appendLong(typedValue.getLongValue());
+                short shortValue = (short) typedValue.getLongValue();
+                if (shortValue != typedValue.getLongValue()) {
+                    throw new IllegalArgumentException("SMALLINT value out of range: " + typedValue.getLongValue());
+                }
+                output.appendShort(shortValue);
             }
             case TinyintType _ -> {
                 output.appendByte(TypeTag.TINYINT.encoded());
-                output.appendLong(typedValue.getLongValue());
+                byte byteValue = (byte) typedValue.getLongValue();
+                if (byteValue != typedValue.getLongValue()) {
+                    throw new IllegalArgumentException("TINYINT value out of range: " + typedValue.getLongValue());
+                }
+                output.appendByte(byteValue);
             }
             case DoubleType _ -> {
                 output.appendByte(TypeTag.DOUBLE.encoded());
@@ -602,7 +667,7 @@ public final class JsonItemEncoding
             }
             case RealType _ -> {
                 output.appendByte(TypeTag.REAL.encoded());
-                output.appendLong(typedValue.getLongValue());
+                output.appendInt(toIntExact(typedValue.getLongValue()));
             }
             case DecimalType decimalType -> {
                 output.appendByte(TypeTag.DECIMAL.encoded());
@@ -693,11 +758,11 @@ public final class JsonItemEncoding
             case VARCHAR -> new TypedValue(createUnboundedVarcharType(), readSlice(input));
             case CHAR -> new TypedValue(createCharType(input.readInt()), readSlice(input));
             case BIGINT -> new TypedValue(BIGINT, input.readLong());
-            case INTEGER -> new TypedValue(INTEGER, input.readLong());
-            case SMALLINT -> new TypedValue(SMALLINT, input.readLong());
-            case TINYINT -> new TypedValue(TINYINT, input.readLong());
+            case INTEGER -> new TypedValue(INTEGER, (long) input.readInt());
+            case SMALLINT -> new TypedValue(SMALLINT, (long) input.readShort());
+            case TINYINT -> new TypedValue(TINYINT, (long) input.readByte());
             case DOUBLE -> new TypedValue(DOUBLE, longBitsToDouble(input.readLong()));
-            case REAL -> new TypedValue(REAL, input.readLong());
+            case REAL -> new TypedValue(REAL, (long) input.readInt());
             case DECIMAL -> {
                 DecimalType type = createDecimalType(input.readInt(), input.readInt());
                 boolean longDecimal = input.readByte() != 0;
@@ -745,7 +810,11 @@ public final class JsonItemEncoding
 
     private static Slice readSlice(SliceInput input)
     {
-        return input.readSlice(input.readInt());
+        int length = input.readInt();
+        if (length < 0 || length > input.available()) {
+            throw new IllegalArgumentException("Invalid SQL/JSON slice length: " + length);
+        }
+        return input.readSlice(length);
     }
 
     private static int arrayEndOffset(Slice slice, int offset)
@@ -775,7 +844,10 @@ public final class JsonItemEncoding
             case BOOLEAN -> offset + Byte.BYTES + Byte.BYTES;
             case VARCHAR -> stringEndOffset(slice, offset + Byte.BYTES);
             case CHAR -> stringEndOffset(slice, offset + Byte.BYTES + Integer.BYTES);
-            case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL -> offset + Byte.BYTES + Long.BYTES;
+            case BIGINT, DOUBLE -> offset + Byte.BYTES + Long.BYTES;
+            case INTEGER, REAL -> offset + Byte.BYTES + Integer.BYTES;
+            case SMALLINT -> offset + Byte.BYTES + Short.BYTES;
+            case TINYINT -> offset + Byte.BYTES + Byte.BYTES;
             case DECIMAL -> decimalEndOffset(slice, offset + Byte.BYTES);
             case DATE -> offset + Byte.BYTES + Long.BYTES;
             case TIME -> offset + Byte.BYTES + Integer.BYTES + Long.BYTES;

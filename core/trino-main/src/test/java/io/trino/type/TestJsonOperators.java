@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.sql.query.QueryAssertions;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.SystemSessionProperties.LEGACY_JSON_SEMANTICS_ENABLED;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -1014,6 +1016,55 @@ public class TestJsonOperators
                 .isEqualTo(false);
 
         assertThat(assertions.operator(EQUAL, "JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}'", "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "JSON '1'", "JSON '1.0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "JSON '1'", "JSON '1e0'"))
+                .isEqualTo(true);
+
+        // Integers that overflow DECIMAL(38) precision are stored as NUMBER items; they
+        // compare equal to same-magnitude decimals regardless of the textual trailing-zero
+        // form (SQL:2023 §8.2 GR 10).
+        assertThat(assertions.operator(EQUAL,
+                "JSON '99999999999999999999999999999999999999999'",
+                "JSON '99999999999999999999999999999999999999999.0'"))
+                .isEqualTo(true);
+
+        // PAD SPACE string equality: JSON-stored character-string items with equal
+        // non-trailing content compare equal regardless of trailing spaces
+        // (SQL:2023 §8.2 GR 10 with PAD SPACE collation).
+        assertThat(assertions.operator(EQUAL, "JSON '\"ab   \"'", "JSON '\"ab\"'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "JSON '{\"a\":1,\"a\":2}'", "JSON '{\"a\":2}'"))
+                .isEqualTo(false);
+    }
+
+    @Test
+    public void testLegacyJsonSemanticsSessionProperty()
+    {
+        Session legacySession = assertions.sessionBuilder()
+                .setSystemProperty(LEGACY_JSON_SEMANTICS_ENABLED, "true")
+                .build();
+
+        assertThat(assertions.execute("SELECT json_format(JSON '{\"a\":1,\"a\":2}')").getOnlyValue())
+                .isEqualTo("{\"a\":1,\"a\":2}");
+
+        assertThat(assertions.execute(legacySession, "SELECT json_format(JSON '{\"a\":1,\"a\":2}')").getOnlyValue())
+                .isEqualTo("{\"a\":2}");
+
+        assertThat(assertions.execute(legacySession, "SELECT JSON '1' = JSON '1.0'").getOnlyValue())
+                .isEqualTo(false);
+
+        assertThat(assertions.query("SELECT count(DISTINCT x) FROM (VALUES JSON '1', JSON '1.0') t(x)"))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query(legacySession, "SELECT count(DISTINCT x) FROM (VALUES JSON '1', JSON '1.0') t(x)"))
+                .matches("VALUES BIGINT '2'");
+
+        assertThat(assertions.execute(legacySession, "SELECT JSON '{\"a\":1,\"a\":2}' = JSON '{\"a\":2}'").getOnlyValue())
                 .isEqualTo(true);
     }
 

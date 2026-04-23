@@ -148,7 +148,7 @@ class TestJson2016Type
 
         Block block = blockBuilder.buildValueBlock();
 
-        assertThat(JSON_2016.getObjectValue(block, 0)).isEqualTo(parseJson("{\"x\":[1,null,\"abc\"]}"));
+        assertThat(JSON_2016.getObjectValue(block, 0)).isEqualTo(parseValue("{\"x\":[1,null,\"abc\"]}"));
         assertThat(JSON_2016.getObjectValue(block, 1)).isEqualTo(JSON_ERROR);
         assertThat(JSON_2016.getObjectValue(block, 2)).isNull();
     }

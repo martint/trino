@@ -316,29 +316,29 @@ public class JsonValueFunction
                 item = jsonView.typedValue();
             }
         }
-        if (!(item instanceof TypedValue typedValue)) {
+        if (!(item instanceof TypedValue resultTypedValue)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
         }
-        if (returnType.equals(typedValue.getType())) {
-            return typedValue.value();
+        if (returnType.equals(resultTypedValue.getType())) {
+            return resultTypedValue.value();
         }
         ResolvedFunction coercion;
         try {
-            coercion = metadata.getCoercion(typedValue.getType(), returnType);
+            coercion = metadata.getCoercion(resultTypedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
-                    typedValue.getType(),
+                    resultTypedValue.getType(),
                     returnType)));
         }
         try {
-            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, typedValue.value());
+            return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, resultTypedValue.value());
         }
         catch (RuntimeException e) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
-                    typedValue.getType(),
+                    resultTypedValue.getType(),
                     returnType)));
         }
     }
