@@ -14,6 +14,8 @@
 package io.trino.operator.scalar.json;
 
 import com.fasterxml.jackson.databind.node.NullNode;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonPathItem;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
@@ -71,5 +73,22 @@ public final class ParameterUtil
         }
 
         return array;
+    }
+
+    public static Object toLegacyPathValue(Object value)
+    {
+        if (value instanceof JsonPathItem item) {
+            return JsonItems.toJsonNode(item);
+        }
+        return value;
+    }
+
+    public static Object[] toLegacyPathParameters(Object[] parameters)
+    {
+        Object[] converted = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            converted[i] = toLegacyPathValue(parameters[i]);
+        }
+        return converted;
     }
 }

@@ -13,18 +13,9 @@
  */
 package io.trino.json;
 
-/// Sentinel representing a suppressed JSON input conversion failure.
-///
-/// This is a materialized marker used by the SQL/JSON runtime to preserve malformed-input state
-/// across evaluation when the semantics require the error to be carried rather than thrown.
-public enum JsonInputErrorNode
-        implements JsonItem
+/// The materialized SQL/JSON `null` value in the [JsonValue] hierarchy.
+public enum JsonNull
+        implements JsonValue
 {
-    JSON_ERROR;
-
-    @Override
-    public String toString()
-    {
-        return "JSON_ERROR";
-    }
+    JSON_NULL
 }

@@ -13,12 +13,12 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
-import io.trino.operator.scalar.json.JsonInputConversionException;
-import io.trino.operator.scalar.json.JsonOutputConversionException;
+import io.trino.json.EncodedJsonItem;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonPathItem;
+import io.trino.json.JsonValueView;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -26,7 +26,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 
 public class Json2016Type
@@ -34,11 +33,10 @@ public class Json2016Type
 {
     public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
-    private static final JsonMapper MAPPER = new JsonMapper();
 
     public Json2016Type()
     {
-        super(new TypeSignature(NAME), JsonNode.class);
+        super(new TypeSignature(NAME), Object.class);
     }
 
     @Override
@@ -50,7 +48,14 @@ public class Json2016Type
     @Override
     public Object getObjectValue(Block block, int position)
     {
-        return getObject(block, position);
+        Object object = getObject(block, position);
+        if (object == null) {
+            return null;
+        }
+        if (JsonValueView.isJsonError(object)) {
+            return JSON_ERROR;
+        }
+        return JsonItems.materialize((JsonPathItem) object);
     }
 
     @Override
@@ -61,35 +66,19 @@ public class Json2016Type
         }
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        int valuePosition = block.getUnderlyingValuePosition(position);
-        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
-        if (json.equals(JSON_ERROR.toString())) {
-            return JSON_ERROR;
-        }
-        try {
-            return MAPPER.readTree(json);
-        }
-        catch (JsonProcessingException e) {
-            throw new JsonInputConversionException(e);
-        }
+        Slice encoding = valueBlock.getSlice(block.getUnderlyingValuePosition(position));
+        return JsonValueView.root(encoding);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        String json;
-        if (value == JSON_ERROR) {
-            json = JSON_ERROR.toString();
-        }
-        else {
-            try {
-                json = MAPPER.writeValueAsString(value);
-            }
-            catch (JsonProcessingException e) {
-                throw new JsonOutputConversionException(e);
-            }
-        }
-        Slice bytes = utf8Slice(json);
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
+        Slice encoding = switch (value) {
+            case JsonValueView view -> view.copyEncoding();
+            case EncodedJsonItem encoded -> encoded.encoding();
+            case JsonPathItem item -> JsonItemEncoding.encode(JsonItems.materialize(item));
+            default -> throw new IllegalArgumentException("Unsupported JSON2016 value type: " + value.getClass().getName());
+        };
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(encoding);
     }
 }

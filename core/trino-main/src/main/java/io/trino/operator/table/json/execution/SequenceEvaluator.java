@@ -26,6 +26,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.operator.scalar.json.ParameterUtil.toLegacyPathParameters;
 import static java.lang.String.format;
 
 public final class SequenceEvaluator
@@ -57,7 +58,7 @@ public final class SequenceEvaluator
         // evaluate path into a sequence
         List<Object> pathResult;
         try {
-            pathResult = pathEvaluator.evaluate(item, pathParameters);
+            pathResult = pathEvaluator.evaluate(item, toLegacyPathParameters(pathParameters));
         }
         catch (PathEvaluationException e) {
             if (errorOnError) {

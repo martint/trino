@@ -14,12 +14,18 @@
 package io.trino.json.ir;
 
 import com.google.common.primitives.Primitives;
+import io.trino.json.JsonValue;
 import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/// A materialized SQL scalar that participates in the SQL/JSON value model.
+///
+/// `TypedValue` represents a JSON path scalar that carries a concrete Trino [Type],
+/// including non-JSON-native scalar kinds such as decimals and datetime values.
 public record TypedValue(Type type, Object value)
+        implements JsonValue
 {
     public TypedValue
     {
