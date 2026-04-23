@@ -13,91 +13,44 @@
  */
 package io.trino.json.ir;
 
+import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class TypedValue
+public record TypedValue(Type type, Object value)
 {
-    private final Type type;
-    private final Object objectValue;
-    private final long longValue;
-    private final double doubleValue;
-    private final boolean booleanValue;
-    private final Object valueAsObject;
-
-    public TypedValue(Type type, Object objectValue)
+    public TypedValue
     {
         requireNonNull(type, "type is null");
-        requireNonNull(objectValue, "value is null");
-        checkArgument(type.getJavaType().isAssignableFrom(objectValue.getClass()), "%s value does not match the type %s", objectValue.getClass(), type);
-
-        this.type = type;
-        this.objectValue = objectValue;
-        this.longValue = 0L;
-        this.doubleValue = 0e0;
-        this.booleanValue = false;
-        this.valueAsObject = objectValue;
+        requireNonNull(value, "value is null");
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(value), "%s value does not match the type %s", value.getClass(), type);
     }
 
     public TypedValue(Type type, long longValue)
     {
-        requireNonNull(type, "type is null");
-        checkArgument(long.class.equals(type.getJavaType()), "long value does not match the type %s", type);
-
-        this.type = type;
-        this.objectValue = null;
-        this.longValue = longValue;
-        this.doubleValue = 0e0;
-        this.booleanValue = false;
-        this.valueAsObject = longValue;
+        this(type, Long.valueOf(longValue));
     }
 
     public TypedValue(Type type, double doubleValue)
     {
-        requireNonNull(type, "type is null");
-        checkArgument(double.class.equals(type.getJavaType()), "double value does not match the type %s", type);
-
-        this.type = type;
-        this.objectValue = null;
-        this.longValue = 0L;
-        this.doubleValue = doubleValue;
-        this.booleanValue = false;
-        this.valueAsObject = doubleValue;
+        this(type, Double.valueOf(doubleValue));
     }
 
     public TypedValue(Type type, boolean booleanValue)
     {
-        requireNonNull(type, "type is null");
-        checkArgument(boolean.class.equals(type.getJavaType()), "boolean value does not match the type %s", type);
-
-        this.type = type;
-        this.objectValue = null;
-        this.longValue = 0L;
-        this.doubleValue = 0e0;
-        this.booleanValue = booleanValue;
-        this.valueAsObject = booleanValue;
+        this(type, Boolean.valueOf(booleanValue));
     }
 
     public static TypedValue fromValueAsObject(Type type, Object valueAsObject)
     {
-        if (long.class.equals(type.getJavaType())) {
-            checkState(valueAsObject instanceof Long, "%s value does not match the type %s", valueAsObject.getClass(), type);
-            return new TypedValue(type, (long) valueAsObject);
-        }
-        if (double.class.equals(type.getJavaType())) {
-            checkState(valueAsObject instanceof Double, "%s value does not match the type %s", valueAsObject.getClass(), type);
-            return new TypedValue(type, (double) valueAsObject);
-        }
-        if (boolean.class.equals(type.getJavaType())) {
-            checkState(valueAsObject instanceof Boolean, "%s value does not match the type %s", valueAsObject.getClass(), type);
-            return new TypedValue(type, (boolean) valueAsObject);
-        }
-        checkState(type.getJavaType().isAssignableFrom(valueAsObject.getClass()), "%s value does not match the type %s", valueAsObject.getClass(), type);
         return new TypedValue(type, valueAsObject);
     }
+
+    // The get* accessors below are retained for source compatibility with pre-record callers.
+    // Prefer the record accessors `type()` and `value()` in new code; the get* versions add
+    // only a type-sanity check (and primitive unboxing) on top of them.
 
     public Type getType()
     {
@@ -106,31 +59,30 @@ public class TypedValue
 
     public Object getObjectValue()
     {
-        checkArgument(objectValue != null, "the type %s is represented as %s. call another method to retrieve the value", type, type.getJavaType());
-        checkArgument(type.getJavaType().isAssignableFrom(objectValue.getClass()), "%s value does not match the type %s", objectValue.getClass(), type);
-        return objectValue;
+        checkArgument(!type.getJavaType().isPrimitive(), "the type %s is represented as %s. call another method to retrieve the value", type, type.getJavaType());
+        return value;
+    }
+
+    public Object getValueAsObject()
+    {
+        return value;
     }
 
     public long getLongValue()
     {
         checkArgument(long.class.equals(type.getJavaType()), "long value does not match the type %s", type);
-        return longValue;
+        return (Long) value;
     }
 
     public double getDoubleValue()
     {
         checkArgument(double.class.equals(type.getJavaType()), "double value does not match the type %s", type);
-        return doubleValue;
+        return (Double) value;
     }
 
     public boolean getBooleanValue()
     {
         checkArgument(boolean.class.equals(type.getJavaType()), "boolean value does not match the type %s", type);
-        return booleanValue;
-    }
-
-    public Object getValueAsObject()
-    {
-        return valueAsObject;
+        return (Boolean) value;
     }
 }
