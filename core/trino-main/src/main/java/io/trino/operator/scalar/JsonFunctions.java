@@ -49,6 +49,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.type.JsonType.jsonText;
+import static io.trino.type.JsonType.jsonValue;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 
@@ -122,7 +124,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
     {
-        return slice;
+        return jsonText(slice);
     }
 
     @ScalarFunction
@@ -130,7 +132,7 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
     {
-        return JsonTypeUtil.jsonParse(slice);
+        return jsonValue(JsonTypeUtil.jsonParse(slice));
     }
 
     @SqlNullable
@@ -375,22 +377,24 @@ public final class JsonFunctions
                 }
                 if (token == END_ARRAY) {
                     if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                        return jsonValue(utf8Slice(tokens.get(0)));
                     }
 
                     return null;
                 }
 
                 String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
+                if (token == JsonToken.VALUE_NULL) {
+                    arrayElement = null;
                 }
                 else {
-                    arrayElement = parser.getValueAsString();
+                    // Always serialize via the tree so the output is valid JSON regardless of token kind
+                    // (strings are emitted with quotes, primitives keep their canonical text form).
+                    arrayElement = parser.readValueAsTree().toString();
                 }
 
                 if (count == index) {
-                    return arrayElement == null ? null : utf8Slice(arrayElement);
+                    return arrayElement == null ? null : jsonValue(utf8Slice(arrayElement));
                 }
 
                 if (tokens != null) {
@@ -432,7 +436,8 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : jsonValue(result);
     }
 
     @ScalarFunction
@@ -440,7 +445,8 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : jsonValue(result);
     }
 
     @ScalarFunction("json_size")

@@ -15,7 +15,10 @@ package io.trino.json;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.cache.NonEvictableCache;
+import io.trino.json.JsonPathEvaluator.Invoker;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
@@ -23,6 +26,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.operators;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -52,6 +57,8 @@ public class CachingResolver
 
     private final Metadata metadata;
     private final NonEvictableCache<NodeAndTypes, ResolvedOperatorAndCoercions> operators = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
+    private final NonEvictableCache<String, ResolvedFunctionAndCoercions> functions = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
+    private final NonEvictableCache<IrPathNodeRef<IrLikeRegexPredicate>, Object> likeRegexPatterns = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE));
 
     public CachingResolver(Metadata metadata)
     {
@@ -67,6 +74,38 @@ public class CachingResolver
         }
         catch (ExecutionException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public ResolvedFunctionAndCoercions getRegexpLikeFunction()
+    {
+        try {
+            return functions.get("regexp_like", this::resolveRegexpLikeFunction);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Returns the translated and coerced regex pattern for a like_regex node. The XQuery-to-Java
+     * translation and any coercion invocation is cached per node, since the pattern is a path literal
+     * (static per IR tree) and would otherwise be recomputed per row.
+     */
+    public Optional<Object> getLikeRegexPattern(IrLikeRegexPredicate node, Invoker invoker, Optional<ResolvedFunction> rightCoercion)
+    {
+        try {
+            Object cached = likeRegexPatterns.get(IrPathNodeRef.of(node), () -> {
+                Object pattern = Slices.utf8Slice(XQueryRegex.patternWithFlags(node.pattern(), node.flag().orElse("")));
+                if (rightCoercion.isPresent()) {
+                    pattern = invoker.invoke(rightCoercion.get(), ImmutableList.of(pattern));
+                }
+                return pattern;
+            });
+            return Optional.of(cached);
+        }
+        catch (ExecutionException | RuntimeException e) {
+            return Optional.empty();
         }
     }
 
@@ -103,6 +142,40 @@ public class CachingResolver
         }
 
         return operators(operator, leftCast, rightCast);
+    }
+
+    private ResolvedFunctionAndCoercions resolveRegexpLikeFunction()
+    {
+        ResolvedFunction function;
+        try {
+            function = metadata.resolveBuiltinFunction("regexp_like", fromTypes(VarcharType.VARCHAR, VarcharType.VARCHAR));
+        }
+        catch (RuntimeException e) {
+            return ResolvedFunctionAndCoercions.RESOLUTION_ERROR;
+        }
+        BoundSignature signature = function.signature();
+
+        Optional<ResolvedFunction> leftCast = Optional.empty();
+        if (!signature.getArgumentTypes().get(0).equals(VarcharType.VARCHAR)) {
+            try {
+                leftCast = Optional.of(metadata.getCoercion(VarcharType.VARCHAR, signature.getArgumentTypes().get(0)));
+            }
+            catch (OperatorNotFoundException e) {
+                return ResolvedFunctionAndCoercions.RESOLUTION_ERROR;
+            }
+        }
+
+        Optional<ResolvedFunction> rightCast = Optional.empty();
+        if (!signature.getArgumentTypes().get(1).equals(VarcharType.VARCHAR)) {
+            try {
+                rightCast = Optional.of(metadata.getCoercion(VarcharType.VARCHAR, signature.getArgumentTypes().get(1)));
+            }
+            catch (OperatorNotFoundException e) {
+                return ResolvedFunctionAndCoercions.RESOLUTION_ERROR;
+            }
+        }
+
+        return new ResolvedFunctionAndCoercions.Resolved(function, leftCast, rightCast);
     }
 
     private static class NodeAndTypes
@@ -176,6 +249,28 @@ public class CachingResolver
         {
             checkState(this != RESOLUTION_ERROR, "accessing coercion on RESOLUTION_ERROR");
             return rightCoercion;
+        }
+    }
+
+    public sealed interface ResolvedFunctionAndCoercions
+    {
+        ResolvedFunctionAndCoercions RESOLUTION_ERROR = ResolutionError.INSTANCE;
+
+        enum ResolutionError
+                implements ResolvedFunctionAndCoercions
+        {
+            INSTANCE
+        }
+
+        record Resolved(ResolvedFunction function, Optional<ResolvedFunction> leftCoercion, Optional<ResolvedFunction> rightCoercion)
+                implements ResolvedFunctionAndCoercions
+        {
+            public Resolved
+            {
+                requireNonNull(function, "function is null");
+                requireNonNull(leftCoercion, "leftCoercion is null");
+                requireNonNull(rightCoercion, "rightCoercion is null");
+            }
         }
     }
 }

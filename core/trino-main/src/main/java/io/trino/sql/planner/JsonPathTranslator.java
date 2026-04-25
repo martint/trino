@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.json.JsonDateTimeTemplate;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticBinary.Operator;
@@ -25,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
@@ -35,6 +37,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -221,11 +224,11 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
-            // TODO
-            throw new IllegalStateException("datetime method is not yet supported. The query should have failed in JsonPathAnalyzer.");
-
-//            IrPathNode base = process(node.getBase());
-//            return new IrDatetimeMethod(base, /*parsed format*/, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            IrPathNode base = process(node.getBase());
+            return new IrDatetimeMethod(
+                    base,
+                    node.getFormat().map(JsonDateTimeTemplate::parse),
+                    Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
@@ -386,8 +389,8 @@ class JsonPathTranslator
         {
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
-            // TODO
-            throw new IllegalStateException("like_regex predicate is not yet supported. The query should have failed in JsonPathAnalyzer.");
+            IrPathNode path = process(node.getPath());
+            return new IrLikeRegexPredicate(path, node.getPattern(), node.getFlag());
         }
 
         @Override

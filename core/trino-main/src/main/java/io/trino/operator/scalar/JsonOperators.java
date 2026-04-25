@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -26,6 +27,8 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.type.DateOperators;
+import io.trino.type.JsonType;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
@@ -45,6 +48,7 @@ import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.type.JsonType.jsonValue;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -83,9 +87,9 @@ public final class JsonOperators
             }
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", JsonType.jsonText(json).toStringUtf8(), x), e);
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", JsonType.jsonText(json).toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)
@@ -100,7 +104,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BIGINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), BIGINT), e);
         }
     }
 
@@ -117,12 +121,12 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (ArithmeticException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), INTEGER), e);
         }
     }
 
@@ -139,12 +143,12 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), SMALLINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), SMALLINT), e);
         }
     }
 
@@ -161,12 +165,12 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), TINYINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), TINYINT), e);
         }
     }
 
@@ -182,7 +186,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), DOUBLE), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), DOUBLE), e);
         }
     }
 
@@ -198,7 +202,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), REAL), e);
         }
     }
 
@@ -230,7 +234,40 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BOOLEAN), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), BOOLEAN), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(DATE)
+    public static Long castToDate(@SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+            parser.nextToken();
+            Slice result = currentTokenAsVarchar(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DATE");
+            return (result == null) ? null : DateOperators.castFromVarchar(result);
+        }
+        catch (IOException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(json).toStringUtf8(), DATE), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("time(p)")
+    public static Long castToTime(@LiteralParameter("p") long precision, @SqlType(JSON) Slice json)
+    {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+            parser.nextToken();
+            Slice result = currentTokenAsVarchar(parser);
+            checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to TIME");
+            return (result == null) ? null : TimeOperators.castFromVarchar(precision, result);
+        }
+        catch (IOException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to time(%s)", JsonType.jsonText(json).toStringUtf8(), precision), e);
         }
     }
 
@@ -244,7 +281,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(value.toStringUtf8());
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
@@ -286,7 +323,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -302,7 +339,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -318,7 +355,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(intBitsToFloat((int) value));
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -354,7 +391,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeBoolean(value);
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -370,7 +407,7 @@ public final class JsonOperators
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(printDate((int) value));
             }
-            return output.slice();
+            return jsonValue(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));

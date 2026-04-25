@@ -13,10 +13,9 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.json.CachingResolver.ResolvedFunctionAndCoercions;
 import io.trino.json.CachingResolver.ResolvedOperatorAndCoercions;
 import io.trino.json.JsonPathEvaluator.Invoker;
 import io.trino.json.ir.IrComparisonPredicate;
@@ -25,11 +24,11 @@ import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPathVisitor;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.IrStartsWithPredicate;
-import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
@@ -42,11 +41,10 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
+import static io.trino.json.PathEvaluationUtil.normalize;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.EQUAL;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTextTypedValue;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isCharacterStringType;
 import static java.lang.Boolean.FALSE;
@@ -74,11 +72,11 @@ import static java.util.Objects.requireNonNull;
  * The following comparison operators are supported in JSON path predicate: EQUAL, NOT EQUAL, LESS THAN, GREATER THAN, LESS THAN OR EQUAL, GREATER THAN OR EQUAL.
  * Both operands are JSON paths, and so they are evaluated to sequences of objects.
  * <p>
- * Technically, each of the objects is either a JsonNode, or a TypedValue.
+ * Technically, each of the objects is either a JsonValue or a TypedValue.
  * Logically, they can be divided into three categories:
- * 1. scalar values. These are all the TypedValues and certain subtypes of JsonNode, e.g. IntNode, BooleanNode,...
- * 2. non-scalars. These are JSON arrays and objects
- * 3. NULL values. They are represented by JsonNode subtype NullNode.
+ * 1. scalar values. These are all the TypedValues.
+ * 2. non-scalars. These are JSON arrays and objects.
+ * 3. NULL values. They are represented by JsonNull.
  * <p>
  * When comparing two objects, the following rules apply:
  * 1. NULL can be successfully compared with any object. NULL equals NULL, and is neither equal, less than or greater than any other object.
@@ -133,7 +131,7 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrComparisonPredicate(IrComparisonPredicate node, PathEvaluationContext context)
     {
-        List<Object> leftSequence;
+        List<JsonPathItem> leftSequence;
         try {
             leftSequence = pathVisitor.process(node.left(), context);
         }
@@ -141,7 +139,7 @@ class PathPredicateEvaluationVisitor
             return null;
         }
 
-        List<Object> rightSequence;
+        List<JsonPathItem> rightSequence;
         try {
             rightSequence = pathVisitor.process(node.right(), context);
         }
@@ -161,17 +159,12 @@ class PathPredicateEvaluationVisitor
         boolean leftHasJsonNull = false;
         boolean leftHasScalar = false;
         boolean leftHasNonScalar = false;
-        for (Object object : leftSequence) {
-            if (object instanceof JsonNode jsonNode) {
-                if (object instanceof NullNode) {
-                    leftHasJsonNull = true;
-                }
-                else if (jsonNode.isValueNode()) {
-                    leftHasScalar = true;
-                }
-                else {
-                    leftHasNonScalar = true;
-                }
+        for (JsonPathItem object : leftSequence) {
+            if (isJsonNull(object)) {
+                leftHasJsonNull = true;
+            }
+            else if (isNonScalar(object)) {
+                leftHasNonScalar = true;
             }
             else {
                 leftHasScalar = true;
@@ -181,17 +174,12 @@ class PathPredicateEvaluationVisitor
         boolean rightHasJsonNull = false;
         boolean rightHasScalar = false;
         boolean rightHasNonScalar = false;
-        for (Object object : rightSequence) {
-            if (object instanceof JsonNode jsonNode) {
-                if (jsonNode.isNull()) {
-                    rightHasJsonNull = true;
-                }
-                else if (jsonNode.isValueNode()) {
-                    rightHasScalar = true;
-                }
-                else {
-                    rightHasNonScalar = true;
-                }
+        for (JsonPathItem object : rightSequence) {
+            if (isJsonNull(object)) {
+                rightHasJsonNull = true;
+            }
+            else if (isNonScalar(object)) {
+                rightHasNonScalar = true;
             }
             else {
                 rightHasScalar = true;
@@ -215,6 +203,13 @@ class PathPredicateEvaluationVisitor
             if (leftHasJsonNull && (rightHasScalar || rightHasNonScalar) ||
                     rightHasJsonNull && (leftHasScalar || leftHasNonScalar)) {
                 found = true;
+            }
+        }
+        // SQL:2023 §8.5.2 Table 22: JSON_NULL compared with a scalar under <, >, <=, >= is UNKNOWN.
+        // In strict mode that UNKNOWN surfaces as null; in lax mode, fall through to the scalar loop and let any matching pair decide.
+        if (!lax && node.operator() != EQUAL && node.operator() != NOT_EQUAL) {
+            if ((leftHasJsonNull && rightHasScalar) || (rightHasJsonNull && leftHasScalar)) {
+                return null;
             }
         }
         if (found && lax) {
@@ -256,9 +251,9 @@ class PathPredicateEvaluationVisitor
         IrComparisonPredicate.Operator comparisonOperator = node.operator();
         ComparisonExpression.Operator operator;
         Type firstType = left.getType();
-        Object firstValue = left.getValueAsObject();
+        Object firstValue = left.value();
         Type secondType = right.getType();
-        Object secondValue = right.getValueAsObject();
+        Object secondValue = right.value();
         switch (comparisonOperator) {
             case EQUAL:
             case NOT_EQUAL:
@@ -270,9 +265,9 @@ class PathPredicateEvaluationVisitor
             case GREATER_THAN:
                 operator = ComparisonExpression.Operator.LESS_THAN;
                 firstType = right.getType();
-                firstValue = right.getValueAsObject();
+                firstValue = right.value();
                 secondType = left.getType();
-                secondValue = left.getValueAsObject();
+                secondValue = left.value();
                 break;
             case LESS_THAN_OR_EQUAL:
                 operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -280,9 +275,9 @@ class PathPredicateEvaluationVisitor
             case GREATER_THAN_OR_EQUAL:
                 operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
                 firstType = right.getType();
-                firstValue = right.getValueAsObject();
+                firstValue = right.value();
                 secondType = left.getType();
-                secondValue = left.getValueAsObject();
+                secondValue = left.value();
                 break;
             default:
                 throw new UnsupportedOperationException("Unexpected comparison operator " + comparisonOperator);
@@ -362,7 +357,7 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrExistsPredicate(IrExistsPredicate node, PathEvaluationContext context)
     {
-        List<Object> sequence;
+        List<JsonPathItem> sequence;
         try {
             sequence = pathVisitor.process(node.path(), context);
         }
@@ -382,6 +377,71 @@ class PathPredicateEvaluationVisitor
     }
 
     @Override
+    protected Boolean visitIrLikeRegexPredicate(IrLikeRegexPredicate node, PathEvaluationContext context)
+    {
+        List<JsonPathItem> valueSequence;
+        try {
+            valueSequence = pathVisitor.process(node.path(), context);
+        }
+        catch (PathEvaluationException e) {
+            return null;
+        }
+
+        if (lax) {
+            valueSequence = unwrapArrays(valueSequence);
+        }
+        if (valueSequence.isEmpty()) {
+            // SQL:2023 §9.39: like_regex over an empty sequence yields UNKNOWN in strict mode, FALSE in lax.
+            return lax ? FALSE : null;
+        }
+
+        if (!(resolver.getRegexpLikeFunction() instanceof ResolvedFunctionAndCoercions.Resolved regexpLike)) {
+            return null;
+        }
+
+        Optional<Object> cachedPattern = resolver.getLikeRegexPattern(node, invoker, regexpLike.rightCoercion());
+        if (cachedPattern.isEmpty()) {
+            return null;
+        }
+        Object pattern = cachedPattern.get();
+
+        boolean found = false;
+        for (JsonPathItem object : valueSequence) {
+            Slice value = getText(object);
+            if (value == null) {
+                return null;
+            }
+
+            Object source = value;
+            if (regexpLike.leftCoercion().isPresent()) {
+                try {
+                    source = invoker.invoke(regexpLike.leftCoercion().get(), ImmutableList.of(source));
+                }
+                catch (RuntimeException e) {
+                    return null;
+                }
+            }
+
+            Object result;
+            try {
+                result = invoker.invoke(regexpLike.function(), ImmutableList.of(source, pattern));
+            }
+            catch (RuntimeException e) {
+                return null;
+            }
+
+            if ((Boolean) result) {
+                found = true;
+                if (lax) {
+                    return TRUE;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    @Override
     protected Boolean visitIrNegationPredicate(IrNegationPredicate node, PathEvaluationContext context)
     {
         Boolean predicateResult = process(node.predicate(), context);
@@ -392,7 +452,7 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrStartsWithPredicate(IrStartsWithPredicate node, PathEvaluationContext context)
     {
-        List<Object> valueSequence;
+        List<JsonPathItem> valueSequence;
         try {
             valueSequence = pathVisitor.process(node.value(), context);
         }
@@ -400,7 +460,7 @@ class PathPredicateEvaluationVisitor
             return null;
         }
 
-        List<Object> prefixSequence;
+        List<JsonPathItem> prefixSequence;
         try {
             prefixSequence = pathVisitor.process(node.prefix(), context);
         }
@@ -419,11 +479,12 @@ class PathPredicateEvaluationVisitor
             valueSequence = unwrapArrays(valueSequence);
         }
         if (valueSequence.isEmpty()) {
-            return FALSE;
+            // SQL:2023 §9.39: applying a predicate to an empty sequence yields UNKNOWN in strict mode, FALSE in lax mode.
+            return lax ? FALSE : null;
         }
 
         boolean found = false;
-        for (Object object : valueSequence) {
+        for (JsonPathItem object : valueSequence) {
             Slice value = getText(object);
             if (value == null) {
                 return null;
@@ -439,36 +500,39 @@ class PathPredicateEvaluationVisitor
         return found;
     }
 
-    private static List<TypedValue> getScalars(List<Object> sequence)
+    private static List<TypedValue> getScalars(List<JsonPathItem> sequence)
     {
         ImmutableList.Builder<TypedValue> scalars = ImmutableList.builder();
-        for (Object object : sequence) {
+        for (JsonPathItem object : sequence) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(object);
+            if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+                scalars.add(view.orElseThrow().typedValue());
+                continue;
+            }
+            object = normalize(object);
             if (object instanceof TypedValue typedValue) {
                 scalars.add(typedValue);
-            }
-            else {
-                JsonNode jsonNode = (JsonNode) object;
-                if (jsonNode.isValueNode() && !jsonNode.isNull()) {
-                    Optional<TypedValue> typedValue;
-                    try {
-                        typedValue = getTypedValue(jsonNode);
-                    }
-                    catch (JsonLiteralConversionException e) {
-                        return null;
-                    }
-                    if (typedValue.isEmpty()) {
-                        return null;
-                    }
-                    scalars.add(typedValue.get());
-                }
             }
         }
 
         return scalars.build();
     }
 
-    private static Slice getText(Object object)
+    private static Slice getText(JsonPathItem object)
     {
+        Optional<JsonValueView> view = JsonValueView.fromObject(object);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            TypedValue typedValue = view.orElseThrow().typedValue();
+            if (isCharacterStringType(typedValue.getType())) {
+                if (typedValue.getType() instanceof CharType charType) {
+                    return padSpaces((Slice) typedValue.getObjectValue(), charType);
+                }
+                return (Slice) typedValue.getObjectValue();
+            }
+            return null;
+        }
+
+        object = normalize(object);
         if (object instanceof TypedValue typedValue) {
             if (isCharacterStringType(typedValue.getType())) {
                 if (typedValue.getType() instanceof CharType charType) {
@@ -478,10 +542,28 @@ class PathPredicateEvaluationVisitor
             }
             return null;
         }
-        JsonNode jsonNode = (JsonNode) object;
-        return getTextTypedValue(jsonNode)
-                .map(TypedValue::getObjectValue)
-                .map(Slice.class::cast)
-                .orElse(null);
+        return null;
+    }
+
+    private static boolean isJsonNull(JsonPathItem object)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromObject(object);
+        if (view.isPresent()) {
+            return view.orElseThrow().kind() == JsonValueView.Kind.NULL;
+        }
+        return normalize(object) == JsonNull.JSON_NULL;
+    }
+
+    private static boolean isNonScalar(JsonPathItem object)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromObject(object);
+        if (view.isPresent()) {
+            return switch (view.orElseThrow().kind()) {
+                case ARRAY, OBJECT -> true;
+                default -> false;
+            };
+        }
+        JsonPathItem normalized = normalize(object);
+        return normalized instanceof JsonArrayItem || normalized instanceof JsonObjectItem;
     }
 }

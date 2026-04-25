@@ -25,6 +25,7 @@ import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
+import io.trino.client.JsonColumnValue;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -262,6 +263,9 @@ abstract class AbstractTrinoResultSet
             return null;
         }
         ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (columnTypeSignature.getRawType().equals("json") && value instanceof JsonColumnValue) {
+            return ((JsonColumnValue) value).jsonText();
+        }
         if (TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), String.class)) {
             return TYPE_CONVERSIONS.convert(columnTypeSignature, value, String.class);
         }
@@ -661,7 +665,6 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         ColumnInfo columnInfo = columnInfo(columnIndex);
-
         if (columnInfo.getColumnType() == Types.ARRAY) {
             // Array requires special treatment due to element metadata provided by the Array object
             // TODO (https://github.com/trinodb/trino/issues/6049) consider returning List instead
@@ -673,7 +676,14 @@ abstract class AbstractTrinoResultSet
             return getObject(columnIndex, defaultRepresentation);
         }
 
-        return column(columnIndex);
+        Object value = column(columnIndex);
+        // Preserve the pre-typed-JSON contract: getObject on a JSON column returns the
+        // text form. Callers that want the typed item must ask for it via
+        // getObject(columnIndex, JsonColumnValue.class).
+        if (value instanceof JsonColumnValue && columnInfo.getColumnTypeSignature().getRawType().equals("json")) {
+            return ((JsonColumnValue) value).jsonText();
+        }
+        return value;
     }
 
     @jakarta.annotation.Nullable
@@ -725,6 +735,17 @@ abstract class AbstractTrinoResultSet
                     builder.addField(field.getName(), converted);
                 }
                 return builder.build();
+            }
+
+            case "json": {
+                // Match the top-level JSON contract: ResultSet#getObject returns JSON text as a
+                // String regardless of whether the server delivered a typed envelope. Callers that
+                // need the typed representation can traverse explicitly via
+                // getObject(column, JsonColumnValue.class) and then walk the container.
+                if (value instanceof JsonColumnValue jsonColumnValue) {
+                    return jsonColumnValue.jsonText();
+                }
+                return value;
             }
         }
 
@@ -1831,6 +1852,24 @@ abstract class AbstractTrinoResultSet
         }
 
         ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (columnTypeSignature.getRawType().equals("json")) {
+            if (type == JsonColumnValue.class) {
+                if (object instanceof JsonColumnValue) {
+                    return type.cast(object);
+                }
+                if (object instanceof String) {
+                    return type.cast(JsonColumnValue.fromJsonText((String) object));
+                }
+            }
+            if (type == String.class) {
+                if (object instanceof JsonColumnValue) {
+                    return type.cast(((JsonColumnValue) object).jsonText());
+                }
+                if (object instanceof String) {
+                    return type.cast(object);
+                }
+            }
+        }
         if (type.isInstance(object) && !TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), type)) {
             return type.cast(object);
         }

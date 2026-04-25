@@ -66,6 +66,7 @@ import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.jsonText;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
@@ -648,7 +649,7 @@ public final class DecimalCasts
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", jsonText(json).toStringUtf8(), precision, scale), e);
         }
     }
 
@@ -662,7 +663,7 @@ public final class DecimalCasts
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", jsonText(json).toStringUtf8(), precision, scale), e);
         }
     }
 

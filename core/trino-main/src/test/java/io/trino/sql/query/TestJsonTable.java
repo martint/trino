@@ -900,6 +900,30 @@ public class TestJsonTable
                         COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[42]' NULL ON EMPTY))
                 """))
                 .matches("VALUES CAST(null AS VARBINARY)");
+
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        JSON '[{"a" : true}]',
+                        'lax $'
+                        COLUMNS(a json FORMAT JSON PATH 'lax $[0]'))
+                """))
+                .matches("VALUES JSON '{\"a\":true}'");
+    }
+
+    @Test
+    public void testPublicJsonInput()
+    {
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        JSON '[1, 2, 3]',
+                        'lax $[$index]' PASSING JSON '0' AS "index"
+                        COLUMNS(a integer PATH 'lax $'))
+                """))
+                .matches("VALUES 1");
     }
 
     @Test

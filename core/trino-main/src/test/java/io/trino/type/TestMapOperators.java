@@ -99,7 +99,7 @@ public class TestMapOperators
     @SqlType(StandardTypes.JSON)
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return io.trino.type.JsonType.jsonValue(slice);
     }
 
     @Test
@@ -225,12 +225,12 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[7,5,3,1], ARRAY[8,6,4,2])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
+                .isEqualTo(jsonValueOf("{\"1\":2,\"3\":4,\"5\":6,\"7\":8}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1,3,5,7], ARRAY[2,4,6,8])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":2,\"3\":4,\"5\":6,\"7\":8}");
+                .isEqualTo(jsonValueOf("{\"1\":2,\"3\":4,\"5\":6,\"7\":8}"));
 
         // Test null value
         assertThat(assertions.expression("cast(a AS JSON)")
@@ -240,154 +240,154 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP()"))
                 .hasType(JSON)
-                .isEqualTo("{}");
+                .isEqualTo(jsonValueOf("{}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[null, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":null,\"2\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":null,\"2\":null}"));
 
         // Test key types
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[true, false], ARRAY[1, 2])"))
                 .hasType(JSON)
-                .isEqualTo("{\"false\":2,\"true\":1}");
+                .isEqualTo(jsonValueOf("{\"false\":2,\"true\":1}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(cast(ARRAY[1, 2, 3] as ARRAY(TINYINT)), ARRAY[5, 8, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":5,\"2\":8,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":5,\"2\":8,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(cast(ARRAY[12345, 12346, 12347] as ARRAY(SMALLINT)), ARRAY[5, 8, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"12345\":5,\"12346\":8,\"12347\":null}");
+                .isEqualTo(jsonValueOf("{\"12345\":5,\"12346\":8,\"12347\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(cast(ARRAY[123456789,123456790,123456791] as ARRAY(INTEGER)), ARRAY[5, 8, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"123456789\":5,\"123456790\":8,\"123456791\":null}");
+                .isEqualTo(jsonValueOf("{\"123456789\":5,\"123456790\":8,\"123456791\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(cast(ARRAY[1234567890123456111,1234567890123456222,1234567890123456777] as ARRAY(BIGINT)), ARRAY[111, 222, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1234567890123456111\":111,\"1234567890123456222\":222,\"1234567890123456777\":null}");
+                .isEqualTo(jsonValueOf("{\"1234567890123456111\":111,\"1234567890123456222\":222,\"1234567890123456777\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(cast(ARRAY[3.14E0, 1e10, 1e20] as ARRAY(REAL)), ARRAY[null, 10, 20])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.0E10\":10,\"1.0E20\":20,\"3.14\":null}");
+                .isEqualTo(jsonValueOf("{\"1.0E10\":10,\"1.0E20\":20,\"3.14\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1e-323,1e308,nan()], ARRAY[-323,308,null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}");
+                .isEqualTo(jsonValueOf("{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[DECIMAL '3.14', DECIMAL '0.01'], ARRAY[0.14, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"0.01\":null,\"3.14\":0.14}");
+                .isEqualTo(jsonValueOf("{\"0.01\":null,\"3.14\":0.14}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[DECIMAL '12345678901234567890.1234567890666666', DECIMAL '0.0'], ARRAY[666666, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"0.0000000000000000\":null,\"12345678901234567890.1234567890666666\":666666}");
+                .isEqualTo(jsonValueOf("{\"0.0000000000000000\":null,\"12345678901234567890.1234567890666666\":666666}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY['a', 'bb', 'ccc'], ARRAY[1, 2, 3])"))
                 .hasType(JSON)
-                .isEqualTo("{\"a\":1,\"bb\":2,\"ccc\":3}");
+                .isEqualTo(jsonValueOf("{\"a\":1,\"bb\":2,\"ccc\":3}"));
 
         // Test value types
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], ARRAY[true, false, null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":true,\"2\":false,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":true,\"2\":false,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], cast(ARRAY[5, 8, null] as ARRAY(TINYINT)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":5,\"2\":8,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":5,\"2\":8,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], cast(ARRAY[12345, -12345, null] as ARRAY(SMALLINT)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":12345,\"2\":-12345,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":12345,\"2\":-12345,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], cast(ARRAY[123456789, -123456789, null] as ARRAY(INTEGER)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":123456789,\"2\":-123456789,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":123456789,\"2\":-123456789,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], cast(ARRAY[1234567890123456789, -1234567890123456789, null] as ARRAY(BIGINT)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":1234567890123456789,\"2\":-1234567890123456789,\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":1234567890123456789,\"2\":-1234567890123456789,\"3\":null}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8], CAST(ARRAY[3.14E0, nan(), infinity(), -infinity(), null] as ARRAY(REAL)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"2\":\"NaN\",\"3\":\"Infinity\",\"5\":\"-Infinity\",\"8\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":3.14,\"2\":\"NaN\",\"3\":\"Infinity\",\"5\":\"-Infinity\",\"8\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
+                .isEqualTo(jsonValueOf("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1E+308,\"5\":\"NaN\",\"8\":\"Infinity\"}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"2\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":3.14,\"2\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '12345678901234567890.123456789012345678', null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":12345678901234567890.123456789012345678,\"2\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":12345678901234567890.123456789012345678,\"2\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3], ARRAY['a', 'bb', null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":\"a\",\"2\":\"bb\",\"3\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":\"a\",\"2\":\"bb\",\"3\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21, 34], ARRAY[JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}");
+                .isEqualTo(jsonValueOf("{\"1\":123,\"13\":{\"a\":1,\"b\":\"str\",\"c\":null},\"2\":3.14,\"21\":null,\"3\":false,\"34\":null,\"5\":\"abc\",\"8\":[1,\"a\",null]}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '1970-01-01 00:00:01', null])"))
                 .hasType(JSON)
-                .isEqualTo(format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo(jsonValueOf(format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0))));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"2\":\"2001-08-22\",\"3\":null,\"5\":\"2001-08-23\"}");
+                .isEqualTo(jsonValueOf("{\"2\":\"2001-08-22\",\"3\":null,\"5\":\"2001-08-23\"}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8], ARRAY[ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":[1,2],\"2\":[3,null],\"3\":[],\"5\":[null,null],\"8\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":[1,2],\"2\":[3,null],\"3\":[],\"5\":[null,null],\"8\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 8, 5, 3], ARRAY[MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":{\"a\":1,\"b\":2},\"2\":{\"none\":null,\"three\":3},\"3\":null,\"5\":{\"h1\":null,\"h2\":null},\"8\":{}}");
+                .isEqualTo(jsonValueOf("{\"1\":{\"a\":1,\"b\":2},\"2\":{\"none\":null,\"three\":3},\"3\":null,\"5\":{\"h1\":null,\"h2\":null},\"8\":{}}"));
 
         assertThat(assertions.expression("cast(a AS JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5], ARRAY[ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":{\"\":1,\"\":2},\"2\":{\"\":3,\"\":null},\"3\":{\"\":null,\"\":null},\"5\":null}");
+                .isEqualTo(jsonValueOf("{\"1\":{\"\":1,\"\":2},\"2\":{\"\":3,\"\":null},\"3\":{\"\":null,\"\":null},\"5\":null}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1.0, 383838383838383.12324234234234], ARRAY[2.2, 3.3])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.00000000000000\":2.2,\"383838383838383.12324234234234\":3.3}");
+                .isEqualTo(jsonValueOf("{\"1.00000000000000\":2.2,\"383838383838383.12324234234234\":3.3}"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1.0], ARRAY[2.2])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.0\":2.2}");
+                .isEqualTo(jsonValueOf("{\"1.0\":2.2}"));
     }
 
     @Test
@@ -570,20 +570,20 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, VARCHAR))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
-                        asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null)));
+                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
 
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}'"))
                 .hasType(mapType(VARCHAR, JSON))
                 .isEqualTo(ImmutableMap.builder()
-                        .put("k1", "5")
-                        .put("k2", "3.14")
-                        .put("k3", "[1,2,3]")
-                        .put("k4", "\"e\"")
-                        .put("k5", "{\"a\":\"b\"}")
-                        .put("k6", "null")
-                        .put("k7", "\"null\"")
-                        .put("k8", "[null]")
+                        .put("k1", jsonValueOf("5"))
+                        .put("k2", jsonValueOf("3.14"))
+                        .put("k3", jsonValueOf("[1,2,3]"))
+                        .put("k4", jsonValueOf("\"e\""))
+                        .put("k5", jsonValueOf("{\"a\":\"b\"}"))
+                        .put("k6", jsonValueOf("null"))
+                        .put("k7", jsonValueOf("\"null\""))
+                        .put("k8", jsonValueOf("[null]"))
                         .buildOrThrow());
 
         // These two tests verifies that partial json cast preserves input order
@@ -592,12 +592,12 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "JSON '{\"k1\": {\"1klmnopq\":1, \"2klmnopq\":2, \"3klmnopq\":3, \"4klmnopq\":4, \"5klmnopq\":5, \"6klmnopq\":6, \"7klmnopq\":7}}'"))
                 .hasType(mapType(VARCHAR, JSON))
-                .isEqualTo(ImmutableMap.of("k1", "{\"1klmnopq\":1,\"2klmnopq\":2,\"3klmnopq\":3,\"4klmnopq\":4,\"5klmnopq\":5,\"6klmnopq\":6,\"7klmnopq\":7}"));
+                .isEqualTo(ImmutableMap.of("k1", jsonValueOf("{\"1klmnopq\":1,\"2klmnopq\":2,\"3klmnopq\":3,\"4klmnopq\":4,\"5klmnopq\":5,\"6klmnopq\":6,\"7klmnopq\":7}")));
 
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "unchecked_to_json('{\"k1\": {\"7klmnopq\":7, \"6klmnopq\":6, \"5klmnopq\":5, \"4klmnopq\":4, \"3klmnopq\":3, \"2klmnopq\":2, \"1klmnopq\":1}}')"))
                 .hasType(mapType(VARCHAR, JSON))
-                .isEqualTo(ImmutableMap.of("k1", "{\"7klmnopq\":7,\"6klmnopq\":6,\"5klmnopq\":5,\"4klmnopq\":4,\"3klmnopq\":3,\"2klmnopq\":2,\"1klmnopq\":1}"));
+                .isEqualTo(ImmutableMap.of("k1", jsonValueOf("{\"7klmnopq\":7,\"6klmnopq\":6,\"5klmnopq\":5,\"4klmnopq\":4,\"3klmnopq\":3,\"2klmnopq\":2,\"1klmnopq\":1}")));
 
         // nested array/map
         assertThat(assertions.expression("cast(a as MAP(BIGINT, ARRAY(BIGINT)))")
@@ -694,14 +694,15 @@ public class TestMapOperators
                 .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
+        // JSON object member order is preserved (typed-item model) rather than sorted.
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"1\":1,\"01\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"1\":1,\"01\":2}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations
@@ -1911,5 +1912,10 @@ public class TestMapOperators
     private static Type entryType(Type keyType, Type valueType)
     {
         return new ArrayType(RowType.anonymous(ImmutableList.of(keyType, valueType)));
+    }
+
+    private static String jsonValueOf(String jsonText)
+    {
+        return jsonText;
     }
 }

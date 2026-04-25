@@ -86,6 +86,46 @@ public class TestJsonExistsFunction
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^z\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^a\" flag \"i\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"a\\nb\\nc\"', 'lax $ ? ($ like_regex \"^b$\" flag \"m\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"a\\nc\"', 'lax $ ? ($ like_regex \"a.*c\" flag \"s\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"abc\"', 'lax $ ? ($ like_regex \"a b c\" flag \"x\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"abc\"', 'lax $ ? ($ like_regex \"a.c\" flag \"q\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\" flag \"z\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex flags in JSON path: invalid XQuery regular expression flag: z");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\" flag \"ii\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex flags in JSON path: duplicate XQuery regular expression flag: i");
     }
 
     @Test
@@ -99,6 +139,14 @@ public class TestJsonExistsFunction
         // FORMAT JSON is the only supported format for character string input
         assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
                 .matches("VALUES true");
 
         assertThat(assertions.query(
@@ -192,6 +240,14 @@ public class TestJsonExistsFunction
         // JSON parameter
         assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
                 .matches("VALUES true");
 
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause

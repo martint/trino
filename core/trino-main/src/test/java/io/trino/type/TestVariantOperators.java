@@ -480,7 +480,7 @@ class TestVariantOperators
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofTimeMicrosNtz(epochMicros))))
-                .isEqualTo("\"22:23:24.123456\"");
+                .isEqualTo(jsonValueOf("\"22:23:24.123456\""));
 
         assertCastFromVariant(Variant.ofTimeMicrosNtz(epochMicros), "TIME(3)", SqlTime.newInstance(3, (epochMicros / 1_000L) * 1_000_000_000L));
 
@@ -672,106 +672,106 @@ class TestVariantOperators
         // STRING → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofString("hello"))))
-                .isEqualTo("\"hello\"");
+                .isEqualTo(jsonValueOf("\"hello\""));
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofString("emoji 😊"))))
-                .isEqualTo("\"emoji 😊\"");
+                .isEqualTo(jsonValueOf("\"emoji 😊\""));
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofString("中文字符"))))
-                .isEqualTo("\"中文字符\"");
+                .isEqualTo(jsonValueOf("\"中文字符\""));
 
         // BOOLEAN → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofBoolean(true))))
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofBoolean(false))))
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
 
         // TINYINT → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofByte((byte) 5))))
-                .isEqualTo("5");
+                .isEqualTo(jsonValueOf("5"));
 
         // SMALLINT → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofShort((short) -7))))
-                .isEqualTo("-7");
+                .isEqualTo(jsonValueOf("-7"));
 
         // INTEGER → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofInt(123_456))))
-                .isEqualTo("123456");
+                .isEqualTo(jsonValueOf("123456"));
 
         // BIGINT → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofLong(1234L))))
-                .isEqualTo("1234");
+                .isEqualTo(jsonValueOf("1234"));
 
         // DECIMAL → JSON
         BigDecimal decimal = new BigDecimal("1234.50");
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofDecimal(decimal))))
-                .isEqualTo("1234.50");
+                .isEqualTo(jsonValueOf("1234.50"));
 
         // REAL → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofFloat(1.5f))))
-                .isEqualTo("1.5");
+                .isEqualTo(jsonValueOf("1.5"));
 
         // DOUBLE → JSON
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofDouble(1.5d))))
-                .isEqualTo("1.5");
+                .isEqualTo(jsonValueOf("1.5"));
 
         // DATE → JSON (string)
         LocalDate date = LocalDate.of(2024, 10, 24);
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofDate(date))))
-                .isEqualTo("\"2024-10-24\"");
+                .isEqualTo(jsonValueOf("\"2024-10-24\""));
 
         // TIMESTAMP_MICROS_NTZ → JSON (string)
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(
                         Variant.ofTimestampMicrosNtz(LocalDateTime.parse("2024-10-24T12:34:56.123456")))))
-                .isEqualTo("\"2024-10-24 12:34:56.123456\"");
+                .isEqualTo(jsonValueOf("\"2024-10-24 12:34:56.123456\""));
 
         // TIMESTAMP_MICROS_UTC → JSON (string with zone)
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(
                         Variant.ofTimestampMicrosUtc(Instant.parse("2024-10-24T12:34:56.123456Z")))))
-                .isEqualTo("\"2024-10-24 12:34:56.123456 UTC\"");
+                .isEqualTo(jsonValueOf("\"2024-10-24 12:34:56.123456 UTC\""));
 
         // TIMESTAMP_NANOS_NTZ → JSON (string)
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(
                         Variant.ofTimestampNanosNtz(LocalDateTime.parse("2024-10-24T12:34:56.123456789")))))
-                .isEqualTo("\"2024-10-24 12:34:56.123456789\"");
+                .isEqualTo(jsonValueOf("\"2024-10-24 12:34:56.123456789\""));
 
         // TIMESTAMP_NANOS_UTC → JSON (string with zone)
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(
                         Variant.ofTimestampNanosUtc(Instant.parse("2024-10-24T12:34:56.123456789Z")))))
-                .isEqualTo("\"2024-10-24 12:34:56.123456789 UTC\"");
+                .isEqualTo(jsonValueOf("\"2024-10-24 12:34:56.123456789 UTC\""));
 
         // UUID → JSON (string)
         UUID uuid = UUID.fromString("123e4567-e89b-12d3-a456-426655440000");
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofUuid(uuid))))
-                .isEqualTo("\"123e4567-e89b-12d3-a456-426655440000\"");
+                .isEqualTo(jsonValueOf("\"123e4567-e89b-12d3-a456-426655440000\""));
 
         // BINARY → JSON (base64 string of "abc" → "YWJj")
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.ofBinary(utf8Slice("abc")))))
-                .isEqualTo("\"YWJj\"");
+                .isEqualTo(jsonValueOf("\"YWJj\""));
 
         // ARRAY → JSON
         // Adjust to your actual array-construction helper if different
         Variant arrayVariant = Variant.ofArray(List.of(Variant.ofInt(1), Variant.ofString("two")));
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(arrayVariant)))
-                .isEqualTo("[1,\"two\"]");
+                .isEqualTo(jsonValueOf("[1,\"two\"]"));
 
         // OBJECT → JSON
         // Adjust to your actual object-construction helper if different
@@ -780,12 +780,12 @@ class TestVariantOperators
                 utf8Slice("b"), Variant.ofString("two")));
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(objectVariant)))
-                .isEqualTo("{\"a\":1,\"b\":\"two\"}");
+                .isEqualTo(jsonValueOf("{\"a\":1,\"b\":\"two\"}"));
 
         // VARIANT primitive NULL → JSON 'null' (as a JSON value, not SQL NULL)
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", toVariantLiteral(Variant.NULL_VALUE)))
-                .isEqualTo("null");
+                .isEqualTo(jsonValueOf("null"));
     }
 
     @Test
@@ -823,22 +823,22 @@ class TestVariantOperators
         // Simple array
         assertThat(assertions.expression("CAST(CAST(a AS VARIANT) AS JSON)")
                 .binding("a", "JSON '[1, 2, 3]'"))
-                .isEqualTo("[1,2,3]");
+                .isEqualTo(jsonValueOf("[1,2,3]"));
 
         // Nested arrays and objects
         assertThat(assertions.expression("CAST(CAST(a AS VARIANT) AS JSON)")
                 .binding("a", "JSON '{\"a\": [1, {\"b\": true}], \"c\": null}'"))
-                .isEqualTo("{\"a\":[1,{\"b\":true}],\"c\":null}");
+                .isEqualTo(jsonValueOf("{\"a\":[1,{\"b\":true}],\"c\":null}"));
 
         // Empty array
         assertThat(assertions.expression("CAST(CAST(a AS VARIANT) AS JSON)")
                 .binding("a", "JSON '[]'"))
-                .isEqualTo("[]");
+                .isEqualTo(jsonValueOf("[]"));
 
         // Empty object
         assertThat(assertions.expression("CAST(CAST(a AS VARIANT) AS JSON)")
                 .binding("a", "JSON '{}'"))
-                .isEqualTo("{}");
+                .isEqualTo(jsonValueOf("{}"));
     }
 
     @Test
@@ -930,7 +930,7 @@ class TestVariantOperators
         // Also round-trip JSON -> VARIANT -> JSON structurally
         assertThat(assertions.expression("CAST(CAST(a AS VARIANT) AS JSON)")
                 .binding("a", "JSON '%s'".formatted(json.replace("'", "''"))))
-                .isEqualTo("{\"e\":2,\"é\":1,\"Ω\":3}");
+                .isEqualTo(jsonValueOf("{\"e\":2,\"é\":1,\"Ω\":3}"));
     }
 
     @Test
@@ -971,7 +971,7 @@ class TestVariantOperators
         Variant jsonArrayVariant = Variant.ofArray(List.of(Variant.ofInt(1), Variant.ofString("two")));
         assertThat(assertions.expression("cast(cast(a as ARRAY<JSON>) as JSON)")
                 .binding("a", toVariantLiteral(jsonArrayVariant)))
-                .isEqualTo("[1,\"two\"]");
+                .isEqualTo(jsonValueOf("[1,\"two\"]"));
     }
 
     @Test
@@ -1525,5 +1525,10 @@ class TestVariantOperators
             this(fieldId, variant.data());
             assertThat(variant.metadata()).isEqualTo(Metadata.EMPTY_METADATA);
         }
+    }
+
+    private static String jsonValueOf(String jsonText)
+    {
+        return jsonText;
     }
 }

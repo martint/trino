@@ -107,7 +107,7 @@ public class TestRowOperators
     @SqlType(StandardTypes.JSON)
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return io.trino.type.JsonType.jsonValue(slice);
     }
 
     @Test
@@ -129,103 +129,103 @@ public class TestRowOperators
         assertThat(assertions.expression("CAST(a as json)")
                 .binding("a", "ROW(null, null)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":null,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":null,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(true, false, null)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":true,\"\":false,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":true,\"\":false,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ROW(12, 12345, 123456789, 1234567890123456789, null, null, null, null) as ROW(TINYINT, SMALLINT, INTEGER, BIGINT, TINYINT, SMALLINT, INTEGER, BIGINT))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":12,\"\":12345,\"\":123456789,\"\":1234567890123456789,\"\":null,\"\":null,\"\":null,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":12,\"\":12345,\"\":123456789,\"\":1234567890123456789,\"\":null,\"\":null,\"\":null,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(CAST(3.14E0 as REAL), 3.1415E0, 1e308, DECIMAL '3.14', DECIMAL '12345678901234567890.123456789012345678', CAST(null AS REAL), CAST(null AS DOUBLE), CAST(null AS DECIMAL))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":3.14,\"\":3.1415,\"\":1.0E308,\"\":3.14,\"\":12345678901234567890.123456789012345678,\"\":null,\"\":null,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":3.14,\"\":3.1415,\"\":1E+308,\"\":3.14,\"\":12345678901234567890.123456789012345678,\"\":null,\"\":null,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW('a', 'bb', CAST(null as VARCHAR), JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', CAST(null AS JSON))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":\"a\",\"\":\"bb\",\"\":null,\"\":123,\"\":3.14,\"\":false,\"\":\"abc\",\"\":[1,\"a\",null],\"\":{\"a\":1,\"b\":\"str\",\"c\":null},\"\":null,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":\"a\",\"\":\"bb\",\"\":null,\"\":123,\"\":3.14,\"\":false,\"\":\"abc\",\"\":[1,\"a\",null],\"\":{\"a\":1,\"b\":\"str\",\"c\":null},\"\":null,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(DATE '2001-08-22', DATE '2001-08-23', null)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":\"2001-08-22\",\"\":\"2001-08-23\",\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":\"2001-08-22\",\"\":\"2001-08-23\",\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(TIMESTAMP '1970-01-01 00:00:01', CAST(null as TIMESTAMP))"))
                 .hasType(JSON)
-                .isEqualTo(format("{\"\":\"%s\",\"\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+                .isEqualTo(jsonValueOf(format("{\"\":\"%s\",\"\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0))));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null as ARRAY(BIGINT)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":[1,2],\"\":[3,null],\"\":[],\"\":[null,null],\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":[1,2],\"\":[3,null],\"\":[],\"\":[null,null],\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(MAP(ARRAY['b', 'a'], ARRAY[2, 1]), MAP(ARRAY['three', 'none'], ARRAY[3, null]), MAP(), MAP(ARRAY['h2', 'h1'], ARRAY[null, null]), CAST(NULL as MAP(VARCHAR, BIGINT)))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":{\"a\":1,\"b\":2},\"\":{\"none\":null,\"three\":3},\"\":{},\"\":{\"h1\":null,\"h2\":null},\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":{\"a\":1,\"b\":2},\"\":{\"none\":null,\"three\":3},\"\":{},\"\":{\"h1\":null,\"h2\":null},\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(ROW(1, 2), ROW(3, CAST(null as INTEGER)), CAST(ROW(null, null) AS ROW(INTEGER, INTEGER)), null)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":{\"\":1,\"\":2},\"\":{\"\":3,\"\":null},\"\":{\"\":null,\"\":null},\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":{\"\":1,\"\":2},\"\":{\"\":3,\"\":null},\"\":{\"\":null,\"\":null},\"\":null}"));
 
         // other miscellaneous tests
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(1, 2)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1,\"\":2}");
+                .isEqualTo(jsonValueOf("{\"\":1,\"\":2}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "CAST(ROW(1, 2) as ROW(a BIGINT, b BIGINT))"))
                 .hasType(JSON)
-                .isEqualTo("{\"a\":1,\"b\":2}");
+                .isEqualTo(jsonValueOf("{\"a\":1,\"b\":2}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(1, NULL)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":1,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(1, CAST(NULL as INTEGER))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1,\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":1,\"\":null}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(1, 2.0E0)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1,\"\":2.0}");
+                .isEqualTo(jsonValueOf("{\"\":1,\"\":2.0}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(1.0E0, 2.5E0)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1.0,\"\":2.5}");
+                .isEqualTo(jsonValueOf("{\"\":1.0,\"\":2.5}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(1.0E0, 'kittens')"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1.0,\"\":\"kittens\"}");
+                .isEqualTo(jsonValueOf("{\"\":1.0,\"\":\"kittens\"}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(TRUE, FALSE)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":true,\"\":false}");
+                .isEqualTo(jsonValueOf("{\"\":true,\"\":false}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "ROW(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":false,\"\":[1,2],\"\":{\"1\":2.0,\"3\":4.0}}");
+                .isEqualTo(jsonValueOf("{\"\":false,\"\":[1,2],\"\":{\"1\":2.0,\"3\":4.0}}"));
 
         assertThat(assertions.expression("CAST(a as JSON)")
                 .binding("a", "row(1.0, 123123123456.6549876543)"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":1.0,\"\":123123123456.6549876543}");
+                .isEqualTo(jsonValueOf("{\"\":1.0,\"\":123123123456.6549876543}"));
     }
 
     @Test
@@ -394,7 +394,7 @@ public class TestRowOperators
         assertThat(assertions.expression("CAST(a as ROW(VARCHAR, JSON, VARCHAR, JSON))")
                 .binding("a", "JSON '[\"puppies\", [1, 2, 3], null, null]'"))
                 .hasType(RowType.anonymous(ImmutableList.of(VARCHAR, JSON, VARCHAR, JSON)))
-                .isEqualTo(asList("puppies", "[1,2,3]", null, "null"));
+                .isEqualTo(asList("puppies", jsonValueOf("[1,2,3]"), null, jsonValueOf("null")));
 
         assertThat(assertions.expression("CAST(a AS ROW(varchar_value VARCHAR, json_value_field JSON, varchar_null VARCHAR, json_null JSON))")
                 .binding("a", "JSON '{\"varchar_value\": \"puppies\", \"json_value_field\": [1, 2, 3], \"varchar_null\": null, \"json_null\": null}'"))
@@ -403,7 +403,7 @@ public class TestRowOperators
                         RowType.field("json_value_field", JSON),
                         RowType.field("varchar_null", VARCHAR),
                         RowType.field("json_null", JSON))))
-                .isEqualTo(asList("puppies", "[1,2,3]", null, "null"));
+                .isEqualTo(asList("puppies", jsonValueOf("[1,2,3]"), null, jsonValueOf("null")));
 
         // nested array/map/row
         assertThat(assertions.expression("CAST(a AS ROW(ARRAY(BIGINT), ARRAY(BIGINT), ARRAY(BIGINT), MAP(VARCHAR, BIGINT), MAP(VARCHAR, BIGINT), MAP(VARCHAR, BIGINT), ROW(BIGINT, BIGINT, BIGINT, BIGINT), ROW(BIGINT),ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT), ROW(nothing BIGINT)))")
@@ -1024,5 +1024,10 @@ public class TestRowOperators
                     .binding("b", base))
                     .isEqualTo(greaterOrInequalityOperators.contains(operator));
         }
+    }
+
+    private static String jsonValueOf(String jsonText)
+    {
+        return jsonText;
     }
 }

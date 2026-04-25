@@ -106,6 +106,52 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonScalar()
+    {
+        assertThat(assertions.function("json_scalar", "null"))
+                .hasType(JSON)
+                .isEqualTo("null");
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        // TIME/TIMESTAMP with time zone and TIMESTAMP without time zone flow through typed encoding,
+        // so verify via JSON text comparison rather than constructing matching TypedValue literals.
+        assertThat(assertions.query("SELECT json_format(json_scalar(TIME '03:04:05.123 +08:00'))"))
+                .matches("VALUES VARCHAR '\"03:04:05.123+08:00\"'");
+
+        assertThat(assertions.query("SELECT json_format(json_scalar(TIMESTAMP '2024-01-02 03:04:05.123'))"))
+                .matches("VALUES VARCHAR '\"2024-01-02 03:04:05.123\"'");
+
+        assertThat(assertions.query("SELECT json_format(json_scalar(TIMESTAMP '2024-01-02 03:04:05.123 UTC'))"))
+                .matches("VALUES VARCHAR '\"2024-01-02 03:04:05.123 UTC\"'");
+
+        assertThat(assertions.query("SELECT json_scalar(DATE '2024-01-02') = JSON '\"2024-01-02\"'"))
+                .matches("VALUES false");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Cannot construct a JSON scalar from array(integer)");
+    }
+
+    @Test
     public void testJsonArrayLength()
     {
         assertThat(assertions.function("json_array_length", "'[]'"))
@@ -394,15 +440,15 @@ public class TestJsonFunctions
     {
         assertThat(assertions.function("json_array_get", "'[1]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("1");
+                .isEqualTo(jsonValueOf("1"));
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("7");
+                .isEqualTo(jsonValueOf("7"));
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "6"))
                 .hasType(JSON)
-                .isEqualTo("0");
+                .isEqualTo(jsonValueOf("0"));
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -412,30 +458,30 @@ public class TestJsonFunctions
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("0");
+                .isEqualTo(jsonValueOf("0"));
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-2"))
                 .hasType(JSON)
-                .isEqualTo("1");
+                .isEqualTo(jsonValueOf("1"));
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-7"))
                 .hasType(JSON)
-                .isEqualTo("2");
+                .isEqualTo(jsonValueOf("2"));
 
         assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-8"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[1]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("1");
+                .isEqualTo(jsonValueOf("1"));
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("7");
+                .isEqualTo(jsonValueOf("7"));
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "6"))
                 .hasType(JSON)
-                .isEqualTo("0");
+                .isEqualTo(jsonValueOf("0"));
 
         assertThat(assertions.function("json_array_get", "JSON '[]'", "0"))
                 .isNull(JSON);
@@ -445,15 +491,15 @@ public class TestJsonFunctions
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("0");
+                .isEqualTo(jsonValueOf("0"));
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-2"))
                 .hasType(JSON)
-                .isEqualTo("1");
+                .isEqualTo(jsonValueOf("1"));
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-7"))
                 .hasType(JSON)
-                .isEqualTo("2");
+                .isEqualTo(jsonValueOf("2"));
 
         assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-8"))
                 .isNull(JSON);
@@ -480,39 +526,40 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayGetString()
     {
+        // String elements are returned in their JSON form (quoted) so the result is valid JSON.
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -532,37 +579,37 @@ public class TestJsonFunctions
     {
         assertThat(assertions.function("json_array_get", "'[3.14]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.function("json_array_get", "'[3.14, null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[1.12, 3.54, 2.89]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("3.54");
+                .isEqualTo(jsonValueOf("3.54"));
 
         assertThat(assertions.function("json_array_get", "'[0.58, 9.7, 7.6, 11.2, 5.02]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("5.02");
+                .isEqualTo(jsonValueOf("5.02"));
 
         assertThat(assertions.function("json_array_get", "JSON '[3.14]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("3.14");
+                .isEqualTo(jsonValueOf("3.14"));
 
         assertThat(assertions.function("json_array_get", "JSON '[3.14, null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[1.12, 3.54, 2.89]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("3.54");
+                .isEqualTo(jsonValueOf("3.54"));
 
         assertThat(assertions.function("json_array_get", "JSON '[0.58, 9.7, 7.6, 11.2, 5.02]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("5.02");
+                .isEqualTo(jsonValueOf("5.02"));
 
         assertThat(assertions.function("json_array_get", "'[1.0]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("1.0");
+                .isEqualTo(jsonValueOf("1.0"));
 
         assertThat(assertions.function("json_array_get", "'[1.0]'", "null"))
                 .isNull(JSON);
@@ -573,37 +620,37 @@ public class TestJsonFunctions
     {
         assertThat(assertions.function("json_array_get", "'[true]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
 
         assertThat(assertions.function("json_array_get", "'[true, null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[false, false, true]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
 
         assertThat(assertions.function("json_array_get", "'[true, false, false, true, true, false]'", "5"))
                 .hasType(JSON)
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
 
         assertThat(assertions.function("json_array_get", "JSON '[true]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
 
         assertThat(assertions.function("json_array_get", "JSON '[true, null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[false, false, true]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
 
         assertThat(assertions.function("json_array_get", "JSON '[true, false, false, true, true, false]'", "5"))
                 .hasType(JSON)
-                .isEqualTo("false");
+                .isEqualTo(jsonValueOf("false"));
 
         assertThat(assertions.function("json_array_get", "'[true]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("true");
+                .isEqualTo(jsonValueOf("true"));
     }
 
     @Test
@@ -611,31 +658,31 @@ public class TestJsonFunctions
     {
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("{\"hello\":\"world\"}");
+                .isEqualTo(jsonValueOf("{\"hello\":\"world\"}"));
 
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, [1,2,3]]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("[1,2,3]");
+                .isEqualTo(jsonValueOf("[1,2,3]"));
 
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, [1,2, {\"x\" : 2} ]]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("[1,2,{\"x\":2}]");
+                .isEqualTo(jsonValueOf("[1,2,{\"x\":2}]"));
 
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("{\"a\":[{\"x\":99}]}");
+                .isEqualTo(jsonValueOf("{\"a\":[{\"x\":99}]}"));
 
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("{\"a\":[{\"x\":99}]}");
+                .isEqualTo(jsonValueOf("{\"a\":[{\"x\":99}]}"));
 
         assertThat(assertions.function("json_array_get", "'[{\"hello\": null}]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("{\"hello\":null}");
+                .isEqualTo(jsonValueOf("{\"hello\":null}"));
 
         assertThat(assertions.function("json_array_get", "'[{\"\":\"\"}]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":\"\"}");
+                .isEqualTo(jsonValueOf("{\"\":\"\"}"));
 
         assertThat(assertions.function("json_array_get", "'[{null:null}]'", "0"))
                 .isNull(JSON);
@@ -645,11 +692,11 @@ public class TestJsonFunctions
 
         assertThat(assertions.function("json_array_get", "'[{\"\":null}]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":null}"));
 
         assertThat(assertions.function("json_array_get", "'[{\"\":null}]'", "-1"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":null}");
+                .isEqualTo(jsonValueOf("{\"\":null}"));
     }
 
     @Test
@@ -764,5 +811,10 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'null'")::evaluate)
                 .hasMessage("Invalid JSON path: 'null'");
+    }
+
+    private static String jsonValueOf(String jsonText)
+    {
+        return jsonText;
     }
 }

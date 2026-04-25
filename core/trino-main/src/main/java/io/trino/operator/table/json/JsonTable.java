@@ -13,7 +13,6 @@
  */
 package io.trino.operator.table.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -45,7 +44,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -156,7 +155,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                io.trino.type.JsonType.toPathItem((io.airlift.slice.Slice) readNativeValue(JSON, inputPage.getBlock(0), currentPosition)),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
@@ -180,7 +179,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                io.trino.type.JsonType.toPathItem((io.airlift.slice.Slice) readNativeValue(JSON, inputPage.getBlock(0), currentPosition)),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));

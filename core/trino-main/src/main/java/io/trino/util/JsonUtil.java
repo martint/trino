@@ -20,8 +20,12 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.operator.scalar.time.TimeOperators;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -40,7 +44,9 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
@@ -48,7 +54,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -99,6 +108,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.jsonValue;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
@@ -147,16 +157,18 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
+        Slice jsonText = JsonType.jsonText(json);
+
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass java.io.Reader or an InputStreamReader instead.
         // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
         // is still valid for small inputs.
-        if (json.length() < STRING_READER_LENGTH_LIMIT) {
+        if (jsonText.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return mapper.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.createParser(Reader.of(jsonText.toStringUtf8()));
         }
 
-        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(jsonText.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
@@ -165,12 +177,27 @@ public final class JsonUtil
         return mapper.createGenerator((OutputStream) output);
     }
 
+    public static Slice createJsonString(String value)
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(value.length() + 2);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPED_UNORDERED, output)) {
+                jsonGenerator.writeString(value);
+            }
+            return jsonValue(output.slice());
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON), e);
+        }
+    }
+
     public static String truncateIfNecessaryForErrorMessage(Slice json)
     {
-        if (json.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
-            return json.toStringUtf8();
+        Slice jsonText = JsonType.jsonText(json);
+        if (jsonText.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
+            return jsonText.toStringUtf8();
         }
-        return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
+        return jsonText.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
     }
 
     public static boolean canCastToJson(Type type)
@@ -187,7 +214,10 @@ public final class JsonUtil
                 type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
+                type instanceof TimeType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof DateType) {
             return true;
         }
@@ -331,8 +361,17 @@ public final class JsonUtil
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
             }
+            if (type instanceof TimeType timeType) {
+                return new TimeJsonGeneratorWriter(timeType);
+            }
+            if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+                return new TimeWithTimeZoneJsonGeneratorWriter(timeWithTimeZoneType);
+            }
             if (type instanceof TimestampType timestampType) {
                 return new TimestampJsonGeneratorWriter(timestampType);
+            }
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+                return new TimestampWithTimeZoneJsonGeneratorWriter(timestampWithTimeZoneType);
             }
             if (type instanceof DateType) {
                 return new DateGeneratorWriter();
@@ -553,8 +592,57 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Slice value = JSON.getSlice(block, position);
+                Slice value = JsonType.jsonText(JSON.getSlice(block, position));
                 jsonGenerator.writeRawValue(value.toStringUtf8());
+            }
+        }
+    }
+
+    private static class TimeJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimeType type;
+
+        public TimeJsonGeneratorWriter(TimeType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                jsonGenerator.writeString(TimeOperators.castToVarchar(Integer.MAX_VALUE, type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+        }
+    }
+
+    private static class TimeWithTimeZoneJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimeWithTimeZoneType type;
+
+        public TimeWithTimeZoneJsonGeneratorWriter(TimeWithTimeZoneType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else if (type.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+                jsonGenerator.writeString(TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+            else {
+                jsonGenerator.writeString(TimeWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimeWithTimeZone) type.getObject(block, position)).toStringUtf8());
             }
         }
     }
@@ -591,6 +679,32 @@ public final class JsonUtil
                 }
 
                 jsonGenerator.writeString(formatTimestamp(type.getPrecision(), epochMicros, fraction, UTC));
+            }
+        }
+    }
+
+    private static class TimestampWithTimeZoneJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final TimestampWithTimeZoneType type;
+
+        public TimestampWithTimeZoneJsonGeneratorWriter(TimestampWithTimeZoneType type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else if (type.getPrecision() <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                jsonGenerator.writeString(TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), type.getLong(block, position)).toStringUtf8());
+            }
+            else {
+                jsonGenerator.writeString(TimestampWithTimeZoneToVarcharCast.cast(type.getPrecision(), (LongTimestampWithTimeZone) type.getObject(block, position)).toStringUtf8());
             }
         }
     }
@@ -721,14 +835,37 @@ public final class JsonUtil
     }
 
     // utility classes and functions for cast from JSON
+    /**
+     * Renders a parsed JSON number as VARCHAR, matching how the typed-item JSON→VARCHAR
+     * cast paths render values: values that fit DECIMAL(38) use plain decimal notation
+     * (preserving trailing zeros); values outside that range fall back to NumberType
+     * rendering (stripped + scientific notation via {@link BigDecimal#toString()}).
+     */
+    private static String renderBigDecimalAsVarchar(BigDecimal value)
+    {
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+        int precision = Math.max(value.precision(), value.scale());
+        if (precision > io.trino.spi.type.Decimals.MAX_PRECISION) {
+            // NUMBER fallback: mirror TrinoNumber.toString → BigDecimal.toString (scientific for extreme magnitudes)
+            return value.stripTrailingZeros().toString();
+        }
+        return value.toPlainString();
+    }
+
     public static Slice currentTokenAsVarchar(JsonParser parser)
             throws IOException
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> utf8Slice(parser.getText());
-            // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
+            // NaN and Infinity can't be represented as BigDecimal, fall back to DOUBLE rendering there.
+            // Otherwise, render via BigDecimal so precision and trailing zeros survive - matching how the typed JSON
+            // path renders numbers.
+            case VALUE_NUMBER_FLOAT -> parser.isNaN()
+                    ? DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue())
+                    : utf8Slice(renderBigDecimalAsVarchar(parser.getDecimalValue()));
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
             case VALUE_NUMBER_INT -> utf8Slice(parser.getText());

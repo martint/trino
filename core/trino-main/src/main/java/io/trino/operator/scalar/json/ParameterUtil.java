@@ -13,12 +13,16 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.node.NullNode;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonPathItem;
+import io.trino.json.JsonPathParameter;
+import io.trino.json.JsonValueView;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.type.Json2016Type;
+import io.trino.type.JsonType;
 
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -41,29 +45,35 @@ public final class ParameterUtil
      * @param parametersRow a row containing parameters
      * @return an array containing the converted values
      */
-    public static Object[] getParametersArray(Type parametersRowType, SqlRow parametersRow)
+    public static JsonPathItem[] getParametersArray(Type parametersRowType, SqlRow parametersRow)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
-            return new Object[] {};
+            return new JsonPathItem[] {};
         }
 
         RowType rowType = (RowType) parametersRowType;
         int rawIndex = parametersRow.getRawIndex();
 
-        Object[] array = new Object[rowType.getFields().size()];
+        JsonPathItem[] array = new JsonPathItem[rowType.getFields().size()];
         for (int i = 0; i < rowType.getFields().size(); i++) {
             Type type = rowType.getFields().get(i).getType();
             Object value = readNativeValue(type, parametersRow.getRawFieldBlock(i), rawIndex);
-            if (type.equals(Json2016Type.JSON_2016)) {
+            if (type.equals(JsonType.JSON)) {
                 if (value == null) {
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence
                 }
                 else {
-                    array[i] = value;
+                    JsonPathItem pathItem = JsonType.toPathItem((io.airlift.slice.Slice) value);
+                    if (pathItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
+                        array[i] = JsonValueView.jsonError();
+                    }
+                    else {
+                        array[i] = new JsonPathParameter(JsonItems.asJsonValue(pathItem));
+                    }
                 }
             }
             else if (value == null) {
-                array[i] = NullNode.getInstance(); // null as a non-JSON value shall produce a JSON null
+                array[i] = JsonNull.JSON_NULL; // null as a non-JSON value shall produce a JSON null
             }
             else {
                 array[i] = TypedValue.fromValueAsObject(type, value);

@@ -162,6 +162,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -870,7 +871,7 @@ public class PostgreSqlClient
             return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
+            return WriteMapping.sliceMapping("jsonb", jsonWriteFunction("json"));
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
@@ -1797,8 +1798,31 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                typedVarcharWriteFunction("json"),
+                jsonWriteFunction("json"),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction(String jdbcTypeName)
+    {
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String quotedJdbcTypeName = jdbcTypeName.startsWith("\"") && jdbcTypeName.endsWith("\"") ? jdbcTypeName : "\"%s\"".formatted(jdbcTypeName.replace("\"", "\"\""));
+        String bindExpression = format("CAST(? AS %s)", quotedJdbcTypeName);
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                statement.setString(index, jsonText(jsonType, value));
+            }
+        };
     }
 
     private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)

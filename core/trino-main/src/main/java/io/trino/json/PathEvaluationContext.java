@@ -25,14 +25,14 @@ public class PathEvaluationContext
     private final TypedValue last;
 
     // current item processed by the innermost enclosing filter
-    private final Object currentItem;
+    private final JsonPathItem currentItem;
 
     public PathEvaluationContext()
     {
         this(new TypedValue(INTEGER, -1), null);
     }
 
-    private PathEvaluationContext(TypedValue last, Object currentItem)
+    private PathEvaluationContext(TypedValue last, JsonPathItem currentItem)
     {
         this.last = last;
         this.currentItem = currentItem;
@@ -44,7 +44,7 @@ public class PathEvaluationContext
         return new PathEvaluationContext(new TypedValue(INTEGER, last), currentItem);
     }
 
-    public PathEvaluationContext withCurrentItem(Object currentItem)
+    public PathEvaluationContext withCurrentItem(JsonPathItem currentItem)
     {
         requireNonNull(currentItem, "currentItem is null");
         return new PathEvaluationContext(last, currentItem);
@@ -58,7 +58,7 @@ public class PathEvaluationContext
         return last;
     }
 
-    public Object getCurrentItem()
+    public JsonPathItem getCurrentItem()
     {
         if (currentItem == null) {
             throw new PathEvaluationException("accessing current filter item with no enclosing filter");
