@@ -244,7 +244,7 @@ public class JsonQueryFunction
         if (item instanceof MaterializedJsonValue jsonValue) {
             return encodedResult(jsonValue);
         }
-        throw new IllegalArgumentException(format("unexpected JSON path result item: %s", item.getClass().getName()));
+        throw new com.google.common.base.VerifyException(format("unexpected JSON path result item: %s", item.getClass().getName()));
     }
 
     private static boolean isArrayOrObject(JsonPathItem item)
