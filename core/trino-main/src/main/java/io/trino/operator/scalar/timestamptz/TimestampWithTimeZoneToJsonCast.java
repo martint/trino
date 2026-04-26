@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.scalar.timestamp;
+package io.trino.operator.scalar.timestamptz;
 
 import io.trino.json.JsonItemEncoding;
 import io.trino.json.TypedValue;
@@ -20,28 +20,28 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.JsonPayload;
-import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 
 @ScalarOperator(CAST)
-public final class TimestampToJsonCast
+public final class TimestampWithTimeZoneToJsonCast
 {
-    private TimestampToJsonCast() {}
+    private TimestampWithTimeZoneToJsonCast() {}
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static JsonPayload cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static JsonPayload cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long value)
     {
-        return JsonPayload.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
+        return JsonPayload.of(JsonItemEncoding.encode(new TypedValue(createTimestampWithTimeZoneType((int) precision), value)));
     }
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static JsonPayload cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static JsonPayload cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value)
     {
-        return JsonPayload.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
+        return JsonPayload.of(JsonItemEncoding.encode(new TypedValue(createTimestampWithTimeZoneType((int) precision), value)));
     }
 }

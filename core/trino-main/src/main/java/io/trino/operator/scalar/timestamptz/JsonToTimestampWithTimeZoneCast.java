@@ -1,0 +1,97 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.operator.scalar.timestamptz;
+
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.JsonNull;
+import io.trino.json.TypedValue;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.JsonPayload;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
+import static java.lang.String.format;
+
+@ScalarOperator(CAST)
+public final class JsonToTimestampWithTimeZoneCast
+{
+    private JsonToTimestampWithTimeZoneCast() {}
+
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("timestamp(p) with time zone")
+    public static Long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(JSON) JsonPayload json)
+    {
+        Slice text = textFromJson(json);
+        return text == null ? null : VarcharToTimestampWithTimeZoneCast.castToShort(precision, session, text);
+    }
+
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("timestamp(p) with time zone")
+    public static LongTimestampWithTimeZone castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(JSON) JsonPayload json)
+    {
+        Slice text = textFromJson(json);
+        return text == null ? null : VarcharToTimestampWithTimeZoneCast.castToLong(precision, session, text);
+    }
+
+    private static Slice textFromJson(JsonPayload json)
+    {
+        JsonItem item = JsonItemEncoding.decode(json.payload());
+        if (item == JsonNull.JSON_NULL) {
+            return null;
+        }
+        if (!(item instanceof TypedValue typed)) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to timestamp with time zone");
+        }
+        Type type = typed.getType();
+        return switch (type) {
+            case VarcharType _ -> (Slice) typed.getObjectValue();
+            case CharType charType -> Slices.utf8Slice(padSpaces((Slice) typed.getObjectValue(), charType).toStringUtf8());
+            case TimestampWithTimeZoneType timestampType -> {
+                String formatted;
+                if (timestampType.isShort()) {
+                    long packed = typed.getLongValue();
+                    formatted = formatTimestampWithTimeZone(timestampType.getPrecision(), unpackMillisUtc(packed), 0, unpackZoneKey(packed).getZoneId());
+                }
+                else {
+                    LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) typed.getObjectValue();
+                    formatted = formatTimestampWithTimeZone(timestampType.getPrecision(), value.getEpochMillis(), value.getPicosOfMilli(), TimeZoneKey.getTimeZoneKey(value.getTimeZoneKey()).getZoneId());
+                }
+                yield Slices.utf8Slice(formatted);
+            }
+            default -> throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SQL/JSON value of type %s to timestamp with time zone", type));
+        };
+    }
+}
