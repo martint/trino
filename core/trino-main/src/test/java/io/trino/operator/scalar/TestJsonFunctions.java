@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -103,6 +104,38 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1, 2] trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
+    public void testJsonScalar()
+    {
+        assertThat(assertions.function("json_scalar", "null"))
+                .hasType(JSON)
+                .isEqualTo("null");
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessageContaining("Unexpected parameters (array(integer)) for function json_scalar");
     }
 
     @Test
