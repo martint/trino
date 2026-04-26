@@ -51,4 +51,14 @@ public class TestJdbcResultSetCompatibilityOldDriver
             assertThat(e).hasMessageContaining("1970-01-01");
         }
     }
+
+    // Not @Override because the parent class only has this method on 481+ drivers — at older
+    // driver versions the annotation would fail to compile.
+    @SuppressWarnings("MissingOverride")
+    @Test
+    public void testJson()
+    {
+        // JsonColumnValue was introduced in 481; older drivers don't know how to convert to it.
+        throw new SkipException("JsonColumnValue is not available in older JDBC drivers");
+    }
 }
