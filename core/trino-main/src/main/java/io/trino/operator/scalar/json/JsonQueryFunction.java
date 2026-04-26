@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar.json;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -247,7 +248,7 @@ public class JsonQueryFunction
         if (item instanceof MaterializedJsonValue jsonValue) {
             return encodedResult(jsonValue);
         }
-        throw new IllegalArgumentException(format("unexpected JSON path result item: %s", item.getClass().getName()));
+        throw new VerifyException(format("unexpected JSON path result item: %s", item.getClass().getName()));
     }
 
     private static boolean isArrayOrObject(JsonPathItem item)

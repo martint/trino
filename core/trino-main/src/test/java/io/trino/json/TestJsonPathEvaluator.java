@@ -1581,11 +1581,13 @@ public class TestJsonPathEvaluator
 
     private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
     {
+        var session = testSessionBuilder().build().toConnectorSession();
         return new PathEvaluationVisitor(
                 lax,
                 (JsonPathItem) normalizeItem(input),
                 PARAMETERS.values().toArray(new JsonPathItem[0]),
-                new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
+                session,
+                new JsonPathEvaluator.Invoker(session, createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
     }
 
