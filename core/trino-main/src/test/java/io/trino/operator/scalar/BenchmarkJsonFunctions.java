@@ -188,7 +188,14 @@ public class BenchmarkJsonFunctions
     public static class BenchmarkData
     {
         @Param({"1", "3", "10"})
-        private int depth;
+        int depth;
+
+        /// Number of keys per object level. The path engine looks up "key{depth}" at each
+        /// level; the remaining width-1 keys are filler that exercise lookup cost. Width
+        /// >= INDEXED_CONTAINER_THRESHOLD (8) puts the encoded objects in OBJECT_INDEXED
+        /// form, where member lookup is O(log n) via binary search.
+        @Param({"1", "8", "32"})
+        int width;
 
         private Page page;
         private Page jsonPage;
@@ -202,7 +209,7 @@ public class BenchmarkJsonFunctions
         @Setup
         public void setup()
         {
-            GeneratedChannels channels = createChannels(POSITION_COUNT, depth);
+            GeneratedChannels channels = createChannels(POSITION_COUNT, depth, width);
             page = new Page(channels.varcharBlock());
             jsonPage = new Page(channels.jsonBlock());
 
@@ -381,25 +388,57 @@ public class BenchmarkJsonFunctions
                     .get();
         }
 
-        private static GeneratedChannels createChannels(int positionCount, int depth)
+        private static GeneratedChannels createChannels(int positionCount, int depth, int width)
         {
             BlockBuilder varcharBlockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
             BlockBuilder jsonBlockBuilder = JSON.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                SliceOutput slice = new DynamicSliceOutput(20);
-                for (int i = 1; i <= depth; i++) {
-                    slice.appendBytes(("{\"key" + i + "\" : ").getBytes(UTF_8));
-                }
-                slice.appendBytes(generateRandomJsonText().getBytes(UTF_8));
-                for (int i = 1; i <= depth; i++) {
-                    slice.appendByte('}');
-                }
-
-                Slice jsonText = slice.slice();
+                Slice jsonText = generateNestedObject(depth, width);
                 VARCHAR.writeSlice(varcharBlockBuilder, jsonText);
-                JSON.writeSlice(jsonBlockBuilder, jsonValue(jsonText));
+                // Materialized round-trip: parse the text into a JsonValue tree and re-encode.
+                // The materialized encoder emits OBJECT_INDEXED for objects with
+                // count >= INDEXED_CONTAINER_THRESHOLD (8), so the typed input genuinely
+                // exercises the indexed-form fast paths when width >= 8.
+                io.airlift.slice.Slice typed = io.trino.json.JsonItemEncoding.encode(
+                        io.trino.json.JsonItemEncoding.decode(jsonValue(jsonText)));
+                JSON.writeSlice(jsonBlockBuilder, typed);
             }
             return new GeneratedChannels(varcharBlockBuilder.build(), jsonBlockBuilder.build());
+        }
+
+        /// Generates a chain of `depth` nested objects, each with `width` keys. At every
+        /// level, "key{level}" is the one followed by the path; the remaining keys are
+        /// filler that the path-engine member lookup must walk past.
+        private static Slice generateNestedObject(int depth, int width)
+        {
+            SliceOutput slice = new DynamicSliceOutput(64);
+            buildLevel(slice, 1, depth, width);
+            return slice.slice();
+        }
+
+        private static void buildLevel(SliceOutput slice, int level, int depth, int width)
+        {
+            slice.appendByte('{');
+            // Filler keys before the path target so the lookup walks through them.
+            int targetIndex = ThreadLocalRandom.current().nextInt(width);
+            for (int i = 0; i < width; i++) {
+                if (i > 0) {
+                    slice.appendByte(',');
+                }
+                if (i == targetIndex) {
+                    slice.appendBytes(("\"key" + level + "\":").getBytes(UTF_8));
+                    if (level < depth) {
+                        buildLevel(slice, level + 1, depth, width);
+                    }
+                    else {
+                        slice.appendBytes(generateRandomJsonText().getBytes(UTF_8));
+                    }
+                }
+                else {
+                    slice.appendBytes(("\"filler" + i + "\":\"x\"").getBytes(UTF_8));
+                }
+            }
+            slice.appendByte('}');
         }
 
         private static String generateRandomJsonText()
@@ -465,6 +504,8 @@ public class BenchmarkJsonFunctions
     public void verify()
     {
         BenchmarkData data = new BenchmarkData();
+        data.depth = 3;
+        data.width = 8;
         data.setup();
         new BenchmarkJsonFunctions().benchmarkJsonValueFunction(data);
         new BenchmarkJsonFunctions().benchmarkJsonValueFunctionWithJsonInput(data);
