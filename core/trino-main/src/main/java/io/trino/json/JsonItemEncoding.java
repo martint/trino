@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -73,13 +74,43 @@ import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 
+/**
+ * Binary encoding for SQL/JSON items.
+ *
+ * <p>Wire format:
+ * <pre>
+ *   encoding := version (1 byte) item
+ *   item     := itemTag (1 byte) item-body
+ *   array    := ARRAY int32-count item*
+ *   object   := OBJECT int32-count (string item)*
+ *   typed    := TYPED_VALUE typeTag (1 byte) type-body
+ *   string   := int32-length UTF-8 bytes
+ * </pre>
+ *
+ * <p>Endianness: numeric fixed-width fields (int, long, double bit-pattern, variable-width length
+ * prefixes) are written little-endian via {@link SliceOutput} / {@link SliceInput}. The one
+ * exception is {@link Int128}, which is serialized via its canonical big-endian byte form to
+ * match the layout used elsewhere in the SPI for decimal values.
+ */
 public final class JsonItemEncoding
 {
     // Version byte chosen from the 0xF0..0xFF range so it cannot be the first byte of valid
-    // UTF-8 JSON text (which can only be ASCII for JSON structural bytes) and so it cannot be
-    // confused with any ItemTag or TypeTag value. This closes the §3.2.1 ambiguity where
-    // VERSION_1 = 1 collided with ItemTag.JSON_ERROR.encoded() = 1.
-    private static final byte VERSION_1 = (byte) 0xF3;
+    // UTF-8 JSON text (which can only be ASCII for JSON structural bytes) and so it cannot
+    // collide with any ItemTag or TypeTag value.
+    static final byte VERSION = (byte) 0xF3;
+    // Guard against pathologically deep input encodings; matches Jackson's default nesting limit.
+    private static final int MAX_DEPTH = 1000;
+
+    /// Containers with at least this many entries are emitted in indexed form
+    /// ({@link ItemTag#ARRAY_INDEXED}). Below this threshold the offsets table
+    /// is pure overhead — linear scan is competitive with binary search /
+    /// random access for small entry counts and the offsets table dominates
+    /// the encoded size.
+    public static final int INDEXED_CONTAINER_THRESHOLD = 8;
+
+    /// Maximum entry count that fits in a {@link ItemTag#OBJECT_INDEXED} sort permutation
+    /// (uint16 entries). Objects with more entries fall back to {@link ItemTag#OBJECT}.
+    public static final int MAX_OBJECT_INDEXED_COUNT = 0xFFFF;
 
     // NumberType encoding kind discriminator (follows TypeTag.NUMBER byte). Trino's NUMBER
     // type extends BigDecimal with non-finite sentinels (NaN, +Infinity, -Infinity) that JSON
@@ -90,13 +121,27 @@ public final class JsonItemEncoding
     private static final byte NUMBER_POSITIVE_INFINITY = 2;
     private static final byte NUMBER_NEGATIVE_INFINITY = 3;
 
-    enum ItemTag
+    public enum ItemTag
     {
         JSON_ERROR(1),
         JSON_NULL(2),
         ARRAY(3),
         OBJECT(4),
-        TYPED_VALUE(5);
+        TYPED_VALUE(5),
+        /// Same logical kind as {@link #ARRAY} but with an offset table for O(1) element access.
+        /// Layout: tag(1) + count(int32) + offsets[count+1](int32 each) + items*.
+        /// `offsets[0] = 0`; `offsets[count]` = total items size. Element `i` occupies
+        /// `[items_start + offsets[i], items_start + offsets[i+1])`.
+        ARRAY_INDEXED(6),
+        /// Same logical kind as {@link #OBJECT} but with a sort permutation and offsets table
+        /// for O(log n) member lookup by key. Entries stay in insertion order so json_format
+        /// and forEachObjectMember preserve input order.
+        ///
+        /// Layout: tag(1) + count(int32) + sortPerm[count](uint16 each) +
+        ///         offsets[count+1](int32 each) + (keyLen + keyBytes + item)*count.
+        /// sortPerm[i] = the entry index whose key sorts to position i (lex byte order).
+        /// offsets[0] = 0; offsets[count] = entries section size.
+        OBJECT_INDEXED(7);
 
         private final byte encoded;
 
@@ -118,6 +163,8 @@ public final class JsonItemEncoding
                 case 3 -> ARRAY;
                 case 4 -> OBJECT;
                 case 5 -> TYPED_VALUE;
+                case 6 -> ARRAY_INDEXED;
+                case 7 -> OBJECT_INDEXED;
                 default -> throw new IllegalArgumentException("Unsupported SQL/JSON item tag");
             };
         }
@@ -184,8 +231,8 @@ public final class JsonItemEncoding
     public static Slice encode(JsonPathItem item)
     {
         SliceOutput output = new DynamicSliceOutput(128);
-        output.appendByte(VERSION_1);
-        writeItem(output, item);
+        output.appendByte(VERSION);
+        writeItem(output, item, 0);
         return output.slice();
     }
 
@@ -472,7 +519,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
         JsonPathItem item = readItem(input);
@@ -497,7 +544,7 @@ public final class JsonItemEncoding
     /// Returns `true` if the slice starts with the current SQL/JSON item encoding version marker.
     public static boolean isEncoding(Slice slice)
     {
-        return slice.length() > 0 && slice.getByte(0) == VERSION_1;
+        return slice.length() > 0 && slice.getByte(0) == VERSION;
     }
 
     static int rootItemOffset(Slice slice)
@@ -511,7 +558,7 @@ public final class JsonItemEncoding
     /// Returns `true` if the slice is the canonical encoding of the `JSON_ERROR` sentinel.
     public static boolean isJsonError(Slice slice)
     {
-        return slice.length() == 2 && slice.getByte(0) == VERSION_1 && slice.getByte(1) == ItemTag.JSON_ERROR.encoded();
+        return slice.length() == 2 && slice.getByte(0) == VERSION && slice.getByte(1) == ItemTag.JSON_ERROR.encoded();
     }
 
     /// Writes a binary-encoded SQL/JSON item to a JSON generator as JSON text.
@@ -530,7 +577,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
         writeJson(input, generator, stringifyUnsupportedScalars);
@@ -556,7 +603,7 @@ public final class JsonItemEncoding
     {
         SliceInput input = slice.getInput();
         byte version = input.readByte();
-        if (version != VERSION_1) {
+        if (version != VERSION) {
             throw new IllegalArgumentException("Unsupported SQL/JSON item encoding version: " + version);
         }
 
@@ -593,18 +640,100 @@ public final class JsonItemEncoding
 
     static int arraySize(Slice slice, int offset)
     {
-        if (itemTag(slice, offset) != ItemTag.ARRAY) {
+        ItemTag tag = itemTag(slice, offset);
+        if (tag != ItemTag.ARRAY && tag != ItemTag.ARRAY_INDEXED) {
             throw new IllegalArgumentException("Expected ARRAY item");
         }
-        return slice.getInt(offset + Byte.BYTES);
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        return count;
+    }
+
+    /// Returns the byte offset of the first element of an ARRAY-shaped item (either
+    /// {@link ItemTag#ARRAY} or {@link ItemTag#ARRAY_INDEXED}). The result is the start of
+    /// the items section — past the count field and (if indexed) past the offsets table.
+    static int arrayItemsStart(Slice slice, int offset)
+    {
+        ItemTag tag = itemTag(slice, offset);
+        return switch (tag) {
+            case ARRAY -> offset + Byte.BYTES + Integer.BYTES;
+            case ARRAY_INDEXED -> {
+                int count = slice.getInt(offset + Byte.BYTES);
+                yield offset + Byte.BYTES + Integer.BYTES + (count + 1) * Integer.BYTES;
+            }
+            default -> throw new IllegalArgumentException("Expected ARRAY item");
+        };
+    }
+
+    /// For an {@link ItemTag#ARRAY_INDEXED} item, returns the absolute byte offset of the
+    /// element at `index`. The caller must ensure `0 <= index < arraySize(...)`.
+    static int arrayIndexedElementOffset(Slice slice, int offset, int index)
+    {
+        // offsets[i] follows: tag(1) + count(4) + i*4
+        int offsetsTableStart = offset + Byte.BYTES + Integer.BYTES;
+        int count = slice.getInt(offset + Byte.BYTES);
+        return offset + Byte.BYTES + Integer.BYTES + (count + 1) * Integer.BYTES
+                + slice.getInt(offsetsTableStart + index * Integer.BYTES);
     }
 
     static int objectSize(Slice slice, int offset)
     {
-        if (itemTag(slice, offset) != ItemTag.OBJECT) {
+        ItemTag tag = itemTag(slice, offset);
+        if (tag != ItemTag.OBJECT && tag != ItemTag.OBJECT_INDEXED) {
             throw new IllegalArgumentException("Expected OBJECT item");
         }
-        return slice.getInt(offset + Byte.BYTES);
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        return count;
+    }
+
+    /// Returns the byte offset of the first entry of an OBJECT-shaped item (either
+    /// {@link ItemTag#OBJECT} or {@link ItemTag#OBJECT_INDEXED}). The result is past the
+    /// count field and (if indexed) past the sort permutation and offsets table.
+    static int objectEntriesStart(Slice slice, int offset)
+    {
+        ItemTag tag = itemTag(slice, offset);
+        return switch (tag) {
+            case OBJECT -> offset + Byte.BYTES + Integer.BYTES;
+            case OBJECT_INDEXED -> {
+                int count = slice.getInt(offset + Byte.BYTES);
+                int afterCount = offset + Byte.BYTES + Integer.BYTES;
+                int afterPerm = afterCount + count * Short.BYTES;
+                int afterOffsets = afterPerm + (count + 1) * Integer.BYTES;
+                yield afterOffsets;
+            }
+            default -> throw new IllegalArgumentException("Expected OBJECT item");
+        };
+    }
+
+    /// For an {@link ItemTag#OBJECT_INDEXED} item, returns the entry index of the key
+    /// at sort position `sortedIndex`. The caller must ensure `0 <= sortedIndex < count`.
+    static int objectIndexedSortPerm(Slice slice, int offset, int sortedIndex)
+    {
+        int permStart = offset + Byte.BYTES + Integer.BYTES;
+        return slice.getShort(permStart + sortedIndex * Short.BYTES) & 0xFFFF;
+    }
+
+    /// For an {@link ItemTag#OBJECT_INDEXED} item, returns the absolute byte offset of the
+    /// entry (key+value pair) at insertion-order index `entryIndex`.
+    static int objectIndexedEntryOffset(Slice slice, int offset, int entryIndex)
+    {
+        int count = slice.getInt(offset + Byte.BYTES);
+        int permStart = offset + Byte.BYTES + Integer.BYTES;
+        int offsetsStart = permStart + count * Short.BYTES;
+        int entriesStart = offsetsStart + (count + 1) * Integer.BYTES;
+        return entriesStart + slice.getInt(offsetsStart + entryIndex * Integer.BYTES);
+    }
+
+    /// For an {@link ItemTag#OBJECT_INDEXED} item, returns the byte offset where the entry
+    /// at insertion-order index `entryIndex` ends.
+    static int objectIndexedEntryEnd(Slice slice, int offset, int entryIndex)
+    {
+        int count = slice.getInt(offset + Byte.BYTES);
+        int permStart = offset + Byte.BYTES + Integer.BYTES;
+        int offsetsStart = permStart + count * Short.BYTES;
+        int entriesStart = offsetsStart + (count + 1) * Integer.BYTES;
+        return entriesStart + slice.getInt(offsetsStart + (entryIndex + 1) * Integer.BYTES);
     }
 
     static int stringEndOffset(Slice slice, int offset)
@@ -622,7 +751,9 @@ public final class JsonItemEncoding
         return switch (itemTag(slice, offset)) {
             case JSON_ERROR, JSON_NULL -> offset + Byte.BYTES;
             case ARRAY -> arrayEndOffset(slice, offset);
+            case ARRAY_INDEXED -> arrayIndexedEndOffset(slice, offset);
             case OBJECT -> objectEndOffset(slice, offset);
+            case OBJECT_INDEXED -> objectIndexedEndOffset(slice, offset);
             case TYPED_VALUE -> typedValueEndOffset(slice, offset + Byte.BYTES);
         };
     }
@@ -658,13 +789,16 @@ public final class JsonItemEncoding
     static Slice copyItemEncoding(Slice slice, int itemOffset, int endOffset)
     {
         SliceOutput output = new DynamicSliceOutput(endOffset - itemOffset + 1);
-        output.appendByte(VERSION_1);
+        output.appendByte(VERSION);
         output.writeBytes(slice, itemOffset, endOffset - itemOffset);
         return output.slice();
     }
 
-    private static void writeItem(SliceOutput output, JsonPathItem item)
+    private static void writeItem(SliceOutput output, JsonPathItem item, int depth)
     {
+        if (depth > MAX_DEPTH) {
+            throw new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH);
+        }
         if (item == JSON_ERROR) {
             output.appendByte(ItemTag.JSON_ERROR.encoded());
             return;
@@ -675,7 +809,7 @@ public final class JsonItemEncoding
         }
         if (item instanceof EncodedJsonItem encoded) {
             Slice encoding = encoded.encoding();
-            if (encoding.length() > 1 && encoding.getByte(0) == VERSION_1) {
+            if (encoding.length() > 1 && encoding.getByte(0) == VERSION) {
                 byte innerTag = encoding.getByte(1);
                 if (innerTag == ItemTag.JSON_ERROR.encoded()) {
                     throw new IllegalArgumentException("JSON_ERROR sentinel cannot be written as a JSON value");
@@ -683,23 +817,54 @@ public final class JsonItemEncoding
                 output.writeBytes(encoding, 1, encoding.length() - 1);
                 return;
             }
-            writeItem(output, JsonItems.materialize(encoded));
+            writeItem(output, JsonItems.materialize(encoded), depth);
             return;
         }
         if (item instanceof JsonArrayItem arrayItem) {
-            output.appendByte(ItemTag.ARRAY.encoded());
-            output.appendInt(arrayItem.elements().size());
-            for (MaterializedJsonValue element : arrayItem.elements()) {
-                writeItem(output, element);
+            List<MaterializedJsonValue> elements = arrayItem.elements();
+            int count = elements.size();
+            if (count >= INDEXED_CONTAINER_THRESHOLD) {
+                // Buffer items so we know their sizes before writing the offsets table. The
+                // alternative — writing items inline and patching offsets afterward — would
+                // require setInt on the output's underlying slice, fragile if the buffer
+                // grows mid-write.
+                DynamicSliceOutput items = new DynamicSliceOutput(count * 8);
+                int[] offsets = new int[count + 1];
+                for (int i = 0; i < count; i++) {
+                    offsets[i] = items.size();
+                    writeItem(items, elements.get(i), depth + 1);
+                }
+                offsets[count] = items.size();
+
+                output.appendByte(ItemTag.ARRAY_INDEXED.encoded());
+                output.appendInt(count);
+                for (int o : offsets) {
+                    output.appendInt(o);
+                }
+                output.writeBytes(items.slice());
+            }
+            else {
+                output.appendByte(ItemTag.ARRAY.encoded());
+                output.appendInt(count);
+                for (MaterializedJsonValue element : elements) {
+                    writeItem(output, element, depth + 1);
+                }
             }
             return;
         }
         if (item instanceof JsonObjectItem objectItem) {
-            output.appendByte(ItemTag.OBJECT.encoded());
-            output.appendInt(objectItem.members().size());
-            for (JsonObjectMember member : objectItem.members()) {
-                writeSlice(output, utf8Slice(member.key()));
-                writeItem(output, member.value());
+            List<JsonObjectMember> members = objectItem.members();
+            int count = members.size();
+            if (count >= INDEXED_CONTAINER_THRESHOLD && count <= MAX_OBJECT_INDEXED_COUNT) {
+                writeObjectIndexed(output, members, depth);
+            }
+            else {
+                output.appendByte(ItemTag.OBJECT.encoded());
+                output.appendInt(count);
+                for (JsonObjectMember member : members) {
+                    writeSlice(output, utf8Slice(member.key()));
+                    writeItem(output, member.value(), depth + 1);
+                }
             }
             return;
         }
@@ -713,11 +878,21 @@ public final class JsonItemEncoding
 
     private static JsonPathItem readItem(SliceInput input)
     {
+        return readItem(input, 0);
+    }
+
+    private static JsonPathItem readItem(SliceInput input, int depth)
+    {
+        if (depth > MAX_DEPTH) {
+            throw new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH);
+        }
         return switch (ItemTag.fromEncoded(input.readByte())) {
             case JSON_ERROR -> JSON_ERROR;
             case JSON_NULL -> JsonNull.JSON_NULL;
-            case ARRAY -> readArray(input);
-            case OBJECT -> readObject(input);
+            case ARRAY -> readArray(input, depth + 1);
+            case ARRAY_INDEXED -> readArrayIndexed(input, depth + 1);
+            case OBJECT -> readObject(input, depth + 1);
+            case OBJECT_INDEXED -> readObjectIndexed(input, depth + 1);
             case TYPED_VALUE -> readTypedValue(input);
         };
     }
@@ -725,34 +900,86 @@ public final class JsonItemEncoding
     private static void writeJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
             throws IOException
     {
+        writeJson(input, generator, stringifyUnsupportedScalars, 0);
+    }
+
+    private static void writeJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
+            throws IOException
+    {
+        if (depth > MAX_DEPTH) {
+            throw new JsonOutputConversionException(new IllegalArgumentException("JSON item nesting exceeds maximum depth of " + MAX_DEPTH));
+        }
         switch (ItemTag.fromEncoded(input.readByte())) {
             case JSON_ERROR -> throw new JsonOutputConversionException("JSON item cannot be represented as JSON");
             case JSON_NULL -> generator.writeNull();
-            case ARRAY -> writeArrayJson(input, generator, stringifyUnsupportedScalars);
-            case OBJECT -> writeObjectJson(input, generator, stringifyUnsupportedScalars);
+            case ARRAY -> writeArrayJson(input, generator, stringifyUnsupportedScalars, depth + 1);
+            case ARRAY_INDEXED -> writeArrayIndexedJson(input, generator, stringifyUnsupportedScalars, depth + 1);
+            case OBJECT -> writeObjectJson(input, generator, stringifyUnsupportedScalars, depth + 1);
+            case OBJECT_INDEXED -> writeObjectIndexedJson(input, generator, stringifyUnsupportedScalars, depth + 1);
             case TYPED_VALUE -> writeTypedValueJson(input, generator, stringifyUnsupportedScalars);
         }
     }
 
-    private static void writeArrayJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
+    private static void writeArrayJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
             throws IOException
     {
         int count = input.readInt();
+        // Each element is at least 1 byte (item tag); guards truncated input.
+        validateContainerCount(count, input, 1);
         generator.writeStartArray();
         for (int i = 0; i < count; i++) {
-            writeJson(input, generator, stringifyUnsupportedScalars);
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
         }
         generator.writeEndArray();
     }
 
-    private static void writeObjectJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars)
+    private static void writeArrayIndexedJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
             throws IOException
     {
         int count = input.readInt();
+        if (count > MAX_OBJECT_INDEXED_COUNT) {
+            throw new IllegalArgumentException("SQL/JSON ARRAY_INDEXED count exceeds maximum: " + count);
+        }
+        // Each indexed array element costs (Integer.BYTES offset entry) + ≥1 item byte.
+        validateContainerCount(count, input, Integer.BYTES + 1);
+        // Skip the offsets table — we walk items in sequence, no random access needed.
+        input.skip((count + 1) * Integer.BYTES);
+        generator.writeStartArray();
+        for (int i = 0; i < count; i++) {
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
+        }
+        generator.writeEndArray();
+    }
+
+    private static void writeObjectIndexedJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
+            throws IOException
+    {
+        int count = input.readInt();
+        if (count > MAX_OBJECT_INDEXED_COUNT) {
+            throw new IllegalArgumentException("SQL/JSON OBJECT_INDEXED count exceeds maximum: " + count);
+        }
+        // Each indexed object entry costs sortPerm short + offset int + ≥1 byte (key + item).
+        validateContainerCount(count, input, Short.BYTES + Integer.BYTES + 1);
+        // Skip sortPerm + offsets — entries are walked in insertion order.
+        input.skip(count * Short.BYTES + (count + 1) * Integer.BYTES);
         generator.writeStartObject();
         for (int i = 0; i < count; i++) {
             generator.writeFieldName(readSlice(input).toStringUtf8());
-            writeJson(input, generator, stringifyUnsupportedScalars);
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
+        }
+        generator.writeEndObject();
+    }
+
+    private static void writeObjectJson(SliceInput input, JsonGenerator generator, boolean stringifyUnsupportedScalars, int depth)
+            throws IOException
+    {
+        int count = input.readInt();
+        // Each member is at least: 4-byte key length + 0 key bytes + 1-byte item tag.
+        validateContainerCount(count, input, Integer.BYTES + 1);
+        generator.writeStartObject();
+        for (int i = 0; i < count; i++) {
+            generator.writeFieldName(readSlice(input).toStringUtf8());
+            writeJson(input, generator, stringifyUnsupportedScalars, depth);
         }
         generator.writeEndObject();
     }
@@ -768,7 +995,10 @@ public final class JsonItemEncoding
                 CharType type = createCharType(input.readInt());
                 generator.writeString(Chars.padSpaces(readSlice(input), type).toStringUtf8());
             }
-            case BIGINT, INTEGER, SMALLINT, TINYINT -> generator.writeNumber(input.readLong());
+            case BIGINT -> generator.writeNumber(input.readLong());
+            case INTEGER -> generator.writeNumber(input.readInt());
+            case SMALLINT -> generator.writeNumber(input.readShort());
+            case TINYINT -> generator.writeNumber(input.readByte());
             case DOUBLE -> {
                 double d = longBitsToDouble(input.readLong());
                 if (Double.isFinite(d)) {
@@ -779,7 +1009,7 @@ public final class JsonItemEncoding
                 }
             }
             case REAL -> {
-                float f = intBitsToFloat(toIntExact(input.readLong()));
+                float f = intBitsToFloat(input.readInt());
                 if (Float.isFinite(f)) {
                     // Float.toString rather than BigDecimal.valueOf(float) — the latter upcasts
                     // to double first and exposes the binary approximation.
@@ -852,33 +1082,124 @@ public final class JsonItemEncoding
         };
     }
 
-    private static JsonArrayItem readArray(SliceInput input)
+    private static JsonArrayItem readArray(SliceInput input, int depth)
     {
         int count = input.readInt();
+        validateCount(count);
         List<MaterializedJsonValue> elements = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            elements.add(readValue(input));
+            elements.add(readValue(input, depth));
         }
         return new JsonArrayItem(elements);
     }
 
-    private static JsonObjectItem readObject(SliceInput input)
+    private static JsonArrayItem readArrayIndexed(SliceInput input, int depth)
     {
         int count = input.readInt();
+        validateCount(count);
+        // Skip offsets table — sequential read doesn't use it.
+        input.skip((count + 1) * Integer.BYTES);
+        List<MaterializedJsonValue> elements = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            elements.add(readValue(input, depth));
+        }
+        return new JsonArrayItem(elements);
+    }
+
+    private static void writeObjectIndexed(SliceOutput output, List<JsonObjectMember> members, int depth)
+    {
+        int count = members.size();
+
+        // Buffer entries into a temp output so we can compute their offsets and write the
+        // header (count + sortPerm + offsets) before the entry bytes.
+        DynamicSliceOutput entries = new DynamicSliceOutput(count * 16);
+        Slice[] keyBytes = new Slice[count];
+        int[] offsets = new int[count + 1];
+        for (int i = 0; i < count; i++) {
+            offsets[i] = entries.size();
+            JsonObjectMember member = members.get(i);
+            Slice key = utf8Slice(member.key());
+            keyBytes[i] = key;
+            writeSlice(entries, key);
+            writeItem(entries, member.value(), depth + 1);
+        }
+        offsets[count] = entries.size();
+
+        // Build the sort permutation: sortPerm[i] is the entry index whose key is i-th in
+        // lexicographic UTF-8 byte order. Keys are compared as raw bytes (Slice.compareTo)
+        // so reads can probe with the same byte-level comparison.
+        Integer[] perm = new Integer[count];
+        for (int i = 0; i < count; i++) {
+            perm[i] = i;
+        }
+        java.util.Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
+
+        output.appendByte(ItemTag.OBJECT_INDEXED.encoded());
+        output.appendInt(count);
+        for (Integer p : perm) {
+            // sortPerm entries are stored as uint16; OBJECT_INDEXED is gated on
+            // count <= MAX_OBJECT_INDEXED_COUNT (= 0xFFFF) at the call site, so this is
+            // a sanity check on the invariant.
+            checkArgument(p >= 0 && p <= 0xFFFF, "sortPerm entry out of uint16 range: %s", p);
+            output.appendShort(p);
+        }
+        for (int o : offsets) {
+            output.appendInt(o);
+        }
+        output.writeBytes(entries.slice());
+    }
+
+    private static JsonObjectItem readObject(SliceInput input, int depth)
+    {
+        int count = input.readInt();
+        validateCount(count);
         List<JsonObjectMember> members = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
-            members.add(new JsonObjectMember(readSlice(input).toStringUtf8(), readValue(input)));
+            members.add(new JsonObjectMember(readSlice(input).toStringUtf8(), readValue(input, depth)));
         }
         return new JsonObjectItem(members);
     }
 
-    private static MaterializedJsonValue readValue(SliceInput input)
+    private static JsonObjectItem readObjectIndexed(SliceInput input, int depth)
     {
-        JsonPathItem item = readItem(input);
+        int count = input.readInt();
+        validateCount(count);
+        // Skip sortPerm + offsets — sequential read produces the entries in insertion order.
+        input.skip(count * Short.BYTES + (count + 1) * Integer.BYTES);
+        List<JsonObjectMember> members = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            members.add(new JsonObjectMember(readSlice(input).toStringUtf8(), readValue(input, depth)));
+        }
+        return new JsonObjectItem(members);
+    }
+
+    private static MaterializedJsonValue readValue(SliceInput input, int depth)
+    {
+        JsonPathItem item = readItem(input, depth);
         if (item instanceof MaterializedJsonValue value) {
             return value;
         }
         throw new IllegalArgumentException("Expected SQL/JSON value");
+    }
+
+    private static void validateCount(int count)
+    {
+        if (count < 0) {
+            throw new IllegalArgumentException("Negative SQL/JSON container count: " + count);
+        }
+    }
+
+    /// Decoder-side count check: same lower bound as `validateCount`, plus a sanity check
+    /// against the remaining slice length so that a corrupted or truncated payload doesn't
+    /// drive a multi-million-iteration loop or an oversized `skip` before the decoder fails
+    /// at the next read.
+    private static void validateContainerCount(int count, SliceInput input, int minBytesPerEntry)
+    {
+        validateCount(count);
+        long minBytesNeeded = (long) count * minBytesPerEntry;
+        if (minBytesNeeded > input.available()) {
+            throw new IllegalArgumentException("SQL/JSON container count exceeds remaining payload: " + count);
+        }
     }
 
     private static void writeTypedValue(SliceOutput output, TypedValue typedValue)
@@ -906,15 +1227,23 @@ public final class JsonItemEncoding
             }
             case IntegerType _ -> {
                 output.appendByte(TypeTag.INTEGER.encoded());
-                output.appendLong(typedValue.getLongValue());
+                output.appendInt(toIntExact(typedValue.getLongValue()));
             }
             case SmallintType _ -> {
                 output.appendByte(TypeTag.SMALLINT.encoded());
-                output.appendLong(typedValue.getLongValue());
+                short shortValue = (short) typedValue.getLongValue();
+                if (shortValue != typedValue.getLongValue()) {
+                    throw new IllegalArgumentException("SMALLINT value out of range: " + typedValue.getLongValue());
+                }
+                output.appendShort(shortValue);
             }
             case TinyintType _ -> {
                 output.appendByte(TypeTag.TINYINT.encoded());
-                output.appendLong(typedValue.getLongValue());
+                byte byteValue = (byte) typedValue.getLongValue();
+                if (byteValue != typedValue.getLongValue()) {
+                    throw new IllegalArgumentException("TINYINT value out of range: " + typedValue.getLongValue());
+                }
+                output.appendByte(byteValue);
             }
             case DoubleType _ -> {
                 output.appendByte(TypeTag.DOUBLE.encoded());
@@ -922,7 +1251,7 @@ public final class JsonItemEncoding
             }
             case RealType _ -> {
                 output.appendByte(TypeTag.REAL.encoded());
-                output.appendLong(typedValue.getLongValue());
+                output.appendInt(toIntExact(typedValue.getLongValue()));
             }
             case DecimalType decimalType -> {
                 output.appendByte(TypeTag.DECIMAL.encoded());
@@ -1016,11 +1345,11 @@ public final class JsonItemEncoding
             case VARCHAR -> new TypedValue(createUnboundedVarcharType(), readSlice(input));
             case CHAR -> new TypedValue(createCharType(input.readInt()), readSlice(input));
             case BIGINT -> new TypedValue(BIGINT, input.readLong());
-            case INTEGER -> new TypedValue(INTEGER, input.readLong());
-            case SMALLINT -> new TypedValue(SMALLINT, input.readLong());
-            case TINYINT -> new TypedValue(TINYINT, input.readLong());
+            case INTEGER -> new TypedValue(INTEGER, (long) input.readInt());
+            case SMALLINT -> new TypedValue(SMALLINT, (long) input.readShort());
+            case TINYINT -> new TypedValue(TINYINT, (long) input.readByte());
             case DOUBLE -> new TypedValue(DOUBLE, longBitsToDouble(input.readLong()));
-            case REAL -> new TypedValue(REAL, input.readLong());
+            case REAL -> new TypedValue(REAL, (long) input.readInt());
             case DECIMAL -> {
                 DecimalType type = createDecimalType(input.readInt(), input.readInt());
                 boolean longDecimal = input.readByte() != 0;
@@ -1077,7 +1406,11 @@ public final class JsonItemEncoding
 
     private static Slice readSlice(SliceInput input)
     {
-        return input.readSlice(input.readInt());
+        int length = input.readInt();
+        if (length < 0 || length > input.available()) {
+            throw new IllegalArgumentException("Invalid SQL/JSON slice length: " + length);
+        }
+        return input.readSlice(length);
     }
 
     private static int arrayEndOffset(Slice slice, int offset)
@@ -1088,6 +1421,29 @@ public final class JsonItemEncoding
             currentOffset = itemEndOffset(slice, currentOffset);
         }
         return currentOffset;
+    }
+
+    /// O(1) end-offset for {@link ItemTag#ARRAY_INDEXED}: the items section ends at
+    /// items_start + offsets[count]. No walk needed.
+    private static int arrayIndexedEndOffset(Slice slice, int offset)
+    {
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        // offsets[count] = total items size; lives at offset + 1(tag) + 4(count) + count*4
+        int offsetsTableStart = offset + Byte.BYTES + Integer.BYTES;
+        int itemsSize = slice.getInt(offsetsTableStart + count * Integer.BYTES);
+        return offsetsTableStart + (count + 1) * Integer.BYTES + itemsSize;
+    }
+
+    /// O(1) end-offset for {@link ItemTag#OBJECT_INDEXED}: the entries section ends at
+    /// entries_start + offsets[count].
+    private static int objectIndexedEndOffset(Slice slice, int offset)
+    {
+        int count = slice.getInt(offset + Byte.BYTES);
+        validateCount(count);
+        int permEnd = offset + Byte.BYTES + Integer.BYTES + count * Short.BYTES;
+        int entriesSize = slice.getInt(permEnd + count * Integer.BYTES);
+        return permEnd + (count + 1) * Integer.BYTES + entriesSize;
     }
 
     private static int objectEndOffset(Slice slice, int offset)
@@ -1107,7 +1463,10 @@ public final class JsonItemEncoding
             case BOOLEAN -> offset + Byte.BYTES + Byte.BYTES;
             case VARCHAR -> stringEndOffset(slice, offset + Byte.BYTES);
             case CHAR -> stringEndOffset(slice, offset + Byte.BYTES + Integer.BYTES);
-            case BIGINT, INTEGER, SMALLINT, TINYINT, DOUBLE, REAL -> offset + Byte.BYTES + Long.BYTES;
+            case BIGINT, DOUBLE -> offset + Byte.BYTES + Long.BYTES;
+            case INTEGER, REAL -> offset + Byte.BYTES + Integer.BYTES;
+            case SMALLINT -> offset + Byte.BYTES + Short.BYTES;
+            case TINYINT -> offset + Byte.BYTES + Byte.BYTES;
             case DECIMAL -> decimalEndOffset(slice, offset + Byte.BYTES);
             case DATE -> offset + Byte.BYTES + Long.BYTES;
             case TIME -> offset + Byte.BYTES + Integer.BYTES + Long.BYTES;

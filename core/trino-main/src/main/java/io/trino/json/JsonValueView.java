@@ -83,10 +83,21 @@ public final class JsonValueView
         return root(JSON_ERROR_ENCODING);
     }
 
-    public static JsonValueView root(Slice encoding)
+    public static JsonValueView root(Slice payload)
     {
-        requireNonNull(encoding, "encoding is null");
+        requireNonNull(payload, "payload is null");
+        Slice encoding = JsonItemEncoding.isEncoding(payload) ? payload : JsonItemEncoding.encode(parseText(payload));
         return new JsonValueView(encoding, JsonItemEncoding.rootItemOffset(encoding), encoding.length());
+    }
+
+    private static MaterializedJsonValue parseText(Slice text)
+    {
+        try {
+            return JsonItems.parseJson(new java.io.InputStreamReader(text.getInput(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+        catch (java.io.IOException | RuntimeException e) {
+            throw new IllegalArgumentException("Invalid JSON text", e);
+        }
     }
 
     JsonValueView(Slice encoding, int offset, int end)
@@ -101,8 +112,8 @@ public final class JsonValueView
         return switch (JsonItemEncoding.itemTag(encoding, offset)) {
             case JSON_ERROR -> Kind.JSON_ERROR;
             case JSON_NULL -> Kind.NULL;
-            case ARRAY -> Kind.ARRAY;
-            case OBJECT -> Kind.OBJECT;
+            case ARRAY, ARRAY_INDEXED -> Kind.ARRAY;
+            case OBJECT, OBJECT_INDEXED -> Kind.OBJECT;
             case TYPED_VALUE -> Kind.TYPED_VALUE;
         };
     }
@@ -134,7 +145,7 @@ public final class JsonValueView
         checkKind(Kind.ARRAY);
 
         int count = JsonItemEncoding.arraySize(encoding, offset);
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        int childOffset = JsonItemEncoding.arrayItemsStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             int childEnd = JsonItemEncoding.itemEndOffset(encoding, childOffset);
             consumer.accept(new JsonValueView(encoding, childOffset, childEnd));
@@ -148,7 +159,7 @@ public final class JsonValueView
         checkKind(Kind.OBJECT);
 
         int count = JsonItemEncoding.objectSize(encoding, offset);
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        int childOffset = JsonItemEncoding.objectEntriesStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             String key = JsonItemEncoding.readString(encoding, childOffset);
             childOffset = JsonItemEncoding.stringEndOffset(encoding, childOffset);
@@ -158,9 +169,11 @@ public final class JsonValueView
         }
     }
 
-    /// Returns the array element at `index`, or throws if `index` is out of range.
-    /// Future indexed-array variants will dispatch here for O(1) lookup; today this walks
-    /// the elements sequentially.
+    /// Returns the array element at `index`, or throws if `index` is out of range. For
+    /// {@link io.trino.json.JsonItemEncoding.ItemTag#ARRAY_INDEXED} payloads, this is O(1)
+    /// — a direct lookup through the offsets table. For unindexed {@link
+    /// io.trino.json.JsonItemEncoding.ItemTag#ARRAY} payloads, this is O(n) — a sequential
+    /// walk to the requested index.
     public JsonValueView arrayElement(int index)
     {
         checkKind(Kind.ARRAY);
@@ -168,7 +181,16 @@ public final class JsonValueView
         if (index < 0 || index >= count) {
             throw new IndexOutOfBoundsException("array index out of range: %d (size: %d)".formatted(index, count));
         }
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        if (JsonItemEncoding.itemTag(encoding, offset) == JsonItemEncoding.ItemTag.ARRAY_INDEXED) {
+            // offsets[count+1] makes element bounds branchless: start = items + offsets[i],
+            // end = items + offsets[i+1]. The "+1" sentinel lives at offsets[count].
+            int itemsStart = JsonItemEncoding.arrayItemsStart(encoding, offset);
+            int offsetsTableStart = offset + Byte.BYTES + Integer.BYTES;
+            int childOffset = itemsStart + encoding.getInt(offsetsTableStart + index * Integer.BYTES);
+            int childEnd = itemsStart + encoding.getInt(offsetsTableStart + (index + 1) * Integer.BYTES);
+            return new JsonValueView(encoding, childOffset, childEnd);
+        }
+        int childOffset = JsonItemEncoding.arrayItemsStart(encoding, offset);
         for (int current = 0; current < index; current++) {
             childOffset = JsonItemEncoding.itemEndOffset(encoding, childOffset);
         }
@@ -178,15 +200,43 @@ public final class JsonValueView
     /// Returns the value at the first member with the given `key`, or empty when no member
     /// matches. SQL/JSON object members may have duplicate keys; this method returns the
     /// first occurrence in insertion order. Use [#objectMembers] to visit all duplicates.
-    /// Future indexed-object variants will dispatch here for O(log n) lookup; today this
-    /// walks the members sequentially.
+    /// For {@link io.trino.json.JsonItemEncoding.ItemTag#OBJECT_INDEXED} payloads, this is
+    /// O(log n + d) — a binary search through the sort permutation, plus a linear scan over
+    /// at most `d` adjacent duplicates of `key`. For unindexed {@link
+    /// io.trino.json.JsonItemEncoding.ItemTag#OBJECT} payloads, this is O(n) — a sequential
+    /// scan over all members.
     public Optional<JsonValueView> objectMember(String key)
     {
         requireNonNull(key, "key is null");
         checkKind(Kind.OBJECT);
 
+        if (JsonItemEncoding.itemTag(encoding, offset) == JsonItemEncoding.ItemTag.OBJECT_INDEXED) {
+            int firstSorted = findFirstSortedIndex(key);
+            if (firstSorted < 0) {
+                return Optional.empty();
+            }
+            int firstInsertion = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, firstSorted);
+            // For duplicate keys, return the entry with the smallest insertion-order index.
+            int count = JsonItemEncoding.objectSize(encoding, offset);
+            Slice targetBytes = io.airlift.slice.Slices.utf8Slice(key);
+            for (int s = firstSorted + 1; s < count; s++) {
+                int candidateIdx = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, s);
+                int candidateOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, candidateIdx);
+                if (readKeyBytes(encoding, candidateOffset).compareTo(targetBytes) != 0) {
+                    break;
+                }
+                if (candidateIdx < firstInsertion) {
+                    firstInsertion = candidateIdx;
+                }
+            }
+            int entryOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, firstInsertion);
+            int valueOffset = JsonItemEncoding.stringEndOffset(encoding, entryOffset);
+            int valueEnd = JsonItemEncoding.objectIndexedEntryEnd(encoding, offset, firstInsertion);
+            return Optional.of(new JsonValueView(encoding, valueOffset, valueEnd));
+        }
+
         int count = JsonItemEncoding.objectSize(encoding, offset);
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        int childOffset = JsonItemEncoding.objectEntriesStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             String memberKey = JsonItemEncoding.readString(encoding, childOffset);
             int valueOffset = JsonItemEncoding.stringEndOffset(encoding, childOffset);
@@ -202,17 +252,49 @@ public final class JsonValueView
     /// Visits every member whose key equals `key`, in insertion order. Duplicates (allowed
     /// under `WITHOUT UNIQUE KEYS`) all surface to the consumer.
     ///
-    /// Future indexed-object variants will dispatch here using the OBJECT_INDEXED sortPerm
-    /// for O(log n) lookup of the first match plus a linear scan over adjacent duplicates;
-    /// today this walks members sequentially.
+    /// For {@link io.trino.json.JsonItemEncoding.ItemTag#OBJECT_INDEXED} payloads, this is
+    /// O(log n + d) — a binary search through the sort permutation, plus a linear scan over
+    /// at most `d` adjacent duplicates of `key`. For unindexed {@link
+    /// io.trino.json.JsonItemEncoding.ItemTag#OBJECT} payloads, this is O(n) — a sequential
+    /// scan over all members.
     public void objectMembers(String key, Consumer<JsonValueView> consumer)
     {
         requireNonNull(key, "key is null");
         requireNonNull(consumer, "consumer is null");
         checkKind(Kind.OBJECT);
 
+        if (JsonItemEncoding.itemTag(encoding, offset) == JsonItemEncoding.ItemTag.OBJECT_INDEXED) {
+            int firstSorted = findFirstSortedIndex(key);
+            if (firstSorted < 0) {
+                return;
+            }
+            int count = JsonItemEncoding.objectSize(encoding, offset);
+            Slice targetBytes = io.airlift.slice.Slices.utf8Slice(key);
+            int[] matchingIndices = new int[count - firstSorted];
+            int matches = 0;
+            matchingIndices[matches++] = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, firstSorted);
+            for (int s = firstSorted + 1; s < count; s++) {
+                int candidateIdx = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, s);
+                int candidateOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, candidateIdx);
+                if (readKeyBytes(encoding, candidateOffset).compareTo(targetBytes) != 0) {
+                    break;
+                }
+                matchingIndices[matches++] = candidateIdx;
+            }
+            // Emit duplicates in insertion order, regardless of where they sit in the sort permutation.
+            java.util.Arrays.sort(matchingIndices, 0, matches);
+            for (int i = 0; i < matches; i++) {
+                int entryIndex = matchingIndices[i];
+                int entryOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, entryIndex);
+                int valueOffset = JsonItemEncoding.stringEndOffset(encoding, entryOffset);
+                int valueEnd = JsonItemEncoding.objectIndexedEntryEnd(encoding, offset, entryIndex);
+                consumer.accept(new JsonValueView(encoding, valueOffset, valueEnd));
+            }
+            return;
+        }
+
         int count = JsonItemEncoding.objectSize(encoding, offset);
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        int childOffset = JsonItemEncoding.objectEntriesStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             String memberKey = JsonItemEncoding.readString(encoding, childOffset);
             int valueOffset = JsonItemEncoding.stringEndOffset(encoding, childOffset);
@@ -231,7 +313,7 @@ public final class JsonValueView
         checkKind(Kind.OBJECT);
         int count = JsonItemEncoding.objectSize(encoding, offset);
         java.util.List<String> keys = new java.util.ArrayList<>(count);
-        int childOffset = offset + Byte.BYTES + Integer.BYTES;
+        int childOffset = JsonItemEncoding.objectEntriesStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             keys.add(JsonItemEncoding.readString(encoding, childOffset));
             childOffset = JsonItemEncoding.stringEndOffset(encoding, childOffset);
@@ -277,5 +359,41 @@ public final class JsonValueView
         if (kind() != expected) {
             throw new IllegalStateException("Expected %s, but was %s".formatted(expected, kind()));
         }
+    }
+
+    /// Lower-bound binary search over the OBJECT_INDEXED sort permutation. Returns the
+    /// smallest sort position whose key compares equal to `key` (UTF-8 byte order), or -1
+    /// when no member matches.
+    private int findFirstSortedIndex(String key)
+    {
+        int count = JsonItemEncoding.objectSize(encoding, offset);
+        Slice target = io.airlift.slice.Slices.utf8Slice(key);
+        int lo = 0;
+        int hi = count;
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            int candidateIdx = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, mid);
+            int candidateOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, candidateIdx);
+            if (readKeyBytes(encoding, candidateOffset).compareTo(target) < 0) {
+                lo = mid + 1;
+            }
+            else {
+                hi = mid;
+            }
+        }
+        if (lo >= count) {
+            return -1;
+        }
+        int candidateIdx = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, lo);
+        int candidateOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, candidateIdx);
+        return readKeyBytes(encoding, candidateOffset).compareTo(target) == 0 ? lo : -1;
+    }
+
+    /// Returns the raw UTF-8 bytes of a length-prefixed string at `offset`, without
+    /// constructing a `String`. Used to compare keys directly against UTF-8 query bytes
+    /// during OBJECT_INDEXED lookups.
+    private static Slice readKeyBytes(Slice encoding, int offset)
+    {
+        return encoding.slice(offset + Integer.BYTES, encoding.getInt(offset));
     }
 }

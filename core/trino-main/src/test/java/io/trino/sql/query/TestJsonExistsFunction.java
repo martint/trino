@@ -173,6 +173,12 @@ public class TestJsonExistsFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        // Post-migration: json_array_get returns the element in canonical JSON form, so
+        // feeding it back into json_exists is a valid JSON input and the path matches.
+        assertThat(assertions.query(
+                "SELECT json_exists(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .matches("VALUES true");
     }
 
     @Test

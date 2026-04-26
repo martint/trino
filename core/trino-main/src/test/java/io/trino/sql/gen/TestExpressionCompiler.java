@@ -2497,7 +2497,7 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertThat(assertions.function("json_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(JSON)
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(JsonValue.of(utf8Slice(value)), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : jsonValueOfLegacyEncoded(JsonFunctions.jsonExtract(JsonValue.of(utf8Slice(value)), new JsonPath(pattern))));
 
                 assertThat(assertions.function("json_extract_scalar", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? createUnboundedVarcharType() : createVarcharType(value.length()))
@@ -2871,5 +2871,10 @@ public class TestExpressionCompiler
     private static String toString(JsonValue value)
     {
         return value == null ? null : value.payload().toStringUtf8();
+    }
+
+    private static String jsonValueOfLegacyEncoded(JsonValue value)
+    {
+        return value == null ? null : io.trino.type.JsonType.jsonText(value.payload()).toStringUtf8();
     }
 }

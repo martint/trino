@@ -156,6 +156,216 @@ public final class JsonItems
     // Cap recursion against deeply nested JSON text input to avoid StackOverflowError.
     private static final int MAX_PARSE_DEPTH = 1000;
 
+    /// Parses JSON text and emits the typed-item binary encoding directly, without
+    /// materializing an intermediate {@link MaterializedJsonValue} tree. ARRAY and OBJECT element counts
+    /// are deferred and patched into the output once streaming completes.
+    public static Slice parseJsonToEncoding(Reader reader)
+            throws IOException
+    {
+        requireNonNull(reader, "reader is null");
+
+        try (JsonParser parser = JSON_FACTORY.createParser(reader)) {
+            JsonToken token = parser.nextToken();
+            if (token == null) {
+                throw new JsonInputConversionException("unexpected end of JSON input");
+            }
+            Slice result = encodeCurrentItem(parser);
+            if (parser.nextToken() != null) {
+                throw new JsonInputConversionException("trailing data after JSON item");
+            }
+            return result;
+        }
+    }
+
+    /// Streams the JSON value at the parser's current token into the typed-item binary
+    /// encoding. The parser must be positioned at the first token of the value; on return,
+    /// it is positioned at the last token of the value (matching the JsonExtract.JsonExtractor
+    /// invariant). The result is a complete, versioned encoding ready to be returned as a
+    /// {@link io.trino.type.JsonType} payload.
+    public static Slice encodeCurrentItem(JsonParser parser)
+            throws IOException
+    {
+        DynamicSliceOutput output = new DynamicSliceOutput(64);
+        JsonItemEncoding.appendVersion(output);
+        PatchList patches = new PatchList();
+        streamItem(parser, parser.currentToken(), output, patches, 0);
+        Slice result = output.slice();
+        patches.apply(result);
+        return result;
+    }
+
+    private static void streamItem(JsonParser parser, JsonToken token, SliceOutput output, PatchList patches, int depth)
+            throws IOException
+    {
+        if (depth >= MAX_PARSE_DEPTH) {
+            throw new JsonInputConversionException("JSON nesting exceeds maximum depth of " + MAX_PARSE_DEPTH);
+        }
+        switch (token) {
+            case VALUE_NULL -> JsonItemEncoding.appendJsonNullItem(output);
+            case VALUE_TRUE -> JsonItemEncoding.appendBoolean(output, true);
+            case VALUE_FALSE -> JsonItemEncoding.appendBoolean(output, false);
+            case VALUE_STRING -> JsonItemEncoding.appendVarchar(output, utf8Slice(parser.getText()));
+            case VALUE_NUMBER_INT -> streamInteger(parser, output);
+            case VALUE_NUMBER_FLOAT -> streamFloat(parser, output);
+            case START_ARRAY -> streamArray(parser, output, patches, depth);
+            case START_OBJECT -> streamObject(parser, output, patches, depth);
+            default -> throw new JsonInputConversionException("unexpected JSON token: " + token);
+        }
+    }
+
+    private static void streamArray(JsonParser parser, SliceOutput output, PatchList patches, int depth)
+            throws IOException
+    {
+        // Buffer items into a side output so the element count and per-element offsets are
+        // known by the time we commit to ARRAY vs ARRAY_INDEXED. ARRAY_INDEXED matches the
+        // typed-encoded path's threshold (count ≥ INDEXED_CONTAINER_THRESHOLD), giving O(1)
+        // element lookup at decode time without forcing the streaming writer to make the
+        // tag choice up front.
+        DynamicSliceOutput items = new DynamicSliceOutput(64);
+        java.util.List<Integer> offsets = new java.util.ArrayList<>();
+        // ARRAY/ARRAY_INDEXED both write recursive items via a fresh PatchList because the
+        // outer patches reference the main output, not the buffered side output.
+        PatchList itemPatches = new PatchList();
+        int count = 0;
+        for (JsonToken next = parser.nextToken(); next != JsonToken.END_ARRAY; next = parser.nextToken()) {
+            if (next == null) {
+                throw new JsonInputConversionException("unexpected end of JSON array");
+            }
+            offsets.add(items.size());
+            streamItem(parser, next, items, itemPatches, depth + 1);
+            count++;
+        }
+        offsets.add(items.size());
+        Slice itemBytes = items.slice();
+        itemPatches.apply(itemBytes);
+
+        if (count >= JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD) {
+            output.appendByte(JsonItemEncoding.ItemTag.ARRAY_INDEXED.encoded());
+            output.appendInt(count);
+            for (int o : offsets) {
+                output.appendInt(o);
+            }
+        }
+        else {
+            output.appendByte(JsonItemEncoding.ItemTag.ARRAY.encoded());
+            output.appendInt(count);
+        }
+        output.writeBytes(itemBytes);
+    }
+
+    private static void streamObject(JsonParser parser, SliceOutput output, PatchList patches, int depth)
+            throws IOException
+    {
+        // Streaming objects always emit non-indexed OBJECT (unlike streamArray, which switches
+        // to ARRAY_INDEXED at INDEXED_CONTAINER_THRESHOLD). OBJECT_INDEXED requires a sortPerm
+        // header computed from sorted UTF-8 keys, which is incompatible with single-pass
+        // streaming — keys aren't known until END_OBJECT. The materialized writer
+        // (JsonItemEncoding#writeObjectIndexed) handles the sorted form when the value is
+        // already in memory; text-parsed paths that need O(log n) member lookup go through
+        // materialize() first.
+        output.appendByte(JsonItemEncoding.ItemTag.OBJECT.encoded());
+        int countOffset = output.size();
+        output.appendInt(0);
+        int count = 0;
+        for (JsonToken next = parser.nextToken(); next != JsonToken.END_OBJECT; next = parser.nextToken()) {
+            if (next == null) {
+                throw new JsonInputConversionException("unexpected end of JSON object");
+            }
+            if (next != JsonToken.FIELD_NAME) {
+                throw new JsonInputConversionException("expected object field name");
+            }
+            JsonItemEncoding.appendObjectKey(output, parser.currentName());
+            JsonToken valueToken = parser.nextToken();
+            if (valueToken == null) {
+                throw new JsonInputConversionException("unexpected end of JSON object");
+            }
+            streamItem(parser, valueToken, output, patches, depth + 1);
+            count++;
+        }
+        patches.add(countOffset, count);
+    }
+
+    private static void streamInteger(JsonParser parser, SliceOutput output)
+            throws IOException
+    {
+        switch (parser.getNumberType()) {
+            case INT -> JsonItemEncoding.appendInteger(output, parser.getIntValue());
+            case LONG -> JsonItemEncoding.appendBigint(output, parser.getLongValue());
+            case BIG_INTEGER -> streamBigInteger(parser.getBigIntegerValue(), output);
+            default -> throw new JsonInputConversionException("unsupported JSON integer representation");
+        }
+    }
+
+    private static void streamBigInteger(BigInteger value, SliceOutput output)
+    {
+        if (value.bitLength() < Integer.SIZE) {
+            JsonItemEncoding.appendInteger(output, value.longValue());
+            return;
+        }
+        if (value.bitLength() < Long.SIZE) {
+            JsonItemEncoding.appendBigint(output, value.longValue());
+            return;
+        }
+        streamBigDecimal(new BigDecimal(value), output);
+    }
+
+    private static void streamFloat(JsonParser parser, SliceOutput output)
+            throws IOException
+    {
+        // Mirror parseDecimal: canonicalize to BigDecimal so 1, 1.0, 1e0 all collapse to the
+        // same stored value while preserving significant digits.
+        streamBigDecimal(parser.getDecimalValue(), output);
+    }
+
+    private static void streamBigDecimal(BigDecimal value, SliceOutput output)
+    {
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+        int scale = value.scale();
+        int precision = Math.max(value.precision(), scale);
+        if (precision > MAX_PRECISION) {
+            // Fall back to NUMBER for values that don't fit DECIMAL(<=38).
+            byte[] unscaledBytes = value.unscaledValue().toByteArray();
+            output.appendByte(JsonItemEncoding.ItemTag.TYPED_VALUE.encoded());
+            output.appendByte(JsonItemEncoding.TypeTag.NUMBER.encoded());
+            output.appendByte((byte) 0); // NUMBER_FINITE
+            output.appendInt(value.scale());
+            output.appendInt(unscaledBytes.length);
+            output.writeBytes(unscaledBytes);
+            return;
+        }
+        DecimalType type = createDecimalType(precision, scale);
+        if (type.isShort()) {
+            JsonItemEncoding.appendShortDecimal(output, precision, scale, encodeShortScaledValue(value, scale));
+        }
+        else {
+            JsonItemEncoding.appendLongDecimal(output, precision, scale, encodeScaledValue(value, scale));
+        }
+    }
+
+    private static final class PatchList
+    {
+        private int[] data = new int[16];
+        private int size;
+
+        void add(int offset, int count)
+        {
+            if (size + 2 > data.length) {
+                data = java.util.Arrays.copyOf(data, data.length * 2);
+            }
+            data[size++] = offset;
+            data[size++] = count;
+        }
+
+        void apply(Slice slice)
+        {
+            for (int i = 0; i < size; i += 2) {
+                slice.setInt(data[i], data[i + 1]);
+            }
+        }
+    }
+
     private static MaterializedJsonValue parseItem(JsonParser parser, JsonToken token, int depth)
             throws IOException
     {
@@ -209,16 +419,23 @@ public final class JsonItems
         try {
             SliceOutput output = new DynamicSliceOutput(64);
             try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
-                if (item instanceof EncodedJsonItem encodedItem && JsonItemEncoding.isEncoding(encodedItem.encoding())) {
-                    JsonItemEncoding.writeJson(encodedItem.encoding(), generator);
-                }
-                else {
-                    item = materialize(item);
-                    if (!(item instanceof MaterializedJsonValue value)) {
-                        throw new JsonOutputConversionException("unsupported SQL/JSON item type: " + item.getClass().getSimpleName());
-                    }
-                    writeJson(generator, value, 0);
-                }
+                writeJson(generator, item, false, 0);
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new JsonOutputConversionException(e);
+        }
+    }
+
+    public static Slice surrogateJsonText(JsonPathItem item)
+    {
+        requireNonNull(item, "item is null");
+
+        try {
+            SliceOutput output = new DynamicSliceOutput(64);
+            try (JsonGenerator generator = createJsonGenerator(JSON_MAPPER, output)) {
+                writeJson(generator, item, true, 0);
             }
             return output.slice();
         }
@@ -261,11 +478,19 @@ public final class JsonItems
         return requireNonNull(objectValue, "objectValue is null").toString();
     }
 
-    private static void writeJson(JsonGenerator generator, MaterializedJsonValue item, int depth)
+    static void writeJson(JsonGenerator generator, JsonPathItem item, boolean stringifyUnsupportedScalars, int depth)
             throws IOException
     {
         if (depth >= MAX_PARSE_DEPTH) {
             throw new JsonOutputConversionException("JSON nesting exceeds maximum depth of " + MAX_PARSE_DEPTH);
+        }
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            view.get().writeJson(generator, stringifyUnsupportedScalars);
+            return;
+        }
+        if (item instanceof EncodedJsonItem) {
+            item = materialize(item);
         }
         if (item == JsonNull.JSON_NULL) {
             generator.writeNull();
@@ -275,7 +500,7 @@ public final class JsonItems
             generator.writeStartObject();
             for (JsonObjectMember member : objectItem.members()) {
                 generator.writeFieldName(member.key());
-                writeJson(generator, member.value(), depth + 1);
+                writeJson(generator, member.value(), stringifyUnsupportedScalars, depth + 1);
             }
             generator.writeEndObject();
             return;
@@ -283,13 +508,13 @@ public final class JsonItems
         if (item instanceof JsonArrayItem arrayItem) {
             generator.writeStartArray();
             for (MaterializedJsonValue element : arrayItem.elements()) {
-                writeJson(generator, element, depth + 1);
+                writeJson(generator, element, stringifyUnsupportedScalars, depth + 1);
             }
             generator.writeEndArray();
             return;
         }
         if (item instanceof TypedValue typedValue) {
-            writeTypedValue(generator, typedValue);
+            writeTypedValue(generator, typedValue, stringifyUnsupportedScalars);
             return;
         }
 
@@ -315,7 +540,7 @@ public final class JsonItems
         if (value.bitLength() < Long.SIZE) {
             return new TypedValue(BIGINT, value.longValue());
         }
-        throw new JsonInputConversionException("value too big");
+        return parseBigDecimal(new BigDecimal(value));
     }
 
     private static TypedValue parseDecimal(JsonParser parser)
@@ -350,7 +575,7 @@ public final class JsonItems
         return TypedValue.fromValueAsObject(type, encoded);
     }
 
-    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue)
+    private static void writeTypedValue(JsonGenerator generator, TypedValue typedValue, boolean stringifyUnsupportedScalars)
             throws IOException
     {
         Type type = typedValue.getType();
@@ -396,7 +621,13 @@ public final class JsonItems
                 // scientific notation rather than expanding to ~309 zero digits.
                 generator.writeNumber(value.toString());
             }
-            default -> throw new JsonOutputConversionException("SQL value cannot be represented as JSON");
+            default -> {
+                if (stringifyUnsupportedScalars) {
+                    generator.writeString(typedValueText(typedValue));
+                    return;
+                }
+                throw new JsonOutputConversionException("SQL/JSON value of type " + type.getDisplayName() + " cannot be serialized to JSON text");
+            }
         }
     }
 

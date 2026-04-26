@@ -13,15 +13,14 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.spi.TrinoException;
 
 import java.io.IOException;
@@ -37,7 +36,6 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static java.util.Objects.requireNonNull;
 
@@ -297,12 +295,10 @@ public final class JsonExtract
             if (!jsonParser.hasCurrentToken()) {
                 throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
-
-            DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, dynamicSliceOutput)) {
-                jsonGenerator.copyCurrentStructure(jsonParser);
-            }
-            return dynamicSliceOutput.slice();
+            // Stream the sub-tree directly into the typed-item binary encoding. Skips the
+            // Jackson-text emit + JsonType.jsonValue re-parse round-trip the JsonFunctions.
+            // {varchar,}jsonExtract callers used to do.
+            return JsonItems.encodeCurrentItem(jsonParser);
         }
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +31,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.JsonValue;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
@@ -67,9 +65,9 @@ import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.jsonText;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.currentTokenAsLongDecimal;
 import static io.trino.util.JsonUtil.currentTokenAsShortDecimal;
@@ -616,27 +614,19 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static JsonValue shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
     {
-        return decimalToJson(BigDecimal.valueOf(decimal, DecimalConversions.intScale(scale)));
+        SliceOutput output = new DynamicSliceOutput(20);
+        io.trino.json.JsonItemEncoding.appendVersion(output);
+        io.trino.json.JsonItemEncoding.appendShortDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
+        return JsonValue.of(output.slice());
     }
 
     @UsedByGeneratedCode
     public static JsonValue longDecimalToJson(Int128 decimal, long precision, long scale, Int128 tenToScale)
     {
-        return decimalToJson(new BigDecimal(decimal.toBigInteger(), DecimalConversions.intScale(scale)));
-    }
-
-    private static JsonValue decimalToJson(BigDecimal bigDecimal)
-    {
-        try {
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(32);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, dynamicSliceOutput)) {
-                jsonGenerator.writeNumber(bigDecimal);
-            }
-            return JsonValue.of(dynamicSliceOutput.slice());
-        }
-        catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%f' to %s", bigDecimal, StandardTypes.JSON));
-        }
+        SliceOutput output = new DynamicSliceOutput(28);
+        io.trino.json.JsonItemEncoding.appendVersion(output);
+        io.trino.json.JsonItemEncoding.appendLongDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
+        return JsonValue.of(output.slice());
     }
 
     @UsedByGeneratedCode
@@ -650,7 +640,7 @@ public final class DecimalCasts
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", payload.toStringUtf8(), precision, scale), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", jsonText(payload).toStringUtf8(), precision, scale), e);
         }
     }
 
@@ -665,7 +655,7 @@ public final class DecimalCasts
             return result;
         }
         catch (IOException | NumberFormatException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", payload.toStringUtf8(), precision, scale), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", jsonText(payload).toStringUtf8(), precision, scale), e);
         }
     }
 

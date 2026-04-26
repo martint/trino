@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.variant.Metadata;
+import io.trino.type.JsonType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -75,7 +76,7 @@ final class JsonVariantWriter
             return NULL_PLANNED_VALUE;
         }
 
-        Slice json = (Slice) value;
+        Slice json = JsonType.jsonText((Slice) value);
 
         try (InputStream input = json.getInput(); JsonParser parser = JSON_FACTORY.createParser(input)) {
             JsonToken token = parser.nextToken();

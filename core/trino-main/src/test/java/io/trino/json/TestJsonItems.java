@@ -15,7 +15,6 @@ package io.trino.json;
 
 import io.airlift.slice.Slice;
 import io.trino.json.ir.TypedValue;
-import io.trino.operator.scalar.json.JsonInputConversionException;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TrinoNumber;
@@ -30,6 +29,7 @@ import java.util.List;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -91,11 +91,27 @@ public class TestJsonItems
     }
 
     @Test
-    public void testParseJsonRejectsTooLargeNumber()
+    public void testParseJsonPreservesNumberOutsideDecimalRange()
     {
-        assertThatThrownBy(() -> parseJson("1000000000000000000000000000000000000"))
-                .isInstanceOf(JsonInputConversionException.class)
-                .hasMessage("conversion to JSON failed: value too big");
+        // Values outside DECIMAL(<=38) fall back to NUMBER, preserving arbitrary precision.
+        assertThat(parseJson("100000000000000000000000000000000000000000000000000"))
+                .isInstanceOf(TypedValue.class);
+    }
+
+    @Test
+    public void testJsonTextRejectsDatetimeValue()
+    {
+        assertThatThrownBy(() -> JsonItems.jsonText(new TypedValue(DATE, 1L)))
+                .isInstanceOf(JsonOutputConversionException.class)
+                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
+    }
+
+    @Test
+    public void testSurrogateJsonTextStringifiesEncodedDatetimeValue()
+    {
+        JsonPathItem item = new EncodedJsonItem(JsonItemEncoding.encode(new TypedValue(DATE, 1L)));
+
+        assertThat(JsonItems.surrogateJsonText(item).toStringUtf8()).isEqualTo("\"1970-01-02\"");
     }
 
     @Test

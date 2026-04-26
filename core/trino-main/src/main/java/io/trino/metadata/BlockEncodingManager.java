@@ -24,6 +24,7 @@ import io.trino.spi.block.DictionaryBlockEncoding;
 import io.trino.spi.block.Fixed12BlockEncoding;
 import io.trino.spi.block.Int128ArrayBlockEncoding;
 import io.trino.spi.block.IntArrayBlockEncoding;
+import io.trino.spi.block.JsonBlockEncoding;
 import io.trino.spi.block.LongArrayBlockEncoding;
 import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
@@ -57,6 +58,7 @@ public final class BlockEncodingManager
         addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong()));
         addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new JsonBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new VariantBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));

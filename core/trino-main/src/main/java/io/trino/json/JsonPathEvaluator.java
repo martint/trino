@@ -156,6 +156,9 @@ public class JsonPathEvaluator
                 return List.of();
             }
 
+            // Use objectMembers(key, consumer) so OBJECT_INDEXED payloads dispatch to
+            // O(log n + d) binary-search lookup. Duplicate keys (allowed under
+            // WITHOUT UNIQUE KEYS) are emitted in insertion order.
             List<JsonPathItem> outputSequence = new ArrayList<>();
             jsonView.objectMembers(key, outputSequence::add);
             if (outputSequence.isEmpty() && !lax) {
