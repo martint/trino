@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.type.JsonType.jsonValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -46,6 +47,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class JsonOutputFunctions
 {
+    public static final String JSON_TO_JSON_OUTPUT = "$json_to_json_output";
     public static final String JSON_TO_VARCHAR = "$json_to_varchar";
     public static final String JSON_TO_VARBINARY = "$json_to_varbinary";
     public static final String JSON_TO_VARBINARY_UTF8 = "$json_to_varbinary_utf8";
@@ -67,6 +69,20 @@ public final class JsonOutputFunctions
 
     private JsonOutputFunctions() {}
 
+    @SqlNullable
+    @ScalarFunction(value = JSON_TO_JSON_OUTPUT, hidden = true)
+    @SqlType(StandardTypes.JSON)
+    public static JsonPayload jsonToJson(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    {
+        // The omitQuotes parameter is part of the JSON_QUERY output-conversion contract but is
+        // always false here: SQL:2023 §6.35 SR 3 forbids OMIT QUOTES on a JSON-typed return,
+        // and ExpressionAnalyzer.analyzeJsonQueryExpression rejects it at analysis time.
+        // Producing bare scalar text in this code path would manufacture an invalid JSON value.
+        Slice result = serialize(jsonExpression, UTF_8, errorBehavior, false);
+        return result == null ? null : JsonPayload.of(jsonValue(result));
+    }
+
+    @SqlNullable
     @ScalarFunction(value = JSON_TO_VARCHAR, hidden = true)
     @SqlType(StandardTypes.VARCHAR)
     public static Slice jsonToVarchar(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
