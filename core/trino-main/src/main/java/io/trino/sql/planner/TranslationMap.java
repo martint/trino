@@ -95,6 +95,7 @@ import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -343,6 +344,7 @@ public class TranslationMap
                 case JsonExists expression -> translate(expression);
                 case JsonValue expression -> translate(expression);
                 case JsonQuery expression -> translate(expression);
+                case JsonSerialize expression -> translate(expression);
                 case JsonObject expression -> translate(expression);
                 case JsonArray expression -> translate(expression);
                 case LongLiteral expression -> translate(expression);
@@ -1124,6 +1126,32 @@ public class TranslationMap
         io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(function, errorBehavior, omitQuotes));
 
         // cast to requested returned type
+        Type returnedType = node.getReturnedType()
+                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(plannerContext.getTypeManager()::getType)
+                .orElse(VARCHAR);
+
+        Type resultType = outputFunction.signature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = new io.trino.sql.ir.Cast(result, returnedType);
+        }
+
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonSerialize node)
+    {
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getExpression()),
+                TRUE));
+
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(
+                input,
+                new Constant(TINYINT, (long) ERROR.ordinal()),
+                FALSE));
+
         Type returnedType = node.getReturnedType()
                 .map(TypeSignatureTranslator::toTypeSignature)
                 .map(plannerContext.getTypeManager()::getType)
