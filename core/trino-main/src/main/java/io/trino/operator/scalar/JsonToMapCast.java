@@ -92,7 +92,12 @@ public class JsonToMapCast
     @UsedByGeneratedCode
     public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, JsonValue json)
     {
-        Slice payload = json.payload();
+        return toMapFromText(mapType, mapAppender, json.payload());
+    }
+
+    @UsedByGeneratedCode
+    public static SqlMap toMapFromText(MapType mapType, BlockBuilderAppender mapAppender, Slice payload)
+    {
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, payload)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {

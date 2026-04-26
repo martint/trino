@@ -88,7 +88,12 @@ public class JsonToArrayCast
     @UsedByGeneratedCode
     public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, JsonValue json)
     {
-        Slice payload = json.payload();
+        return toArrayFromText(arrayType, arrayAppender, json.payload());
+    }
+
+    @UsedByGeneratedCode
+    public static Block toArrayFromText(ArrayType arrayType, BlockBuilderAppender arrayAppender, Slice payload)
+    {
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, payload)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {

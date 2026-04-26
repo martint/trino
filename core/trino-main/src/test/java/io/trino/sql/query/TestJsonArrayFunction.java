@@ -91,6 +91,14 @@ public class TestJsonArrayFunction
                 "SELECT json_array('{\"a\" : 1}' FORMAT JSON)"))
                 .matches("VALUES VARCHAR '[{\"a\":1}]'");
 
+        assertThat(assertions.query(
+                "SELECT json_array(JSON '{\"a\" : 1}' FORMAT JSON)"))
+                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+
+        assertThat(assertions.query(
+                "SELECT json_array(JSON '{\"a\" : 1}')"))
+                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+
         // binary string to be read as JSON
         byte[] bytes = "{\"a\" : 1}".getBytes(UTF_16LE);
         String varbinaryLiteral = "X'" + base16().encode(bytes) + "'";

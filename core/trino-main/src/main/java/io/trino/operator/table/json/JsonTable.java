@@ -14,7 +14,7 @@
 package io.trino.operator.table.json;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathItem;
+import io.airlift.slice.Slice;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.table.json.execution.JsonTableProcessingFragment;
@@ -26,10 +26,12 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.type.JsonType;
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,7 +47,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,6 +57,11 @@ import static java.util.Objects.requireNonNull;
 public final class JsonTable
 {
     private JsonTable() {}
+
+    private static Slice jsonValuePayload(Object value)
+    {
+        return value == null ? null : ((JsonValue) value).payload();
+    }
 
     /**
      * This class comprises all information necessary to execute the json_table function:
@@ -156,7 +163,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonPathItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                JsonType.toPathItem(jsonValuePayload(readNativeValue(JSON, inputPage.getBlock(0), currentPosition))),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
@@ -180,7 +187,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonPathItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                JsonType.toPathItem(jsonValuePayload(readNativeValue(JSON, inputPage.getBlock(0), currentPosition))),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
