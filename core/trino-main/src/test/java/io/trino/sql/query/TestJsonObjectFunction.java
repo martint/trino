@@ -131,6 +131,14 @@ public class TestJsonObjectFunction
                 "SELECT json_object('key' : '[ 1, true, \"a\", null ]' FORMAT JSON)"))
                 .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
 
+        assertThat(assertions.query(
+                "SELECT json_object('key' : JSON '[ 1, true, \"a\", null ]' FORMAT JSON)"))
+                .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : JSON '[ 1, true, \"a\", null ]')"))
+                .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
+
         // binary string to be read as JSON
         byte[] bytes = "{\"a\" : 1}".getBytes(UTF_16LE);
         String varbinaryLiteral = "X'" + base16().encode(bytes) + "'";

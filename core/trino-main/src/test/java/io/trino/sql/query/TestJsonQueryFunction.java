@@ -148,6 +148,14 @@ public class TestJsonQueryFunction
                 .matches("VALUES VARCHAR '\"b\"'");
 
         assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
                 .failure().hasMessage("line 1:19: Cannot read input of type varchar(15) as JSON using formatting JSON ENCODING UTF8");
 
@@ -216,6 +224,12 @@ public class TestJsonQueryFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        assertThat(assertions.query(
+                "SELECT json_query(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
+                .hasMessage("conversion to JSON failed: ");
     }
 
     @Test
@@ -235,6 +249,14 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
                 .matches("VALUES VARCHAR '1'");
 
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
@@ -251,24 +273,10 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        // parameter cannot be converted to JSON -- returns null, because NULL ON ERROR is implicit
+        // non-JSON-native scalar parameter is rendered as a JSON string of its canonical SQL text
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
-
-        assertThat(assertions.query(
-                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" EMPTY ARRAY ON ERROR)"))
-                .matches("VALUES VARCHAR '[]'");
-
-        assertThat(assertions.query(
-                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" EMPTY OBJECT ON ERROR)"))
-                .matches("VALUES VARCHAR '{}'");
-
-        assertThat(assertions.query(
-                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\" ERROR ON ERROR)"))
-                .failure()
-                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
-                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
+                .matches("VALUES cast('\"2001-01-31\"' AS varchar)");
 
         // parameter cast to varchar
         assertThat(assertions.query(
@@ -287,6 +295,11 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax 1')"))
                 .matches("VALUES VARCHAR '1'");
+
+        // datetime scalars render as JSON strings using the type's canonical SQL form
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()')"))
+                .matches("VALUES cast('\"2024-01-02\"' AS varchar)");
 
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax true' RETURNING varchar FORMAT JSON)"))
