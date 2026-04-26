@@ -67,6 +67,7 @@ import io.trino.type.VarcharOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -421,30 +422,48 @@ class PathEvaluationVisitor
         ImmutableList.Builder<JsonPathItem> outputSequence = ImmutableList.builder();
         for (JsonPathItem object : sequence) {
             object = normalize(object);
-            List<JsonPathItem> elements;
+
+            // Determine the array source: typed-encoding view, materialized item, or
+            // lax-mode wrap. Each supplies a size and an int-indexed element accessor
+            // so subscript evaluation can fetch only the indices it needs.
+            int size;
+            IntFunction<JsonPathItem> elementAt;
             Optional<JsonValueView> view = JsonValueView.fromObject(object);
             if (view.isPresent() && view.orElseThrow().isArray()) {
-                ImmutableList.Builder<JsonPathItem> elementsBuilder = ImmutableList.builder();
-                view.orElseThrow().forEachArrayElement(elementsBuilder::add);
-                elements = elementsBuilder.build();
+                JsonValueView arrayView = view.orElseThrow();
+                size = arrayView.arraySize();
+                elementAt = arrayView::arrayElement;
             }
             else if (object instanceof JsonArrayItem arrayItem) {
-                elements = arrayItem.elements().stream().map(JsonPathItem.class::cast).collect(toImmutableList());
+                List<MaterializedJsonValue> elements = arrayItem.elements();
+                size = elements.size();
+                elementAt = i -> (JsonPathItem) elements.get(i);
             }
             else if (lax) {
-                elements = ImmutableList.of(object);
+                JsonPathItem fixed = object;
+                size = 1;
+                elementAt = _ -> fixed;
             }
             else {
                 throw itemTypeError("ARRAY", itemTypeName(object));
             }
 
-            // handle wildcard accessor
+            // Wildcard accessor: emit every element. For typed-encoding views,
+            // forEachArrayElement is the cache-friendly walk; for materialized sources, the
+            // by-index fetch is fine since they are list-backed.
             if (node.subscripts().isEmpty()) {
-                outputSequence.addAll(elements);
+                if (view.isPresent() && view.orElseThrow().isArray()) {
+                    view.orElseThrow().forEachArrayElement(outputSequence::add);
+                }
+                else {
+                    for (int i = 0; i < size; i++) {
+                        outputSequence.add(elementAt.apply(i));
+                    }
+                }
                 continue;
             }
 
-            if (elements.isEmpty()) {
+            if (size == 0) {
                 if (!lax) {
                     throw structuralError("invalid array subscript for empty array");
                 }
@@ -452,7 +471,7 @@ class PathEvaluationVisitor
                 continue;
             }
 
-            PathEvaluationContext arrayContext = context.withLast(elements.size() - 1);
+            PathEvaluationContext arrayContext = context.withLast(size - 1);
             for (IrArrayAccessor.Subscript subscript : node.subscripts()) {
                 List<JsonPathItem> from = process(subscript.from(), arrayContext);
                 Optional<List<JsonPathItem>> to = subscript.to().map(path -> process(path, arrayContext));
@@ -468,15 +487,15 @@ class PathEvaluationVisitor
                         .map(PathEvaluationVisitor::asArrayIndex)
                         .orElse(fromIndex);
 
-                if (!lax && (fromIndex < 0 || fromIndex >= elements.size() || toIndex < 0 || toIndex >= elements.size() || fromIndex > toIndex)) {
-                    throw structuralError("invalid array subscript: [%s, %s] for array of size %s", fromIndex, toIndex, elements.size());
+                if (!lax && (fromIndex < 0 || fromIndex >= size || toIndex < 0 || toIndex >= size || fromIndex > toIndex)) {
+                    throw structuralError("invalid array subscript: [%s, %s] for array of size %s", fromIndex, toIndex, size);
                 }
 
                 if (fromIndex <= toIndex) {
                     long start = Math.max(fromIndex, 0L);
-                    long end = Math.min(toIndex, elements.size() - 1L);
+                    long end = Math.min(toIndex, size - 1L);
                     for (long i = start; i <= end; i++) {
-                        outputSequence.add(elements.get((int) i));
+                        outputSequence.add(elementAt.apply((int) i));
                     }
                 }
             }
