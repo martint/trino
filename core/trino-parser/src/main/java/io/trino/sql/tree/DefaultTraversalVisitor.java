@@ -970,6 +970,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitJsonSerialize(JsonSerialize node, C context)
+    {
+        process(node.getExpression(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitJsonPathInvocation(JsonPathInvocation node, C context)
     {
         process(node.getInputExpression(), context);
