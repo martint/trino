@@ -18,14 +18,26 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonPathItem;
+import io.trino.json.ir.TypedValue;
+import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.JsonValue;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+import io.trino.type.DateOperators;
 import io.trino.type.JsonType;
 import io.trino.util.JsonCastException;
 
@@ -43,6 +55,7 @@ import static io.trino.json.JsonItemEncoding.appendVersion;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.DATE;
@@ -246,6 +259,62 @@ public final class JsonOperators
         catch (IOException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), BOOLEAN), e);
         }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(DATE)
+    public static Long castToDate(@SqlType(JSON) JsonValue json)
+    {
+        JsonPathItem item = JsonItemEncoding.decode(json.payload());
+        if (item == JsonNull.JSON_NULL) {
+            return null;
+        }
+        if (!(item instanceof TypedValue typed)) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to date");
+        }
+        Type type = typed.getType();
+        if (type instanceof DateType) {
+            return typed.getLongValue();
+        }
+        if (type instanceof VarcharType) {
+            return DateOperators.castFromVarchar((Slice) typed.getObjectValue());
+        }
+        if (type instanceof CharType charType) {
+            return DateOperators.castFromVarchar(Slices.utf8Slice(padSpaces((Slice) typed.getObjectValue(), charType).toStringUtf8()));
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SQL/JSON value of type %s to date", type));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("time(p)")
+    public static Long castToTime(@LiteralParameter("p") long precision, @SqlType(JSON) JsonValue json)
+    {
+        JsonPathItem item = JsonItemEncoding.decode(json.payload());
+        if (item == JsonNull.JSON_NULL) {
+            return null;
+        }
+        if (!(item instanceof TypedValue typed)) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to time");
+        }
+        Type type = typed.getType();
+        if (type instanceof TimeType timeType) {
+            // Re-format to canonical text and re-parse so any precision adjustment goes through the
+            // single source of truth (TimeOperators.castFromVarchar). The "+ 9" budgets the buffer
+            // for the longest canonical TIME(MAX_PRECISION) text form: "HH:MM:SS." (9 chars) plus
+            // up to MAX_PRECISION fractional digits.
+            Slice formatted = TimeOperators.castToVarchar(TimeType.MAX_PRECISION + 9L, timeType.getPrecision(), typed.getLongValue());
+            return TimeOperators.castFromVarchar(precision, formatted);
+        }
+        if (type instanceof VarcharType) {
+            return TimeOperators.castFromVarchar(precision, (Slice) typed.getObjectValue());
+        }
+        if (type instanceof CharType charType) {
+            return TimeOperators.castFromVarchar(precision, Slices.utf8Slice(padSpaces((Slice) typed.getObjectValue(), charType).toStringUtf8()));
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SQL/JSON value of type %s to time(%s)", type, precision));
     }
 
     @ScalarOperator(CAST)

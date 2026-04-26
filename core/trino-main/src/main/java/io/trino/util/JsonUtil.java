@@ -49,7 +49,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -191,7 +194,10 @@ public final class JsonUtil
                 type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
+                type instanceof TimeType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof DateType) {
             return true;
         }

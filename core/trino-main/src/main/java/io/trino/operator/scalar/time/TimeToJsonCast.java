@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.scalar.timestamp;
+package io.trino.operator.scalar.time;
 
 import io.trino.json.JsonItemEncoding;
 import io.trino.json.ir.TypedValue;
@@ -20,28 +20,20 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.JsonValue;
-import io.trino.spi.type.LongTimestamp;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimeType.createTimeType;
 
 @ScalarOperator(CAST)
-public final class TimestampToJsonCast
+public final class TimeToJsonCast
 {
-    private TimestampToJsonCast() {}
+    private TimeToJsonCast() {}
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
-        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
-    }
-
-    @LiteralParameters("p")
-    @SqlType(JSON)
-    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
-    {
-        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
+        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimeType((int) precision), value)));
     }
 }
