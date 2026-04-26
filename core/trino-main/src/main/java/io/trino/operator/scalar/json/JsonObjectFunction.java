@@ -16,13 +16,16 @@ package io.trino.operator.scalar.json;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonArray;
 import io.trino.json.JsonInputError;
 import io.trino.json.JsonItem;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonObject;
 import io.trino.json.JsonObjectMember;
 import io.trino.json.JsonValue;
+import io.trino.json.JsonValueView;
 import io.trino.json.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
@@ -43,6 +46,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +142,9 @@ public class JsonObjectFunction
                         : (Slice) value;
                 JsonItem pathItem = JsonType.toPathItem(payload);
                 checkState(pathItem != JsonInputError.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                if (uniqueKeys) {
+                    validateUniqueKeys(pathItem);
+                }
                 valueNode = JsonItems.asJsonValue(pathItem);
             }
             else {
@@ -151,5 +158,52 @@ public class JsonObjectFunction
         }
 
         return new JsonObject(members);
+    }
+
+    private static void validateUniqueKeys(JsonItem item)
+    {
+        validateUniqueKeys(item, 0);
+    }
+
+    private static void validateUniqueKeys(JsonItem item, int depth)
+    {
+        if (depth > JsonItemEncoding.MAX_DEPTH) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "JSON value passed to JSON_OBJECT exceeds maximum nesting depth of " + JsonItemEncoding.MAX_DEPTH);
+        }
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.get();
+            if (jsonView.isObject()) {
+                Set<String> keyNames = new HashSet<>();
+                jsonView.forEachObjectMember((key, memberView) -> {
+                    if (!keyNames.add(key)) {
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                    }
+                    validateUniqueKeys(memberView, depth + 1);
+                });
+                return;
+            }
+            if (jsonView.isArray()) {
+                jsonView.forEachArrayElement(element -> validateUniqueKeys(element, depth + 1));
+            }
+            return;
+        }
+
+        if (item instanceof JsonObject objectItem) {
+            Set<String> keyNames = new HashSet<>();
+            for (JsonObjectMember member : objectItem.members()) {
+                if (!keyNames.add(member.key())) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                }
+                validateUniqueKeys(member.value(), depth + 1);
+            }
+            return;
+        }
+
+        if (item instanceof JsonArray arrayItem) {
+            for (JsonValue element : arrayItem.elements()) {
+                validateUniqueKeys(element, depth + 1);
+            }
+        }
     }
 }
