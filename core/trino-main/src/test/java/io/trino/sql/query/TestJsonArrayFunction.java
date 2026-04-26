@@ -176,8 +176,17 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[true]'");
 
         assertThat(assertions.query(
+                "SELECT json_array(true RETURNING json)"))
+                .matches("VALUES JSON '[true]'");
+
+        assertThat(assertions.query(
                 "SELECT json_array(true RETURNING varchar(100))"))
                 .matches("VALUES CAST('[true]' AS varchar(100))");
+
+        assertThat(assertions.query(
+                "SELECT json_array(true RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // varbinary output
         String output = "[true]";
