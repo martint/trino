@@ -269,7 +269,7 @@ final class TrinoTypes
                  StandardTypes.IPADDRESS -> output.writeBytes((Slice) value);
             case StandardTypes.VARCHAR,
                  StandardTypes.VARBINARY -> writeVariableSlice((Slice) value, output);
-            // surrogateJsonText preserves insertion order; re-canonicalize via jsonParse so the
+            // jsonText preserves insertion order; re-canonicalize via jsonParse so the
             // text Python sees has sorted keys (matching the on-disk canonical form).
             case StandardTypes.JSON -> writeVariableSlice(jsonParse(utf8Slice(jsonText(type, ((JsonPayload) value).payload()))), output);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);

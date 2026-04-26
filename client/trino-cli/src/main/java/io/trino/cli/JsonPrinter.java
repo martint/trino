@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.google.common.collect.ImmutableList;
+import io.trino.client.JsonColumnValue;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
@@ -70,6 +71,9 @@ public class JsonPrinter
     {
         if (o instanceof byte[]) {
             return formatHexDump((byte[]) o);
+        }
+        if (o instanceof JsonColumnValue) {
+            return ((JsonColumnValue) o).jsonText();
         }
         return o;
     }
