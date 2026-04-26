@@ -15,6 +15,7 @@ package io.trino.json;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.json.CachingResolver.ResolvedFunctionAndCoercions;
 import io.trino.json.CachingResolver.ResolvedOperatorAndCoercions;
 import io.trino.json.JsonPathEvaluator.Invoker;
 import io.trino.json.ir.IrComparisonPredicate;
@@ -23,6 +24,7 @@ import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPathVisitor;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
@@ -366,6 +368,72 @@ class PathPredicateEvaluationVisitor
     }
 
     @Override
+    protected Boolean visitIrLikeRegexPredicate(IrLikeRegexPredicate node, PathEvaluationContext context)
+    {
+        List<JsonItem> valueSequence;
+        try {
+            valueSequence = pathVisitor.process(node.path(), context);
+        }
+        catch (PathEvaluationException e) {
+            return null;
+        }
+
+        if (lax) {
+            valueSequence = unwrapArrays(valueSequence);
+        }
+        if (valueSequence.isEmpty()) {
+            // SQL:2023 §9.46 GR F.V: when the input sequence is empty, ERR=False and
+            // FOUND=False, so the predicate evaluates to FALSE — independent of mode.
+            return FALSE;
+        }
+
+        if (!(resolver.getRegexpLikeFunction() instanceof ResolvedFunctionAndCoercions.Resolved regexpLike)) {
+            return null;
+        }
+
+        Optional<Object> cachedPattern = resolver.getLikeRegexPattern(node, invoker, regexpLike.rightCoercion());
+        if (cachedPattern.isEmpty()) {
+            return null;
+        }
+        Object pattern = cachedPattern.get();
+
+        boolean found = false;
+        for (JsonItem object : valueSequence) {
+            Slice value = getText(object);
+            if (value == null) {
+                return null;
+            }
+
+            Object source = value;
+            if (regexpLike.leftCoercion().isPresent()) {
+                try {
+                    source = invoker.invoke(regexpLike.leftCoercion().get(), ImmutableList.of(source));
+                }
+                catch (RuntimeException e) {
+                    return null;
+                }
+            }
+
+            Object result;
+            try {
+                result = invoker.invoke(regexpLike.function(), ImmutableList.of(source, pattern));
+            }
+            catch (RuntimeException e) {
+                return null;
+            }
+
+            if ((Boolean) result) {
+                found = true;
+                if (lax) {
+                    return TRUE;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    @Override
     protected Boolean visitIrNegationPredicate(IrNegationPredicate node, PathEvaluationContext context)
     {
         Boolean predicateResult = process(node.predicate(), context);
@@ -403,6 +471,8 @@ class PathPredicateEvaluationVisitor
             valueSequence = unwrapArrays(valueSequence);
         }
         if (valueSequence.isEmpty()) {
+            // SQL:2023 §9.46 GR F.V: when the input sequence is empty, ERR=False and
+            // FOUND=False, so the predicate evaluates to FALSE — independent of mode.
             return FALSE;
         }
 
