@@ -6689,10 +6689,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:28: Cannot read input of type double as JSON using formatting JSON");
 
         analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITHOUT UNIQUE KEYS)");
-
-        assertFails("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)")
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+        analyze("SELECT JSON_OBJECT('key' : '[1, 2, 3]' FORMAT JSON WITH UNIQUE KEYS)");
     }
 
     @Test

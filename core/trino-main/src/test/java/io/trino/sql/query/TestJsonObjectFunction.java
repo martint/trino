@@ -161,12 +161,29 @@ public class TestJsonObjectFunction
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITHOUT UNIQUE KEYS)"))
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
 
-        // in presence of input value with FORMAT, the option WITH UNIQUE KEYS is not supported, because the input function does not support this semantics
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITH UNIQUE KEYS)"))
                 .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : '[{\"a\" : 1, \"a\" : 1}]' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        // depth-3 nested object with a duplicated key at the inner-most level
+        assertThat(assertions.query(
+                "SELECT json_object('outer' : '{\"middle\" : {\"inner\" : {\"a\" : 1, \"a\" : 2}}}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        // depth-3 nested object without duplicates passes
+        assertThat(assertions.query(
+                "SELECT json_object('outer' : '{\"middle\" : {\"inner\" : {\"a\" : 1, \"b\" : 2}}}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .matches("VALUES VARCHAR '{\"outer\":{\"middle\":{\"inner\":{\"a\":1,\"b\":2}}}}'");
     }
 
     @Test
@@ -199,6 +216,12 @@ public class TestJsonObjectFunction
         assertThat(assertions.query(
                 "SELECT json_object('key' : json_object('a' : 1))"))
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : json_object('a' : 1, 'a' : 2) WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
     }
 
     @Test
