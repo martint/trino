@@ -46,6 +46,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.VariantType;
 import io.trino.spi.variant.Variant;
+import io.trino.type.JsonType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantUtil;
@@ -94,13 +95,14 @@ public final class JsonEncodingUtils
         boolean supportsParametricDateTime = clientCapabilities.contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
         boolean supportsVariant = clientCapabilities.contains(ClientCapabilities.VARIANT.toString());
         boolean supportsVariantBinary = clientCapabilities.contains(ClientCapabilities.VARIANT_BINARY.toString());
+        boolean supportsJsonType = clientCapabilities.contains(ClientCapabilities.JSON_PARSED_ITEM_ENCODING.toString());
 
         return types.stream()
-                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime, supportsVariant, supportsVariantBinary, supportsJsonType))
                 .toArray(TypeEncoder[]::new);
     }
 
-    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary)
+    public static TypeEncoder createTypeEncoder(Type type, boolean supportsParametricDateTime, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsJsonType)
     {
         return switch (type) {
             case BigintType _ -> BIGINT_ENCODER;
@@ -112,14 +114,15 @@ public final class JsonEncodingUtils
             case TinyintType _ -> TINYINT_ENCODER;
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
+            case JsonType _ -> new JsonEncoder(supportsJsonType);
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
-            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
-            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary));
+            case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary, supportsJsonType));
+            case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime, supportsVariant, supportsVariantBinary, supportsJsonType));
             case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
-                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary))
+                    .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime, supportsVariant, supportsVariantBinary, supportsJsonType))
                     .toArray(TypeEncoder[]::new));
             case Type _ -> new TypeObjectValueEncoder(type, supportsParametricDateTime);
         };
@@ -349,7 +352,9 @@ public final class JsonEncodingUtils
                 generator.writeEndObject();
             }
             else {
-                String json = VariantUtil.asJson(variant).toStringUtf8();
+                // VariantUtil.asJson emits the typed JSON encoding; render to canonical text for
+                // the protocol stream.
+                String json = io.trino.type.JsonType.jsonText(VariantUtil.asJson(variant)).toStringUtf8();
                 if (supportsVariant) {
                     generator.writeRawValue(json);
                 }
@@ -357,6 +362,39 @@ public final class JsonEncodingUtils
                     generator.writeString(json);
                 }
             }
+        }
+    }
+
+    private static final class JsonEncoder
+            implements TypeEncoder
+    {
+        private final boolean typedJsonEncoding;
+
+        private JsonEncoder(boolean typedJsonEncoding)
+        {
+            this.typedJsonEncoding = typedJsonEncoding;
+        }
+
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            Slice value = JsonType.JSON.getSlice(block, position);
+            Slice jsonText = JsonType.jsonText(value);
+            if (!typedJsonEncoding) {
+                generator.writeString(jsonText.toStringUtf8());
+                return;
+            }
+
+            generator.writeStartObject();
+            generator.writeStringField("text", jsonText.toStringUtf8());
+            generator.writeBinaryField("item", value.getBytes());
+            generator.writeEndObject();
         }
     }
 
