@@ -35,6 +35,7 @@ import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.FunctionType;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -47,6 +48,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static java.lang.invoke.MethodHandles.insertArguments;
 
 public final class ExecutionPlanner
 {
@@ -133,11 +135,14 @@ public final class ExecutionPlanner
                                 .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
                 PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, Optional.empty()).get();
                 PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, Optional.empty()).get();
+                MethodHandle methodHandle = implementation.getMethodHandle()
+                        .bindTo(context)
+                        .bindTo(session);
+                // JSON_TABLE never passes a concrete value for JSON_VALUE's dummy return-type anchor.
+                methodHandle = insertArguments(methodHandle, 3, new Object[] {null});
                 yield new ValueColumn(
                         valueColumn.outputIndex(),
-                        implementation.getMethodHandle()
-                                .bindTo(context)
-                                .bindTo(session),
+                        methodHandle,
                         session,
                         valueColumn.path(),
                         valueColumn.emptyBehavior(),
