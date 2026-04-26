@@ -988,6 +988,76 @@ public class TestJsonOperators
     }
 
     @Test
+    public void testCastToDate()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS DATE)"))
+                .matches("VALUES CAST(NULL AS DATE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02\"' AS DATE)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-date\"' AS DATE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTime()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIME(3))"))
+                .matches("VALUES CAST(NULL AS TIME(3))");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"03:04:05.123\"' AS TIME(3))"))
+                .matches("VALUES TIME '03:04:05.123'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-time\"' AS TIME(3))"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimeWithTimeZone()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIME(3) WITH TIME ZONE)"))
+                .matches("VALUES CAST(NULL AS TIME(3) WITH TIME ZONE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"03:04:05.123+08:00\"' AS TIME(3) WITH TIME ZONE)"))
+                .matches("VALUES TIME '03:04:05.123 +08:00'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-time\"' AS TIME(3) WITH TIME ZONE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimestamp()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIMESTAMP(3))"))
+                .matches("VALUES CAST(NULL AS TIMESTAMP(3))");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02 03:04:05.123\"' AS TIMESTAMP(3))"))
+                .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.123'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-timestamp\"' AS TIMESTAMP(3))"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimestampWithTimeZone()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .matches("VALUES CAST(NULL AS TIMESTAMP(3) WITH TIME ZONE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02 03:04:05.123 UTC\"' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.123 UTC'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-timestamp\"' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
     public void testEquals()
     {
         assertThat(assertions.operator(EQUAL, "JSON '{\"a\": \"1.1\", \"b\": \"2.3\", \"c\": {\"d\": \"314E-2\" }}'", "JSON '{\"a\": \"1.1\", \"b\": \"2.3\", \"c\": {\"d\": \"314E-2\" }}'"))

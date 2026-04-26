@@ -1154,7 +1154,7 @@ public class TestSignatureBinder
                         .setTypeVariable("E", TINYINT)
                         .build());
         assertThat(multiCast)
-                .boundTo(new ArrayType(TIMESTAMP_MILLIS), JSON)
+                .boundTo(new ArrayType(HYPER_LOG_LOG), JSON)
                 .fails();
     }
 
