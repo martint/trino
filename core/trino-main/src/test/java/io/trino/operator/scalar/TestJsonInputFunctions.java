@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import io.trino.json.JsonItemSemantics;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonPathItem;
-import io.trino.json.JsonValueView;
 import io.trino.json.MaterializedJsonValue;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -34,7 +33,7 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -171,7 +170,7 @@ public class TestJsonInputFunctions
     public void testNullInput()
     {
         assertThat(assertions.expression("\"$varchar_to_json\"(null, true)"))
-                .isNull(JSON_2016);
+                .isNull(JSON);
     }
 
     @Test
@@ -190,18 +189,38 @@ public class TestJsonInputFunctions
     private void assertJsonValue(String expression, MaterializedJsonValue expected)
     {
         assertThat(assertions.expression(expression))
-                .hasType(JSON_2016)
+                .hasType(JSON)
                 .satisfies(actual -> {
-                    assertThat(actual).isInstanceOf(JsonPathItem.class);
-                    assertThat(JsonItemSemantics.equals((JsonPathItem) actual, expected)).isTrue();
+                    JsonPathItem item = toPathItem(actual);
+                    assertThat(item).isInstanceOf(JsonPathItem.class);
+                    assertThat(JsonItemSemantics.equals(JsonItems.asJsonValue(item), expected)).isTrue();
                 });
     }
 
     private void assertJsonError(String expression)
     {
         assertThat(assertions.expression(expression))
-                .hasType(JSON_2016)
-                .satisfies(actual -> assertThat(JsonValueView.isJsonError(actual)).isTrue());
+                .hasType(JSON)
+                .satisfies(actual -> assertThat(toPathItem(actual) == io.trino.json.JsonInputErrorNode.JSON_ERROR).isTrue());
+    }
+
+    private static JsonPathItem toPathItem(Object actual)
+    {
+        if (actual instanceof io.airlift.slice.Slice slice) {
+            return io.trino.type.JsonType.toPathItem(slice);
+        }
+        if (actual instanceof String text) {
+            if (text.equals("JSON_ERROR")) {
+                return io.trino.json.JsonInputErrorNode.JSON_ERROR;
+            }
+            try (Reader reader = Reader.of(text)) {
+                return JsonItems.parseJson(reader);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return (JsonPathItem) actual;
     }
 
     private static MaterializedJsonValue parseJsonValue(String json)

@@ -148,6 +148,14 @@ public class TestJsonQueryFunction
                 .matches("VALUES VARCHAR '\"b\"'");
 
         assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
                 .failure().hasMessage("line 1:19: Cannot read input of type varchar(15) as JSON using formatting JSON ENCODING UTF8");
 
@@ -216,6 +224,12 @@ public class TestJsonQueryFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        assertThat(assertions.query(
+                "SELECT json_query(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
+                .hasMessage("conversion to JSON failed: ");
     }
 
     @Test
@@ -233,6 +247,14 @@ public class TestJsonQueryFunction
         // JSON parameter
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
                 .matches("VALUES VARCHAR '1'");
 
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause

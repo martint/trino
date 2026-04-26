@@ -903,6 +903,20 @@ public class TestJsonTable
     }
 
     @Test
+    public void testPublicJsonInput()
+    {
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        JSON '[1, 2, 3]',
+                        'lax $[$index]' PASSING JSON '0' AS "index"
+                        COLUMNS(a integer PATH 'lax $'))
+                """))
+                .matches("VALUES 1");
+    }
+
+    @Test
     public void testOrdinalityColumn()
     {
         assertThat(assertions.query(

@@ -14,7 +14,6 @@
 package io.trino.operator.table.json;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathItem;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.table.json.execution.JsonTableProcessingFragment;
@@ -45,7 +44,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,6 +54,11 @@ import static java.util.Objects.requireNonNull;
 public final class JsonTable
 {
     private JsonTable() {}
+
+    private static io.airlift.slice.Slice jsonValuePayload(Object value)
+    {
+        return value == null ? null : ((io.trino.spi.type.JsonValue) value).payload();
+    }
 
     /**
      * This class comprises all information necessary to execute the json_table function:
@@ -156,7 +160,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonPathItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                io.trino.type.JsonType.toPathItem(jsonValuePayload(readNativeValue(JSON, inputPage.getBlock(0), currentPosition))),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
@@ -180,7 +184,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonPathItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                io.trino.type.JsonType.toPathItem(jsonValuePayload(readNativeValue(JSON, inputPage.getBlock(0), currentPosition))),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));

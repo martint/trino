@@ -92,7 +92,12 @@ public class JsonToRowCast
     @UsedByGeneratedCode
     public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, JsonValue json)
     {
-        Slice payload = json.payload();
+        return toRowFromText(rowType, rowAppender, json.payload());
+    }
+
+    @UsedByGeneratedCode
+    public static SqlRow toRowFromText(RowType rowType, BlockBuilderAppender rowAppender, Slice payload)
+    {
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, payload)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {

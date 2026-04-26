@@ -102,6 +102,14 @@ public class TestJsonExistsFunction
                 .matches("VALUES true");
 
         assertThat(assertions.query(
+                "SELECT json_exists(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
                 .failure()
                 .hasErrorCode(TYPE_MISMATCH)
@@ -198,6 +206,14 @@ public class TestJsonExistsFunction
         // JSON parameter
         assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
                 .matches("VALUES true");
 
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause

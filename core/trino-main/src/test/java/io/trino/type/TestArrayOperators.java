@@ -111,11 +111,11 @@ public class TestArrayOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static io.trino.spi.type.JsonValue uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
         // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
         // by these tests is rejected by the downstream cast (with TrinoException), not here.
-        return slice;
+        return io.trino.spi.type.JsonValue.of(slice);
     }
 
     @Test

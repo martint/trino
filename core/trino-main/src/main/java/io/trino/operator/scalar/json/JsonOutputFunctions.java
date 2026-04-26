@@ -66,10 +66,9 @@ public final class JsonOutputFunctions
 
     private JsonOutputFunctions() {}
 
-    @SqlNullable
     @ScalarFunction(value = JSON_TO_VARCHAR, hidden = true)
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonToVarchar(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarchar(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_8, errorBehavior, omitQuotes);
     }
@@ -77,7 +76,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinary(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinary(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return jsonToVarbinaryUtf8(jsonExpression, errorBehavior, omitQuotes);
     }
@@ -85,7 +84,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF8, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf8(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf8(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_8, errorBehavior, omitQuotes);
     }
@@ -93,7 +92,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF16, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf16(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf16(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_16, errorBehavior, omitQuotes);
     }
@@ -101,14 +100,19 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF32, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf32(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf32(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_32, errorBehavior, omitQuotes);
     }
 
     private static Slice serialize(Object json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
     {
-        io.trino.json.JsonPathItem jsonItem = (io.trino.json.JsonPathItem) json;
+        Slice payload = switch (json) {
+            case io.trino.spi.type.JsonValue jsonValue -> jsonValue.payload();
+            case Slice slice -> slice;
+            default -> throw new IllegalStateException("Unexpected json input type: " + json.getClass().getName());
+        };
+        io.trino.json.JsonPathItem jsonItem = io.trino.type.JsonType.toPathItem(payload);
         if (omitQuotes) {
             java.util.Optional<Slice> scalarText = JsonItems.scalarText(jsonItem);
             if (scalarText.isPresent()) {
