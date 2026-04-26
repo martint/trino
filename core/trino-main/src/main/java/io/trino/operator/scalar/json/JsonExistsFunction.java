@@ -114,12 +114,12 @@ public class JsonExistsFunction
             SqlRow parametersRow,
             long errorBehavior)
     {
-        if (inputExpression instanceof JsonInputError) {
+        if (JsonInputError.matches(inputExpression)) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (JsonItem parameter : parameters) {
-            if (parameter instanceof JsonInputError) {
+            if (JsonInputError.matches(parameter)) {
                 return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }

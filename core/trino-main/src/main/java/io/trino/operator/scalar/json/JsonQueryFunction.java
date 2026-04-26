@@ -18,11 +18,13 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArray;
 import io.trino.json.JsonInputError;
 import io.trino.json.JsonItem;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonObject;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.JsonValue;
+import io.trino.json.JsonValueView;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.TypedValue;
 import io.trino.json.ir.IrJsonPath;
@@ -65,8 +67,8 @@ public class JsonQueryFunction
 {
     public static final String JSON_QUERY_FUNCTION_NAME = "$json_query";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, Object.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
-    private static final JsonItem EMPTY_ARRAY_RESULT = new JsonArray(ImmutableList.of());
-    private static final JsonItem EMPTY_OBJECT_RESULT = new JsonObject(ImmutableList.of());
+    private static final JsonItem EMPTY_ARRAY_RESULT = JsonItems.encoded(new JsonArray(ImmutableList.of()));
+    private static final JsonItem EMPTY_OBJECT_RESULT = JsonItems.encoded(new JsonObject(ImmutableList.of()));
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -130,12 +132,12 @@ public class JsonQueryFunction
             long emptyBehavior,
             long errorBehavior)
     {
-        if (inputExpression instanceof JsonInputError) {
+        if (JsonInputError.matches(inputExpression)) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (JsonItem parameter : parameters) {
-            if (parameter instanceof JsonInputError) {
+            if (JsonInputError.matches(parameter)) {
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
@@ -161,6 +163,20 @@ public class JsonQueryFunction
             return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionException("JSON path found no items"));
         }
 
+        if (pathResult.size() == 1) {
+            JsonItem item = pathResult.get(0);
+            return switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
+                case WITHOUT -> toJsonResult(item);
+                case CONDITIONAL -> {
+                    if (isArrayOrObject(item)) {
+                        yield item;
+                    }
+                    yield encodedResult(new JsonArray(ImmutableList.of(JsonItems.asJsonValue(item))));
+                }
+                case UNCONDITIONAL -> encodedResult(new JsonArray(ImmutableList.of(JsonItems.asJsonValue(item))));
+            };
+        }
+
         // translate sequence to JSON items
         ImmutableList.Builder<JsonValue> builder = ImmutableList.builderWithExpectedSize(pathResult.size());
         for (JsonItem item : pathResult) {
@@ -177,7 +193,7 @@ public class JsonQueryFunction
         sequence = switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
             case WITHOUT -> sequence;
             case UNCONDITIONAL -> ImmutableList.of(new JsonArray(sequence));
-            case CONDITIONAL -> (sequence.size() == 1 && (sequence.get(0) instanceof JsonArray || sequence.get(0) instanceof JsonObject))
+            case CONDITIONAL -> (sequence.size() == 1 && isArrayOrObject(sequence.get(0)))
                     ? sequence
                     : ImmutableList.of(new JsonArray(sequence));
         };
@@ -188,7 +204,10 @@ public class JsonQueryFunction
             // if the only item is a TextNode, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
-        return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path found multiple items"));
+        // Per SQL:2023 §9.44 GR 4) c) iii) (RETURNING JSON) and §9.49 GR 4) c) iii) (serialization):
+        // a JSON_QUERY path producing multiple items without a wrapper is a cardinality error
+        // ("more than one SQL/JSON item", SQLSTATE 22034), distinct from output-conversion errors.
+        return handleSpecialCase(errorBehavior, () -> new JsonQueryResultException("path produced multiple items without a wrapper"));
     }
 
     private static JsonItem handleSpecialCase(long behavior, Supplier<TrinoException> error)
@@ -199,5 +218,29 @@ public class JsonQueryFunction
             case EMPTY_ARRAY -> EMPTY_ARRAY_RESULT;
             case EMPTY_OBJECT -> EMPTY_OBJECT_RESULT;
         };
+    }
+
+    private static JsonItem toJsonResult(JsonItem item)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            return view.get();
+        }
+        if (item instanceof JsonValue jsonValue) {
+            return encodedResult(jsonValue);
+        }
+        throw new IllegalArgumentException(format("unexpected JSON path result item: %s", item.getClass().getName()));
+    }
+
+    private static boolean isArrayOrObject(JsonItem item)
+    {
+        return JsonValueView.fromObject(item)
+                .map(view -> view.isArray() || view.isObject())
+                .orElse(item instanceof JsonArray || item instanceof JsonObject);
+    }
+
+    private static JsonItem encodedResult(JsonValue value)
+    {
+        return JsonValueView.root(JsonItemEncoding.encode(value));
     }
 }

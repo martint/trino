@@ -15,7 +15,9 @@ package io.trino.operator.scalar.json;
 
 import io.airlift.slice.Slice;
 import io.trino.json.JsonInputError;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
+import io.trino.json.JsonValueView;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -95,7 +97,7 @@ public final class JsonInputFunctions
     private static Object toJson(Reader reader, boolean failOnError)
     {
         try {
-            return JsonItems.parseJson(reader);
+            return JsonValueView.root(JsonItemEncoding.encode(JsonItems.parseJson(reader)));
         }
         catch (RuntimeException | IOException e) {
             if (failOnError) {

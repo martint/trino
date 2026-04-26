@@ -62,7 +62,7 @@ public final class ParameterUtil
                 if (value == null) {
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence
                 }
-                else if (value instanceof JsonInputError) {
+                else if (JsonInputError.matches(value)) {
                     array[i] = JsonInputError.JSON_ERROR;
                 }
                 else {

@@ -77,6 +77,7 @@ import io.trino.type.VarcharOperators;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -87,6 +88,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
 import static io.trino.json.PathEvaluationException.itemTypeError;
 import static io.trino.json.PathEvaluationException.structuralError;
+import static io.trino.json.PathEvaluationUtil.normalize;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingLong;
@@ -422,7 +424,13 @@ class PathEvaluationVisitor
         ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
         for (JsonItem item : sequence) {
             List<JsonItem> elements;
-            if (item instanceof JsonArray array) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent() && view.orElseThrow().isArray()) {
+                ImmutableList.Builder<JsonItem> elementsBuilder = ImmutableList.builder();
+                view.orElseThrow().forEachArrayElement(elementsBuilder::add);
+                elements = elementsBuilder.build();
+            }
+            else if (item instanceof JsonArray array) {
                 elements = array.elements().stream()
                         .map(JsonItem.class::cast)
                         .collect(toImmutableList());
@@ -632,7 +640,25 @@ class PathEvaluationVisitor
         if (depth >= MAX_DESCENDANTS_DEPTH) {
             throw new PathEvaluationException("JSON nesting exceeds maximum depth of " + MAX_DESCENDANTS_DEPTH);
         }
-        if (item instanceof JsonObject object) {
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (jsonView.isObject()) {
+                jsonView.forEachObjectMember((memberKey, memberValue) -> {
+                    if (memberKey.equals(key)) {
+                        builder.add(memberValue);
+                    }
+                });
+                jsonView.forEachObjectMember((_, memberValue) -> descendants(memberValue, key, builder, depth + 1));
+            }
+            if (jsonView.isArray()) {
+                jsonView.forEachArrayElement(element -> descendants(element, key, builder, depth + 1));
+            }
+            return;
+        }
+
+        JsonItem normalized = normalize(item);
+        if (normalized instanceof JsonObject object) {
             // prefix order: visit the enclosing object first
             for (JsonObjectMember member : object.members()) {
                 if (member.key().equals(key)) {
@@ -644,7 +670,7 @@ class PathEvaluationVisitor
                 descendants(member.value(), key, builder, depth + 1);
             }
         }
-        if (item instanceof JsonArray array) {
+        if (normalized instanceof JsonArray array) {
             for (JsonValue element : array.elements()) {
                 descendants(element, key, builder, depth + 1);
             }
@@ -816,8 +842,20 @@ class PathEvaluationVisitor
 
         ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
         for (JsonItem object : sequence) {
-            if (!(object instanceof JsonObject jsonObject)) {
-                throw itemTypeError("OBJECT", itemTypeName(object));
+            Optional<JsonValueView> view = JsonValueView.fromObject(object);
+            if (view.isPresent() && view.orElseThrow().isObject()) {
+                JsonValueView jsonView = view.orElseThrow();
+                jsonView.forEachObjectMember((memberKey, memberValue) -> outputSequence.add(new JsonObject(ImmutableList.of(
+                        new JsonObjectMember("name", new TypedValue(VARCHAR, utf8Slice(memberKey))),
+                        new JsonObjectMember("value", memberValue.materializeValue()),
+                        new JsonObjectMember("id", new TypedValue(INTEGER, (long) objectId))))));
+                objectId++;
+                continue;
+            }
+
+            JsonItem normalized = normalize(object);
+            if (!(normalized instanceof JsonObject jsonObject)) {
+                throw itemTypeError("OBJECT", itemTypeName(normalized));
             }
 
             jsonObject.members().forEach(
@@ -854,13 +892,42 @@ class PathEvaluationVisitor
 
         ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
         for (JsonItem item : sequence) {
-            if (!lax) {
-                if (!(item instanceof JsonObject)) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent()) {
+                JsonValueView jsonView = view.orElseThrow();
+                if (!lax && !jsonView.isObject()) {
                     throw itemTypeError("OBJECT", itemTypeName(item));
+                }
+                if (jsonView.isObject()) {
+                    if (node.key().isEmpty()) {
+                        jsonView.forEachObjectMember((_, memberValue) -> outputSequence.add(memberValue));
+                    }
+                    else {
+                        String key = node.key().orElseThrow();
+                        // Use objectMembers(key, consumer) instead of forEachObjectMember+filter:
+                        // single source of truth for keyed lookup, and indexed encodings can take
+                        // a sorting probe rather than a linear scan. Collect into a local list
+                        // first so we can detect "no match" for strict-mode structural-error
+                        // reporting without re-scanning the outer outputSequence builder.
+                        List<JsonItem> matches = new ArrayList<>();
+                        jsonView.objectMembers(key, matches::add);
+                        if (matches.isEmpty() && !lax) {
+                            throw structuralError("missing member '%s' in JSON object", key);
+                        }
+                        outputSequence.addAll(matches);
+                    }
+                }
+                continue;
+            }
+
+            JsonItem normalized = normalize(item);
+            if (!lax) {
+                if (!(normalized instanceof JsonObject)) {
+                    throw itemTypeError("OBJECT", itemTypeName(normalized));
                 }
             }
 
-            if (item instanceof JsonObject object) {
+            if (normalized instanceof JsonObject object) {
                 // handle wildcard member accessor
                 if (node.key().isEmpty()) {
                     for (JsonObjectMember member : object.members()) {
@@ -925,7 +992,11 @@ class PathEvaluationVisitor
 
         ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
         for (JsonItem item : sequence) {
-            if (item instanceof JsonArray array) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent() && view.orElseThrow().isArray()) {
+                outputSequence.add(new TypedValue(INTEGER, (long) view.orElseThrow().arraySize()));
+            }
+            else if (item instanceof JsonArray array) {
                 outputSequence.add(new TypedValue(INTEGER, (long) array.elements().size()));
             }
             else if (lax) {
@@ -951,28 +1022,26 @@ class PathEvaluationVisitor
         // constant JsonPathAnalyzer.TYPE_METHOD_RESULT_TYPE, which determines the resultType.
         // Today it is only enough to fit the longest of the result strings below.
         for (JsonItem item : sequence) {
-            outputSequence.add(new TypedValue(resultType, switch (item) {
-                case JsonNull _ -> utf8Slice("null");
-                case JsonArray _ -> utf8Slice("array");
-                case JsonObject _ -> utf8Slice("object");
-                case TypedValue(BigintType _, _),
-                     TypedValue(IntegerType _, _),
-                     TypedValue(SmallintType _, _),
-                     TypedValue(TinyintType _, _),
-                     TypedValue(DoubleType _, _),
-                     TypedValue(RealType _, _),
-                     TypedValue(DecimalType _, _),
-                     TypedValue(NumberType _, _) -> utf8Slice("number");
-                case TypedValue(VarcharType _, _), TypedValue(CharType _, _) -> utf8Slice("string");
-                case TypedValue(BooleanType _, _) -> utf8Slice("boolean");
-                case TypedValue(DateType _, _) -> utf8Slice("date");
-                case TypedValue(TimeType _, _) -> utf8Slice("time without time zone");
-                case TypedValue(TimeWithTimeZoneType _, _) -> utf8Slice("time with time zone");
-                case TypedValue(TimestampType _, _) -> utf8Slice("timestamp without time zone");
-                case TypedValue(TimestampWithTimeZoneType _, _) -> utf8Slice("timestamp with time zone");
-                case TypedValue(Type type, _) -> utf8Slice(type.getDisplayName());
-                default -> throw new IllegalStateException("Unsupported SQL/JSON item: " + item.getClass().getSimpleName());
-            }));
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent()) {
+                JsonValueView jsonView = view.orElseThrow();
+                outputSequence.add(new TypedValue(resultType, switch (jsonView.kind()) {
+                    case NULL -> utf8Slice("null");
+                    case ARRAY -> utf8Slice("array");
+                    case OBJECT -> utf8Slice("object");
+                    case TYPED_VALUE -> typeNameSlice(jsonView.typedValue().getType());
+                    case JSON_ERROR -> throw new IllegalStateException("JSON error item in path result");
+                }));
+            }
+            else {
+                outputSequence.add(new TypedValue(resultType, switch (normalize(item)) {
+                    case JsonNull _ -> utf8Slice("null");
+                    case JsonArray _ -> utf8Slice("array");
+                    case JsonObject _ -> utf8Slice("object");
+                    case TypedValue typedValue -> typeNameSlice(typedValue.getType());
+                    default -> throw new IllegalStateException("Unsupported SQL/JSON item: " + item.getClass().getSimpleName());
+                }));
+            }
         }
 
         return outputSequence.build();
@@ -980,6 +1049,16 @@ class PathEvaluationVisitor
 
     private static Optional<TypedValue> tryGetNumericTypedValue(JsonItem object)
     {
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            TypedValue typedValue = view.orElseThrow().typedValue();
+            if (isNumericType(typedValue.getType())) {
+                return Optional.of(typedValue);
+            }
+            return Optional.empty();
+        }
+
+        object = normalize(object);
         if (!(object instanceof TypedValue typedValue)) {
             return Optional.empty();
         }
@@ -1009,6 +1088,17 @@ class PathEvaluationVisitor
 
     private static Optional<TypedValue> getTextTypedValue(JsonItem object)
     {
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            TypedValue typedValue = view.orElseThrow().typedValue();
+            Type type = typedValue.getType();
+            if (type instanceof VarcharType || type instanceof CharType) {
+                return Optional.of(typedValue);
+            }
+            return Optional.empty();
+        }
+
+        object = normalize(object);
         if (!(object instanceof TypedValue typedValue)) {
             return Optional.empty();
         }
@@ -1021,7 +1111,11 @@ class PathEvaluationVisitor
 
     private static TypedValue requireScalar(JsonItem item)
     {
-        if (item instanceof TypedValue value) {
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            return view.orElseThrow().typedValue();
+        }
+        if (normalize(item) instanceof TypedValue value) {
             return value;
         }
         throw itemTypeError("scalar value", itemTypeName(item));
@@ -1029,22 +1123,47 @@ class PathEvaluationVisitor
 
     private static String itemTypeName(JsonItem item)
     {
-        return switch (item) {
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            return switch (view.orElseThrow().kind()) {
+                case NULL -> "NULL";
+                case ARRAY -> "ARRAY";
+                case OBJECT -> "OBJECT";
+                case TYPED_VALUE -> typeName(view.orElseThrow().typedValue().getType());
+                case JSON_ERROR -> "ERROR";
+            };
+        }
+        return switch (normalize(item)) {
             case JsonNull _ -> "NULL";
             case JsonArray _ -> "ARRAY";
             case JsonObject _ -> "OBJECT";
-            case TypedValue(BigintType _, _),
-                 TypedValue(IntegerType _, _),
-                 TypedValue(SmallintType _, _),
-                 TypedValue(TinyintType _, _),
-                 TypedValue(DoubleType _, _),
-                 TypedValue(RealType _, _),
-                 TypedValue(DecimalType _, _),
-                 TypedValue(NumberType _, _) -> "NUMBER";
-            case TypedValue(VarcharType _, _), TypedValue(CharType _, _) -> "STRING";
-            case TypedValue(BooleanType _, _) -> "BOOLEAN";
-            case TypedValue(Type type, _) -> type.getDisplayName();
+            case TypedValue(Type type, _) -> typeName(type);
             default -> item.getClass().getSimpleName();
+        };
+    }
+
+    private static String typeName(Type type)
+    {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _, DoubleType _, RealType _, DecimalType _, NumberType _ -> "NUMBER";
+            case VarcharType _, CharType _ -> "STRING";
+            case BooleanType _ -> "BOOLEAN";
+            default -> type.getDisplayName();
+        };
+    }
+
+    private static Slice typeNameSlice(Type type)
+    {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _, DoubleType _, RealType _, DecimalType _, NumberType _ -> utf8Slice("number");
+            case VarcharType _, CharType _ -> utf8Slice("string");
+            case BooleanType _ -> utf8Slice("boolean");
+            case DateType _ -> utf8Slice("date");
+            case TimeType _ -> utf8Slice("time without time zone");
+            case TimeWithTimeZoneType _ -> utf8Slice("time with time zone");
+            case TimestampType _ -> utf8Slice("timestamp without time zone");
+            case TimestampWithTimeZoneType _ -> utf8Slice("timestamp with time zone");
+            default -> utf8Slice(type.getDisplayName());
         };
     }
 }

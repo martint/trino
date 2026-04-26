@@ -18,7 +18,11 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 import java.io.IOException;
+import java.util.Base64;
 
+/// Serializes a [JsonValue] as a base64-encoded [JsonItemEncoding] payload. The binary form
+/// preserves the source SQL type (e.g. CHAR(5) vs VARCHAR, DATE vs TIMESTAMP) that JSON text
+/// would erase, so values round-trip exactly through serialization.
 public final class JsonValueSerializer
         extends StdSerializer<JsonValue>
 {
@@ -31,6 +35,6 @@ public final class JsonValueSerializer
     public void serialize(JsonValue value, JsonGenerator generator, SerializerProvider provider)
             throws IOException
     {
-        JsonItems.writeJson(generator, value, 0);
+        generator.writeString(Base64.getEncoder().encodeToString(JsonItemEncoding.encode(value).getBytes()));
     }
 }

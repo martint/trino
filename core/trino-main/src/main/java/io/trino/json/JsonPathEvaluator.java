@@ -42,13 +42,15 @@ import java.util.Optional;
 
 import static io.trino.json.PathEvaluationException.itemTypeError;
 import static io.trino.json.PathEvaluationException.structuralError;
+import static io.trino.json.PathEvaluationUtil.normalize;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Evaluates the JSON path expression using given JSON input and parameters,
  * respecting the path mode `strict` or `lax`.
  * Successful evaluation results in a sequence of objects.
- * Each object in the sequence is represented as a materialized JSON item or a typed scalar value.
+ * Each object in the sequence is represented either by a JsonValueView-backed JSON item
+ * or a typed scalar value.
  * Certain error conditions might be suppressed in `lax` mode.
  * Any unsuppressed error condition causes evaluation failure.
  * In such case, `PathEvaluationError` is thrown.
@@ -134,6 +136,34 @@ public class JsonPathEvaluator
      */
     private static List<JsonItem> selectMemberValues(JsonItem object, String key, boolean lax)
     {
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (lax && jsonView.isArray()) {
+                List<JsonItem> outputSequence = new ArrayList<>();
+                jsonView.forEachArrayElement(element -> outputSequence.addAll(selectMemberValues(element, key, lax)));
+                return outputSequence;
+            }
+
+            if (!jsonView.isObject()) {
+                if (!lax) {
+                    throw itemTypeError("OBJECT", itemTypeName(object));
+                }
+                return List.of();
+            }
+
+            // Use objectMembers(key, consumer) so OBJECT_INDEXED payloads dispatch to
+            // O(log n + d) binary-search lookup. Duplicate keys (allowed under
+            // WITHOUT UNIQUE KEYS) are emitted in insertion order.
+            List<JsonItem> outputSequence = new ArrayList<>();
+            jsonView.objectMembers(key, outputSequence::add);
+            if (outputSequence.isEmpty() && !lax) {
+                throw structuralError("missing member '%s' in JSON object", key);
+            }
+            return outputSequence;
+        }
+
+        object = normalize(object);
         if (lax && object instanceof JsonArray arrayItem) {
             List<JsonItem> outputSequence = new ArrayList<>();
             for (JsonValue element : arrayItem.elements()) {
@@ -163,6 +193,18 @@ public class JsonPathEvaluator
 
     private static String itemTypeName(JsonItem object)
     {
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent()) {
+            return switch (view.orElseThrow().kind()) {
+                case NULL -> "NULL";
+                case ARRAY -> "ARRAY";
+                case OBJECT -> "OBJECT";
+                case TYPED_VALUE -> itemTypeName(view.orElseThrow().typedValue());
+                case JSON_ERROR -> "ERROR";
+            };
+        }
+
+        object = normalize(object);
         return switch (object) {
             case JsonNull _ -> "NULL";
             case JsonArray _ -> "ARRAY";

@@ -13,20 +13,25 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
 import io.trino.json.JsonArray;
 import io.trino.json.JsonInputError;
 import io.trino.json.JsonItem;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonValue;
+import io.trino.json.JsonValueView;
 import io.trino.json.TypedValue;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.json.JsonInputError.JSON_ERROR;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -36,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestJson2016Type
 {
     @Test
-    void testStorageRoundTrip()
+    void testBinaryStorageRoundTrip()
     {
         JsonValue duplicateObject = parseJson("{\"key\":1,\"key\":2}");
         JsonValue numericArray = new JsonArray(List.of(
@@ -53,24 +58,85 @@ class TestJson2016Type
 
         assertThat(JsonItems.asJsonValue((JsonItem) JSON_2016.getObject(block, 0))).isEqualTo(JsonItems.asJsonValue(duplicateObject));
         assertThat(JsonItems.asJsonValue((JsonItem) JSON_2016.getObject(block, 1))).isEqualTo(JsonItems.asJsonValue(numericArray));
-        assertThat(JSON_2016.getObject(block, 2) instanceof JsonInputError).isTrue();
+        assertThat(JsonInputError.matches(JSON_2016.getObject(block, 2))).isTrue();
         assertThat(JSON_2016.getObject(block, 3)).isNull();
+
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int firstPosition = block.getUnderlyingValuePosition(0);
+        Slice payload = valueBlock.getSlice(firstPosition);
+        assertThat(payload).isNotEqualTo(JsonItems.jsonText(duplicateObject));
 
         Block region = block.copyRegion(1, 2);
         assertThat(JsonItems.asJsonValue((JsonItem) JSON_2016.getObject(region, 0))).isEqualTo(JsonItems.asJsonValue(numericArray));
-        assertThat(JSON_2016.getObject(region, 1) instanceof JsonInputError).isTrue();
+        assertThat(JsonInputError.matches(JSON_2016.getObject(region, 1))).isTrue();
     }
 
     @Test
-    void testJsonErrorRoundTrip()
+    void testNumericTypeWidthsSurviveRoundTrip()
     {
-        assertThat(JSON_ERROR instanceof JsonInputError).isTrue();
+        JsonValue item = new JsonArray(List.of(
+                new TypedValue(INTEGER, 1L),
+                parseValue("1000000000000"),
+                parseValue("1.25")));
+
+        BlockBuilder blockBuilder = JSON_2016.createBlockBuilder(null, 1);
+        JSON_2016.writeObject(blockBuilder, item);
+        Block block = blockBuilder.buildValueBlock();
+
+        assertThat(JsonItems.asJsonValue((JsonItem) JSON_2016.getObject(block, 0))).isEqualTo(item);
+    }
+
+    @Test
+    void testWriteObjectAcceptsJsonValueView()
+    {
+        JsonValue item = parseJson("{\"key\":[1,2,3]}");
+
+        BlockBuilder sourceBuilder = JSON_2016.createBlockBuilder(null, 1);
+        JSON_2016.writeObject(sourceBuilder, item);
+        Block sourceBlock = sourceBuilder.buildValueBlock();
+        JsonValueView view = JsonValueView.fromObject((JsonItem) JSON_2016.getObject(sourceBlock, 0)).orElseThrow();
+
+        BlockBuilder targetBuilder = JSON_2016.createBlockBuilder(null, 1);
+        JSON_2016.writeObject(targetBuilder, view);
+        Block targetBlock = targetBuilder.buildValueBlock();
+
+        assertThat(JsonItems.asJsonValue((JsonItem) JSON_2016.getObject(targetBlock, 0))).isEqualTo(JsonItems.asJsonValue(item));
+    }
+
+    @Test
+    void testJsonValueViewRecognizesJsonErrorRepresentations()
+    {
+        assertThat(JsonInputError.matches(JSON_ERROR)).isTrue();
 
         BlockBuilder blockBuilder = JSON_2016.createBlockBuilder(null, 1);
         JSON_2016.writeObject(blockBuilder, JSON_ERROR);
         Block block = blockBuilder.buildValueBlock();
 
-        assertThat(JSON_2016.getObject(block, 0) instanceof JsonInputError).isTrue();
+        assertThat(JsonInputError.matches(JSON_2016.getObject(block, 0))).isTrue();
+    }
+
+    @Test
+    void testJsonValueViewEqualityIsSemantic()
+    {
+        // S5.2: HashSet lookups must collide across JsonValueView instances with the
+        // same logical content, independent of the underlying encoded slice's identity.
+        JsonValue value = parseJson("{\"x\":[1,null,\"abc\"]}");
+
+        BlockBuilder leftBuilder = JSON_2016.createBlockBuilder(null, 1);
+        JSON_2016.writeObject(leftBuilder, value);
+        JsonValueView left = JsonValueView.fromObject((JsonItem) JSON_2016.getObject(leftBuilder.buildValueBlock(), 0)).orElseThrow();
+
+        BlockBuilder rightBuilder = JSON_2016.createBlockBuilder(null, 1);
+        JSON_2016.writeObject(rightBuilder, parseJson("{\"x\":[1,null,\"abc\"]}"));
+        JsonValueView right = JsonValueView.fromObject((JsonItem) JSON_2016.getObject(rightBuilder.buildValueBlock(), 0)).orElseThrow();
+
+        assertThat(left).isEqualTo(right);
+        assertThat(left.hashCode()).isEqualTo(right.hashCode());
+
+        Set<JsonValueView> items = new HashSet<>();
+        items.add(left);
+        items.add(right);
+        assertThat(items).hasSize(1);
     }
 
     @Test

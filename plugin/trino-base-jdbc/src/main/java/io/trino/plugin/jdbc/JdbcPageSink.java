@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
@@ -35,7 +36,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
@@ -99,7 +102,7 @@ public class JdbcPageSink
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
                         WriteFunction writeFunction = writeMapping.getWriteFunction();
                         verify(
-                                type.getJavaType() == writeFunction.getJavaType(),
+                                isCompatible(type, writeFunction),
                                 "Trino type %s is not compatible with write function %s accepting %s",
                                 type,
                                 writeFunction,
@@ -190,9 +193,25 @@ public class JdbcPageSink
         else if (javaType == Slice.class) {
             ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
+        else if (javaType == JsonPayload.class) {
+            // JsonType payload is JsonPayload at the type level but the connector binds bytes.
+            // Canonicalize via jsonText so typed-encoding payloads (which aren't valid JSON text)
+            // are converted to canonical JSON text before being sent over JDBC.
+            ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, utf8Slice(jsonText(type, type.getSlice(block, position))));
+        }
         else {
             ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, type.getObject(block, position));
         }
+    }
+
+    private static boolean isCompatible(Type type, WriteFunction writeFunction)
+    {
+        // JsonType.getJavaType() is JsonPayload but connectors bind it through SliceWriteFunction
+        // because the wire format is JSON text or the typed-encoding bytes.
+        if (type.getJavaType() == JsonPayload.class && writeFunction.getJavaType() == Slice.class) {
+            return true;
+        }
+        return type.getJavaType() == writeFunction.getJavaType();
     }
 
     @Override

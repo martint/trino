@@ -32,8 +32,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeMap;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -70,6 +72,11 @@ public final class JsonItemSemantics
         if (left == right) {
             return true;
         }
+        Optional<JsonValueView> leftView = view(left);
+        Optional<JsonValueView> rightView = view(right);
+        if (leftView.isPresent() && rightView.isPresent()) {
+            return equals(leftView.get(), rightView.get());
+        }
         if (left == JsonNull.JSON_NULL || right == JsonNull.JSON_NULL) {
             return left == JsonNull.JSON_NULL && right == JsonNull.JSON_NULL;
         }
@@ -97,6 +104,10 @@ public final class JsonItemSemantics
 
     public static long hash(JsonItem item)
     {
+        Optional<JsonValueView> view = view(item);
+        if (view.isPresent()) {
+            return hash(view.get());
+        }
         return switch (item) {
             case JsonNull _ -> HASH_JSON_NULL;
             case JsonArray arrayItem -> {
@@ -118,6 +129,38 @@ public final class JsonItemSemantics
             }
             case TypedValue typedValue -> typedHash(typedValue);
             default -> throw new IllegalArgumentException("Unsupported SQL/JSON item: " + item.getClass().getSimpleName());
+        };
+    }
+
+    public static boolean equals(JsonValueView left, JsonValueView right)
+    {
+        if (left == right) {
+            return true;
+        }
+        if (left.kind() != right.kind()) {
+            if (left.isTypedValue() && right.isTypedValue()) {
+                return typedEquals(left.typedValue(), right.typedValue());
+            }
+            return false;
+        }
+
+        return switch (left.kind()) {
+            case JSON_ERROR -> false;
+            case NULL -> true;
+            case ARRAY -> arrayEquals(left, right);
+            case OBJECT -> viewObjectEquals(left, right);
+            case TYPED_VALUE -> typedEquals(left.typedValue(), right.typedValue());
+        };
+    }
+
+    public static long hash(JsonValueView value)
+    {
+        return switch (value.kind()) {
+            case JSON_ERROR -> throw new IllegalArgumentException("Unsupported SQL/JSON item: JSON error");
+            case NULL -> HASH_JSON_NULL;
+            case ARRAY -> arrayHash(value);
+            case OBJECT -> objectHash(value);
+            case TYPED_VALUE -> typedHash(value.typedValue());
         };
     }
 
@@ -159,6 +202,89 @@ public final class JsonItemSemantics
             }
         }
         return leftByKey.isEmpty();
+    }
+
+    private static boolean arrayEquals(JsonValueView left, JsonValueView right)
+    {
+        if (left.arraySize() != right.arraySize()) {
+            return false;
+        }
+        // Short-circuit on first mismatch via parallel traversal; materializing both sides
+        // would waste allocations on early-mismatch inputs.
+        ArrayList<JsonValueView> leftElements = new ArrayList<>(left.arraySize());
+        left.forEachArrayElement(leftElements::add);
+        int[] index = {0};
+        boolean[] equal = {true};
+        right.forEachArrayElement(rightElement -> {
+            if (equal[0] && !equals(leftElements.get(index[0]++), rightElement)) {
+                equal[0] = false;
+            }
+        });
+        return equal[0];
+    }
+
+    private static long arrayHash(JsonValueView array)
+    {
+        long hash = HASH_ARRAY;
+        long[] count = {0};
+        long[] running = {hash};
+        array.forEachArrayElement(element -> {
+            running[0] = mix(running[0], hash(element));
+            count[0]++;
+        });
+        return mix(running[0], count[0]);
+    }
+
+    private static long objectHash(JsonValueView object)
+    {
+        long[] sum = {0};
+        long[] xor = {0};
+        long[] count = {0};
+        object.forEachObjectMember((key, value) -> {
+            long memberHash = mix(saltedStringHash(key), hash(value));
+            sum[0] += memberHash;
+            xor[0] ^= Long.rotateLeft(memberHash, 17);
+            count[0]++;
+        });
+        return mix(mix(HASH_OBJECT, count[0]), mix(sum[0], xor[0]));
+    }
+
+    private static boolean viewObjectEquals(JsonValueView left, JsonValueView right)
+    {
+        TreeMap<String, ArrayDeque<JsonValueView>> leftByKey = new TreeMap<>();
+        left.forEachObjectMember((key, value) ->
+                leftByKey.computeIfAbsent(key, _ -> new ArrayDeque<>()).add(value));
+
+        boolean[] equal = {true};
+        int[] matchedCount = {0};
+        right.forEachObjectMember((key, rightValue) -> {
+            if (!equal[0]) {
+                return;
+            }
+            ArrayDeque<JsonValueView> bucket = leftByKey.get(key);
+            if (bucket == null) {
+                equal[0] = false;
+                return;
+            }
+            Iterator<JsonValueView> iterator = bucket.iterator();
+            boolean matched = false;
+            while (iterator.hasNext()) {
+                if (equals(iterator.next(), rightValue)) {
+                    iterator.remove();
+                    matched = true;
+                    matchedCount[0]++;
+                    break;
+                }
+            }
+            if (!matched) {
+                equal[0] = false;
+                return;
+            }
+            if (bucket.isEmpty()) {
+                leftByKey.remove(key);
+            }
+        });
+        return equal[0] && leftByKey.isEmpty();
     }
 
     private static boolean typedEquals(TypedValue left, TypedValue right)
@@ -349,5 +475,16 @@ public final class JsonItemSemantics
         long hash = left ^ Long.rotateLeft(right, 23);
         hash *= 0x9E3779B97F4A7C15L;
         return hash;
+    }
+
+    private static Optional<JsonValueView> view(JsonItem item)
+    {
+        return JsonValueView.fromObject(item)
+                .or(() -> {
+                    if (item == JsonNull.JSON_NULL || item instanceof JsonValue) {
+                        return Optional.of(JsonValueView.root(JsonItemEncoding.encode(item)));
+                    }
+                    return Optional.empty();
+                });
     }
 }

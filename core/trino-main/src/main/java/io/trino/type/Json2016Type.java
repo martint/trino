@@ -14,19 +14,18 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
+import io.trino.json.EncodedJsonItem;
 import io.trino.json.JsonInputError;
 import io.trino.json.JsonItem;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
+import io.trino.json.JsonValueView;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
-
-import java.io.IOException;
-import java.io.Reader;
 
 import static io.trino.json.JsonInputError.JSON_ERROR;
 
@@ -35,10 +34,6 @@ public class Json2016Type
 {
     public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
-
-    // Single-byte sentinel that cannot appear at the start of valid UTF-8.
-    private static final byte JSON_ERROR_MARKER = (byte) 0xFF;
-    private static final Slice JSON_ERROR_SENTINEL = Slices.wrappedBuffer(new byte[] {JSON_ERROR_MARKER});
 
     public Json2016Type()
     {
@@ -58,10 +53,10 @@ public class Json2016Type
         if (object == null) {
             return null;
         }
-        if (object instanceof JsonInputError) {
+        if (JsonInputError.matches(object)) {
             return JSON_ERROR;
         }
-        return object;
+        return JsonItems.materialize((JsonItem) object);
     }
 
     @Override
@@ -72,26 +67,19 @@ public class Json2016Type
         }
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        Slice slice = valueBlock.getSlice(block.getUnderlyingValuePosition(position));
-        if (slice.length() == 1 && slice.getByte(0) == JSON_ERROR_MARKER) {
-            return JSON_ERROR;
-        }
-        try {
-            return JsonItems.parseJson(Reader.of(slice.toStringUtf8()));
-        }
-        catch (IOException e) {
-            throw new IllegalStateException("Invalid JSON text in JSON2016 column", e);
-        }
+        Slice encoding = valueBlock.getSlice(block.getUnderlyingValuePosition(position));
+        return JsonValueView.root(encoding);
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        Slice payload = switch (value) {
-            case JsonInputError _ -> JSON_ERROR_SENTINEL;
-            case JsonItem item -> JsonItems.jsonText(JsonItems.asJsonValue(item));
+        Slice encoding = switch (value) {
+            case JsonValueView view -> view.copyEncoding();
+            case EncodedJsonItem encoded -> encoded.encoding();
+            case JsonItem item -> JsonItemEncoding.encode(JsonItems.materialize(item));
             default -> throw new IllegalArgumentException("Unsupported JSON2016 value type: " + value.getClass().getName());
         };
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(payload);
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(encoding);
     }
 }

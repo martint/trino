@@ -21,4 +21,18 @@ public record JsonInputError()
         implements JsonItem
 {
     public static final JsonInputError JSON_ERROR = new JsonInputError();
+
+    /// Whether the given value represents a suppressed JSON input error.
+    /// Recognizes both this materialized sentinel and any encoded representation
+    /// (an [EncodedJsonItem] or [JsonValueView] whose payload is the JSON_ERROR encoding).
+    public static boolean matches(Object object)
+    {
+        if (object instanceof JsonInputError) {
+            return true;
+        }
+        return object instanceof JsonItem item
+                && JsonValueView.fromObject(item)
+                        .map(view -> view.kind() == JsonValueView.Kind.JSON_ERROR)
+                        .orElse(false);
+    }
 }

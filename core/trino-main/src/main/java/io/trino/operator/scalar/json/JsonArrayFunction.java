@@ -94,7 +94,7 @@ public class JsonArrayFunction
         for (int i = 0; i < elementsRowType.getFields().size(); i++) {
             Type elementType = elementsRowType.getFields().get(i).getType();
             Object element = readNativeValue(elementType, elementsRow.getRawFieldBlock(i), rawIndex);
-            checkState(!(element instanceof JsonInputError), "malformed JSON error suppressed in the input function");
+            checkState(!JsonInputError.matches(element), "malformed JSON error suppressed in the input function");
 
             JsonValue elementNode;
             if (element == null) {

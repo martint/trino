@@ -22,6 +22,7 @@ import io.trino.json.JsonItem;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
+import io.trino.json.JsonValueView;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.TypedValue;
 import io.trino.json.ir.IrJsonPath;
@@ -269,12 +270,12 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        if (inputExpression instanceof JsonInputError) {
+        if (JsonInputError.matches(inputExpression)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (JsonItem parameter : parameters) {
-            if (parameter instanceof JsonInputError) {
+            if (JsonInputError.matches(parameter)) {
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
@@ -305,6 +306,16 @@ public class JsonValueFunction
         JsonItem item = getOnlyElement(pathResult);
         if (item == JsonNull.JSON_NULL) {
             return null;
+        }
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (jsonView.kind() == JsonValueView.Kind.NULL) {
+                return null;
+            }
+            if (jsonView.isTypedValue()) {
+                item = jsonView.typedValue();
+            }
         }
         if (!(item instanceof TypedValue value)) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
