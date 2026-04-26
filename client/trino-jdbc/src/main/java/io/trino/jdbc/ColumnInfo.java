@@ -272,6 +272,7 @@ class ColumnInfo
                 return new TypeInfo(Types.JAVA_OBJECT, Row.class);
 
             case ClientStandardTypes.JSON:
+                return new TypeInfo(Types.JAVA_OBJECT, String.class);
             case ClientStandardTypes.IPADDRESS:
             case ClientStandardTypes.UUID:
                 return new TypeInfo(Types.JAVA_OBJECT, String.class);
