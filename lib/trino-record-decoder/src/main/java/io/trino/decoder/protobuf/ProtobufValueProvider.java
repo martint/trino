@@ -32,6 +32,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
@@ -312,13 +313,14 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private static Block serializeJson(BlockBuilder builder, Object value, Type type)
+    private static Object serializeJson(BlockBuilder builder, Object value, Type type)
     {
+        Object jsonValue = value instanceof Slice slice ? JsonValue.of(slice) : value;
         if (builder != null) {
-            type.writeObject(builder, value);
+            type.writeObject(builder, jsonValue);
             return null;
         }
-        return (Block) value;
+        return jsonValue;
     }
 
     private static long parseTimestamp(int precision, DynamicMessage timestamp)

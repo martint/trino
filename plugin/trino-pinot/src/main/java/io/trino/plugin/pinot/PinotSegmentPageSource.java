@@ -26,6 +26,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -210,6 +211,9 @@ public class PinotSegmentPageSource
             writeDoubleBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Slice.class)) {
+            writeSliceBlock(blockBuilder, columnType, rowIdx, columnIdx);
+        }
+        else if (javaType.equals(JsonValue.class)) {
             writeSliceBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Block.class)) {

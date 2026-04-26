@@ -13,24 +13,25 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.json.JsonItemEmitter;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.TypeSignature;
-import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.json.JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD;
+import static io.trino.json.JsonItemEncoding.ItemTag.ARRAY;
+import static io.trino.json.JsonItemEncoding.ItemTag.ARRAY_INDEXED;
+import static io.trino.json.JsonItemEncoding.appendVersion;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -39,8 +40,6 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastToJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArrayToJsonCast
@@ -48,9 +47,7 @@ public class ArrayToJsonCast
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, Block.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonItemEmitter.class, Block.class);
 
     private ArrayToJsonCast()
     {
@@ -69,8 +66,8 @@ public class ArrayToJsonCast
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType());
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
+        JsonItemEmitter elementEmitter = JsonItemEmitter.create(arrayType.getElementType());
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementEmitter);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
@@ -78,21 +75,35 @@ public class ArrayToJsonCast
                 methodHandle);
     }
 
-    public static Slice toJson(JsonGeneratorWriter writer, Block block)
+    public static JsonValue toJson(JsonItemEmitter elementEmitter, Block block)
     {
-        try {
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    writer.writeJsonValue(jsonGenerator, block, i);
-                }
-                jsonGenerator.writeEndArray();
+        SliceOutput output = new DynamicSliceOutput(40);
+        appendVersion(output);
+        int count = block.getPositionCount();
+        // Match the typed-encoded ARRAY emitter: emit ARRAY_INDEXED for count ≥ threshold so
+        // the resulting JsonType payload supports O(1) element lookup at decode time.
+        if (count >= INDEXED_CONTAINER_THRESHOLD) {
+            DynamicSliceOutput items = new DynamicSliceOutput(count * 8);
+            int[] offsets = new int[count + 1];
+            for (int i = 0; i < count; i++) {
+                offsets[i] = items.size();
+                elementEmitter.emit(items, block, i);
             }
-            return output.slice();
+            offsets[count] = items.size();
+            output.appendByte(ARRAY_INDEXED.encoded());
+            output.appendInt(count);
+            for (int o : offsets) {
+                output.appendInt(o);
+            }
+            output.writeBytes(items.slice());
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        else {
+            output.appendByte(ARRAY.encoded());
+            output.appendInt(count);
+            for (int i = 0; i < count; i++) {
+                elementEmitter.emit(output, block, i);
+            }
         }
+        return JsonValue.of(output.slice());
     }
 }

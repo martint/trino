@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.type.JsonType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -355,7 +356,15 @@ public class TestJsonExtract
         JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);
-        return (extract == null) ? null : extract.toStringUtf8();
+        if (extract == null) {
+            return null;
+        }
+        // JsonValueJsonExtractor emits the typed encoding; render to canonical text. Other
+        // extractors (ScalarValueJsonExtractor) still return text directly.
+        if (jsonExtractor instanceof JsonValueJsonExtractor) {
+            return JsonType.jsonText(extract).toStringUtf8();
+        }
+        return extract.toStringUtf8();
     }
 
     private static String doScalarExtract(String inputJson, String jsonPath)
@@ -367,7 +376,9 @@ public class TestJsonExtract
     private static String doJsonExtract(String inputJson, String jsonPath)
     {
         Slice value = JsonExtract.extract(Slices.utf8Slice(inputJson), generateExtractor(jsonPath, new JsonValueJsonExtractor()));
-        return (value == null) ? null : value.toStringUtf8();
+        // JsonValueJsonExtractor now emits the typed JSON encoding directly; render to canonical
+        // text for assertion comparison.
+        return (value == null) ? null : JsonType.jsonText(value).toStringUtf8();
     }
 
     private static List<String> tokenizePath(String path)

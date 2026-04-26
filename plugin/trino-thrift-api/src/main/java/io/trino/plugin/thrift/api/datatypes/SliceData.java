@@ -17,8 +17,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.JsonBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -70,7 +72,8 @@ final class SliceData
     @Override
     public ValueBlock toBlock(Type desiredType)
     {
-        checkArgument(desiredType.getJavaType() == Slice.class, "type doesn't match: %s", desiredType);
+        Class<?> javaType = desiredType.getJavaType();
+        checkArgument(javaType == Slice.class || javaType == JsonValue.class, "type doesn't match: %s", desiredType);
         Slice values = bytes == null ? Slices.EMPTY_SLICE : Slices.wrappedBuffer(bytes);
         int numberOfRecords = numberOfRecords();
         return new VariableWidthBlock(
@@ -163,7 +166,17 @@ final class SliceData
     private static int totalSliceBytes(Block block)
     {
         int totalBytes = 0;
-        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        Block underlying = block.getUnderlyingValueBlock();
+        if (underlying instanceof JsonBlock jsonBlock) {
+            int positions = block.getPositionCount();
+            for (int position = 0; position < positions; position++) {
+                if (!block.isNull(position)) {
+                    totalBytes += jsonBlock.getParsedItemSlice(block.getUnderlyingValuePosition(position)).length();
+                }
+            }
+            return totalBytes;
+        }
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) underlying;
         int positions = block.getPositionCount();
         for (int position = 0; position < positions; position++) {
             totalBytes += variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));

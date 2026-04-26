@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -116,7 +117,10 @@ public final class JdbcPageSource
                 else if (javaType == long.class) {
                     longReadFunctions[i] = (LongReadFunction) readFunction;
                 }
-                else if (javaType == Slice.class) {
+                else if (javaType == Slice.class || javaType == JsonValue.class) {
+                    // JsonType columns bind via SliceReadFunction (raw bytes), even though the
+                    // type's Java representation is JsonValue. The bytes are written through
+                    // type.writeSlice below.
                     sliceReadFunctions[i] = (SliceReadFunction) readFunction;
                 }
                 else {

@@ -13,29 +13,35 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonItemEmitter;
+import io.trino.json.JsonItemEmitter.KeyExtractor;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import static io.trino.json.JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD;
+import static io.trino.json.JsonItemEncoding.ItemTag.OBJECT;
+import static io.trino.json.JsonItemEncoding.ItemTag.OBJECT_INDEXED;
+import static io.trino.json.JsonItemEncoding.MAX_OBJECT_INDEXED_COUNT;
+import static io.trino.json.JsonItemEncoding.appendObjectKey;
+import static io.trino.json.JsonItemEncoding.appendVersion;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -44,20 +50,14 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
-import static io.trino.util.JsonUtil.JsonGeneratorWriter;
-import static io.trino.util.JsonUtil.ObjectKeyProvider;
 import static io.trino.util.JsonUtil.canCastToJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class MapToJsonCast
         extends SqlScalarFunction
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlMap.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", KeyExtractor.class, JsonItemEmitter.class, SqlMap.class);
 
     private MapToJsonCast()
     {
@@ -75,14 +75,11 @@ public class MapToJsonCast
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType mapType = (MapType) boundSignature.getArgumentType(0);
-        Type keyType = mapType.getKeyType();
-        Type valueType = mapType.getValueType();
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
-        ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
-
+        KeyExtractor keyExtractor = JsonItemEmitter.KeyExtractors.create(mapType.getKeyType());
+        JsonItemEmitter valueEmitter = JsonItemEmitter.create(mapType.getValueType());
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(keyExtractor).bindTo(valueEmitter);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
@@ -91,32 +88,56 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
+    public static JsonValue toJson(KeyExtractor keyExtractor, JsonItemEmitter valueEmitter, SqlMap map)
     {
-        try {
-            int rawOffset = map.getRawOffset();
-            Block rawKeyBlock = map.getRawKeyBlock();
-            Block rawValueBlock = map.getRawValueBlock();
+        int rawOffset = map.getRawOffset();
+        Block rawKeyBlock = map.getRawKeyBlock();
+        Block rawValueBlock = map.getRawValueBlock();
+        int size = map.getSize();
 
-            Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-            for (int i = 0; i < map.getSize(); i++) {
-                String objectKey = provider.getObjectKey(rawKeyBlock, rawOffset + i);
-                orderedKeyToValuePosition.put(objectKey, i);
-            }
+        // Sort by string key for canonical output ordering.
+        Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
+        for (int i = 0; i < size; i++) {
+            orderedKeyToValuePosition.put(keyExtractor.getKey(rawKeyBlock, rawOffset + i), i);
+        }
 
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeStartObject();
-                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
-                    jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
-                }
-                jsonGenerator.writeEndObject();
+        SliceOutput output = new DynamicSliceOutput(40);
+        appendVersion(output);
+        int count = orderedKeyToValuePosition.size();
+        if (count >= INDEXED_CONTAINER_THRESHOLD && count <= MAX_OBJECT_INDEXED_COUNT) {
+            DynamicSliceOutput entries = new DynamicSliceOutput(count * 16);
+            Slice[] keyBytes = new Slice[count];
+            int[] offsets = new int[count + 1];
+            int i = 0;
+            for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                offsets[i] = entries.size();
+                keyBytes[i] = Slices.utf8Slice(entry.getKey());
+                appendObjectKey(entries, entry.getKey());
+                valueEmitter.emit(entries, rawValueBlock, rawOffset + entry.getValue());
+                i++;
             }
-            return output.slice();
+            offsets[count] = entries.size();
+
+            // Map entries are already sorted by key in TreeMap, so the sort permutation is
+            // the identity — but encode it explicitly so the OBJECT_INDEXED format is uniform.
+            output.appendByte(OBJECT_INDEXED.encoded());
+            output.appendInt(count);
+            for (int p = 0; p < count; p++) {
+                output.appendShort(p);
+            }
+            for (int o : offsets) {
+                output.appendInt(o);
+            }
+            output.writeBytes(entries.slice());
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        else {
+            output.appendByte(OBJECT.encoded());
+            output.appendInt(count);
+            for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                appendObjectKey(output, entry.getKey());
+                valueEmitter.emit(output, rawValueBlock, rawOffset + entry.getValue());
+            }
         }
+        return JsonValue.of(output.slice());
     }
 }
