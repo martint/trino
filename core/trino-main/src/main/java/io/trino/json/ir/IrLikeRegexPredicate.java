@@ -13,25 +13,23 @@
  */
 package io.trino.json.ir;
 
-import io.trino.spi.type.Type;
-
 import java.util.Optional;
 
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static java.util.Objects.requireNonNull;
 
-public sealed interface IrPredicate
-        extends IrPathNode
-        permits IrComparisonPredicate, IrConjunctionPredicate, IrDisjunctionPredicate, IrExistsPredicate, IrIsUnknownPredicate, IrLikeRegexPredicate, IrNegationPredicate, IrStartsWithPredicate
+public record IrLikeRegexPredicate(IrPathNode path, String pattern, Optional<String> flag)
+        implements IrPredicate
 {
-    @Override
-    default <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public IrLikeRegexPredicate
     {
-        return visitor.visitIrPredicate(this, context);
+        requireNonNull(path, "path is null");
+        requireNonNull(pattern, "pattern is null");
+        requireNonNull(flag, "flag is null");
     }
 
     @Override
-    default Optional<Type> type()
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
-        return Optional.of(BOOLEAN);
+        return visitor.visitIrLikeRegexPredicate(this, context);
     }
 }
