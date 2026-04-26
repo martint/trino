@@ -311,6 +311,20 @@ public class TestJsonQueryFunction
                 .matches("VALUES VARCHAR '1'");
 
         assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()')"))
+                .matches("VALUES cast(null AS varchar)");
+
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()' EMPTY ARRAY ON ERROR)"))
+                .matches("VALUES VARCHAR '[]'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()' ERROR ON ERROR)"))
+                .failure()
+                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
+                .hasMessage("conversion from JSON failed: SQL/JSON value of type date cannot be serialized to JSON text");
+
+        assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax true' RETURNING varchar FORMAT JSON)"))
                 .matches("VALUES VARCHAR 'true'");
 
