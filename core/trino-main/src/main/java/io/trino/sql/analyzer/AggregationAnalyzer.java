@@ -49,6 +49,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
@@ -764,6 +765,12 @@ class AggregationAnalyzer
             return process(node.getJsonPathInvocation(), context) &&
                     node.getEmptyDefault().map(expression -> process(expression, context)).orElse(true) &&
                     node.getErrorDefault().map(expression -> process(expression, context)).orElse(true);
+        }
+
+        @Override
+        protected Boolean visitJsonConstructor(JsonConstructor node, Void context)
+        {
+            return process(node.getExpression(), context);
         }
 
         @Override

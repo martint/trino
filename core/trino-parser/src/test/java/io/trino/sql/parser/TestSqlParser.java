@@ -112,6 +112,7 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -7488,6 +7489,22 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonConstructor()
+    {
+        assertThat(expression("JSON(json_column)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "json_column", false),
+                        JSON));
+
+        assertThat(expression("JSON(binary_column FORMAT JSON ENCODING UTF16)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "binary_column", false),
+                        UTF16));
     }
 
     @Test
