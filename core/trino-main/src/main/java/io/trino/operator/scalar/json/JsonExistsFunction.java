@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonInputError;
 import io.trino.json.JsonItem;
@@ -32,11 +33,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -48,7 +51,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
@@ -70,7 +73,7 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(ImmutableList.of(new TypeSignature(JSON_2016), new TypeSignature(JsonPath2016Type.NAME), new TypeSignature("T"), new TypeSignature(TINYINT)))
+                        .argumentTypes(ImmutableList.of(new TypeSignature(JSON), new TypeSignature(JsonPath2016Type.NAME), new TypeSignature("T"), new TypeSignature(TINYINT)))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)
@@ -114,7 +117,12 @@ public class JsonExistsFunction
             SqlRow parametersRow,
             long errorBehavior)
     {
-        if (JsonInputError.matches(inputExpression)) {
+        JsonItem inputItem = switch (inputExpression) {
+            case JsonPayload jsonValue -> JsonType.toPathItem(jsonValue.payload());
+            case Slice slice -> JsonType.toPathItem(slice);
+            default -> (JsonItem) inputExpression;
+        };
+        if (inputItem == JsonInputError.JSON_ERROR) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
@@ -123,7 +131,6 @@ public class JsonExistsFunction
                 return handleError(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonItem inputItem = (JsonItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.

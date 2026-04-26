@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArray;
 import io.trino.json.JsonInputError;
@@ -39,12 +40,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -55,7 +58,7 @@ import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
@@ -79,9 +82,9 @@ public class JsonQueryFunction
         super(FunctionMetadata.scalarBuilder(JSON_QUERY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature(JSON_2016))
+                        .returnType(new TypeSignature(JSON))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
+                                new TypeSignature(JSON),
                                 new TypeSignature(JsonPath2016Type.NAME),
                                 new TypeSignature("T"),
                                 new TypeSignature(TINYINT),
@@ -118,7 +121,7 @@ public class JsonQueryFunction
     }
 
     @UsedByGeneratedCode
-    public static Object jsonQuery(
+    public static JsonPayload jsonQuery(
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
@@ -132,7 +135,30 @@ public class JsonQueryFunction
             long emptyBehavior,
             long errorBehavior)
     {
-        if (JsonInputError.matches(inputExpression)) {
+        Slice payload = JsonType.fromPathItem(jsonQueryAsItem(functionManager, metadata, typeManager, parametersRowType, invocationContext, session, inputExpression, jsonPath, parametersRow, wrapperBehavior, emptyBehavior, errorBehavior));
+        return payload == null ? null : JsonPayload.of(payload);
+    }
+
+    private static JsonItem jsonQueryAsItem(
+            FunctionManager functionManager,
+            Metadata metadata,
+            TypeManager typeManager,
+            Type parametersRowType,
+            JsonPathInvocationContext invocationContext,
+            ConnectorSession session,
+            Object inputExpression,
+            IrJsonPath jsonPath,
+            SqlRow parametersRow,
+            long wrapperBehavior,
+            long emptyBehavior,
+            long errorBehavior)
+    {
+        JsonItem inputItem = switch (inputExpression) {
+            case JsonPayload jsonValue -> JsonType.toPathItem(jsonValue.payload());
+            case Slice slice -> JsonType.toPathItem(slice);
+            default -> (JsonItem) inputExpression;
+        };
+        if (inputItem == JsonInputError.JSON_ERROR) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
@@ -141,7 +167,6 @@ public class JsonQueryFunction
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonItem inputItem = (JsonItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.

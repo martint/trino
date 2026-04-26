@@ -41,6 +41,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -49,6 +50,7 @@ import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -64,7 +66,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -97,7 +99,7 @@ public class JsonValueFunction
                         .typeVariable("D")
                         .returnType(new TypeSignature("R"))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
+                                new TypeSignature(JSON),
                                 new TypeSignature(JsonPath2016Type.NAME),
                                 new TypeSignature("T"),
                                 new TypeSignature("R"),
@@ -270,7 +272,12 @@ public class JsonValueFunction
             long errorBehavior,
             DefaultValueLambda errorDefault)
     {
-        if (JsonInputError.matches(inputExpression)) {
+        JsonItem inputItem = switch (inputExpression) {
+            case JsonPayload jsonValue -> JsonType.toPathItem(jsonValue.payload());
+            case Slice slice -> JsonType.toPathItem(slice);
+            default -> (JsonItem) inputExpression;
+        };
+        if (inputItem == JsonInputError.JSON_ERROR) {
             return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonItem[] parameters = getParametersArray(parametersRowType, parametersRow);
@@ -279,7 +286,6 @@ public class JsonValueFunction
                 return handleError(session, errorBehavior, errorDefaultCoercion, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
-        JsonItem inputItem = (JsonItem) inputExpression;
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
         // the JsonPathEvaluator, and ignore the subsequent jsonPath values. We could sanity-check that all the incoming
         // jsonPath values are equal. We deliberately skip this costly check, since this is a hidden function.

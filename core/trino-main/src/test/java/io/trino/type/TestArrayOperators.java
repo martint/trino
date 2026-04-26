@@ -27,6 +27,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
@@ -111,11 +112,11 @@ public class TestArrayOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static JsonPayload uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
         // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
         // by these tests is rejected by the downstream cast (with TrinoException), not here.
-        return slice;
+        return JsonPayload.of(slice);
     }
 
     @Test

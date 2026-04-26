@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FullConnectorSession;
 import io.trino.jmh.Benchmarks;
@@ -63,6 +64,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.scalar.json.JsonInputFunctions.JSON_TO_JSON;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
 import static io.trino.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonValueFunction.JSON_VALUE_FUNCTION_NAME;
@@ -76,8 +78,9 @@ import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonPathType.JSON_PATH;
+import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.jsonValue;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -87,9 +90,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * `json_query` and `json_value` are new spec-compliant JSON-processing functions, which support the complete specification for JSON path.
  * Their implementation is much more complicated, resulting both from the scope of the supported feature, and the "streaming" semantics.
  * This benchmark is to compare both implementations applied to the common use-case.
+ * It also includes variants that feed the JSON type directly into
+ * JSON_VALUE and JSON_QUERY, so JSON-input overhead can be compared
+ * separately from VARCHAR-to-SQL/JSON input conversion.
  * <p>
  * Compare: `benchmarkJsonValueFunction` vs `benchmarkJsonExtractScalarFunction`
  * and `benchmarkJsonQueryFunction` vs `benchmarkJsonExtractFunction`.
+ * Compare: `benchmarkJsonValueFunctionWithJsonInput` vs `benchmarkJsonValueFunction`
+ * and `benchmarkJsonQueryFunctionWithJsonInput` vs `benchmarkJsonQueryFunction`.
  */
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -117,6 +125,18 @@ public class BenchmarkJsonFunctions
 
     @Benchmark
     @OperationsPerInvocation(POSITION_COUNT)
+    public List<Optional<Page>> benchmarkJsonValueFunctionWithJsonInput(BenchmarkData data)
+    {
+        return ImmutableList.copyOf(
+                data.getJsonValueWithJsonInputPageProcessor().process(
+                        FULL_CONNECTOR_SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        SourcePage.create(data.getJsonPage())));
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmarkJsonExtractScalarFunction(BenchmarkData data)
     {
         return ImmutableList.copyOf(
@@ -125,6 +145,18 @@ public class BenchmarkJsonFunctions
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         SourcePage.create(data.getPage())));
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITION_COUNT)
+    public List<Optional<Page>> benchmarkJsonQueryFunctionWithJsonInput(BenchmarkData data)
+    {
+        return ImmutableList.copyOf(
+                data.getJsonQueryWithJsonInputPageProcessor().process(
+                        FULL_CONNECTOR_SESSION,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        SourcePage.create(data.getJsonPage())));
     }
 
     @Benchmark
@@ -159,22 +191,29 @@ public class BenchmarkJsonFunctions
         private int depth;
 
         private Page page;
+        private Page jsonPage;
         private PageProcessor jsonValuePageProcessor;
+        private PageProcessor jsonValueWithJsonInputPageProcessor;
         private PageProcessor jsonExtractScalarPageProcessor;
         private PageProcessor jsonQueryPageProcessor;
+        private PageProcessor jsonQueryWithJsonInputPageProcessor;
         private PageProcessor jsonExtractPageProcessor;
 
         @Setup
         public void setup()
         {
-            page = new Page(createChannel(POSITION_COUNT, depth));
+            GeneratedChannels channels = createChannels(POSITION_COUNT, depth);
+            page = new Page(channels.varcharBlock());
+            jsonPage = new Page(channels.jsonBlock());
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             Type jsonPath2016Type = PLANNER_CONTEXT.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME));
 
             jsonValuePageProcessor = createJsonValuePageProcessor(depth, functionResolution, jsonPath2016Type);
+            jsonValueWithJsonInputPageProcessor = createJsonValueWithJsonInputPageProcessor(depth, functionResolution, jsonPath2016Type);
             jsonExtractScalarPageProcessor = createJsonExtractScalarPageProcessor(depth, functionResolution);
             jsonQueryPageProcessor = createJsonQueryPageProcessor(depth, functionResolution, jsonPath2016Type);
+            jsonQueryWithJsonInputPageProcessor = createJsonQueryWithJsonInputPageProcessor(depth, functionResolution, jsonPath2016Type);
             jsonExtractPageProcessor = createJsonExtractPageProcessor(depth, functionResolution);
         }
 
@@ -188,7 +227,7 @@ public class BenchmarkJsonFunctions
                     functionResolution.resolveFunction(
                             JSON_VALUE_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     VARCHAR,
@@ -209,6 +248,40 @@ public class BenchmarkJsonFunctions
 
             return functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .get();
+        }
+
+        private static PageProcessor createJsonValueWithJsonInputPageProcessor(int depth, TestingFunctionResolution functionResolution, Type jsonPath2016Type)
+        {
+            IrPathNode pathRoot = new IrContextVariable(Optional.empty());
+            for (int i = 1; i <= depth; i++) {
+                pathRoot = new IrMemberAccessor(pathRoot, Optional.of("key" + i), Optional.empty());
+            }
+            List<Expression> jsonValueProjection = ImmutableList.of(new Call(
+                    functionResolution.resolveFunction(
+                            JSON_VALUE_FUNCTION_NAME,
+                            fromTypes(ImmutableList.of(
+                                    JSON,
+                                    jsonPath2016Type,
+                                    JSON_NO_PARAMETERS_ROW_TYPE,
+                                    VARCHAR,
+                                    TINYINT,
+                                    new FunctionType(ImmutableList.of(), VARCHAR),
+                                    TINYINT,
+                                    new FunctionType(ImmutableList.of(), VARCHAR)))),
+                    ImmutableList.of(
+                            call(functionResolution.resolveFunction(JSON_TO_JSON, fromTypes(JSON, BOOLEAN)),
+                                    new Reference(JSON, "$col_0"), new Constant(BOOLEAN, true)),
+                            new Constant(jsonPath2016Type, new IrJsonPath(false, pathRoot)),
+                            constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
+                            constantNull(VARCHAR),
+                            new Constant(TINYINT, 0L),
+                            new Lambda(ImmutableList.of(), constantNull(VARCHAR)),
+                            new Constant(TINYINT, 0L),
+                            new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
+
+            return functionResolution.getExpressionCompiler()
+                    .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(JSON, "$col_0"), 0))
                     .get();
         }
 
@@ -240,7 +313,7 @@ public class BenchmarkJsonFunctions
                     functionResolution.resolveFunction(
                             JSON_QUERY_FUNCTION_NAME,
                             fromTypes(ImmutableList.of(
-                                    JSON_2016,
+                                    JSON,
                                     jsonPath2016Type,
                                     JSON_NO_PARAMETERS_ROW_TYPE,
                                     TINYINT,
@@ -257,6 +330,36 @@ public class BenchmarkJsonFunctions
 
             return functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .get();
+        }
+
+        private static PageProcessor createJsonQueryWithJsonInputPageProcessor(int depth, TestingFunctionResolution functionResolution, Type jsonPath2016Type)
+        {
+            IrPathNode pathRoot = new IrContextVariable(Optional.empty());
+            for (int i = 1; i <= depth - 1; i++) {
+                pathRoot = new IrMemberAccessor(pathRoot, Optional.of("key" + i), Optional.empty());
+            }
+            List<Expression> jsonQueryProjection = ImmutableList.of(new Call(
+                    functionResolution.resolveFunction(
+                            JSON_QUERY_FUNCTION_NAME,
+                            fromTypes(ImmutableList.of(
+                                    JSON,
+                                    jsonPath2016Type,
+                                    JSON_NO_PARAMETERS_ROW_TYPE,
+                                    TINYINT,
+                                    TINYINT,
+                                    TINYINT))),
+                    ImmutableList.of(
+                            call(functionResolution.resolveFunction(JSON_TO_JSON, fromTypes(JSON, BOOLEAN)),
+                                    new Reference(JSON, "$col_0"), new Constant(BOOLEAN, true)),
+                            new Constant(jsonPath2016Type, new IrJsonPath(false, pathRoot)),
+                            constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
+                            new Constant(TINYINT, 0L),
+                            new Constant(TINYINT, 0L),
+                            new Constant(TINYINT, 0L))));
+
+            return functionResolution.getExpressionCompiler()
+                    .compilePageProcessor(Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(JSON, "$col_0"), 0))
                     .get();
         }
 
@@ -278,9 +381,10 @@ public class BenchmarkJsonFunctions
                     .get();
         }
 
-        private static Block createChannel(int positionCount, int depth)
+        private static GeneratedChannels createChannels(int positionCount, int depth)
         {
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder varcharBlockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder jsonBlockBuilder = JSON.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
                 for (int i = 1; i <= depth; i++) {
@@ -291,9 +395,11 @@ public class BenchmarkJsonFunctions
                     slice.appendByte('}');
                 }
 
-                VARCHAR.writeSlice(blockBuilder, slice.slice());
+                Slice jsonText = slice.slice();
+                VARCHAR.writeSlice(varcharBlockBuilder, jsonText);
+                JSON.writeSlice(jsonBlockBuilder, jsonValue(jsonText));
             }
-            return blockBuilder.build();
+            return new GeneratedChannels(varcharBlockBuilder.build(), jsonBlockBuilder.build());
         }
 
         private static String generateRandomJsonText()
@@ -320,9 +426,19 @@ public class BenchmarkJsonFunctions
             return jsonExtractScalarPageProcessor;
         }
 
+        public PageProcessor getJsonValueWithJsonInputPageProcessor()
+        {
+            return jsonValueWithJsonInputPageProcessor;
+        }
+
         public PageProcessor getJsonQueryPageProcessor()
         {
             return jsonQueryPageProcessor;
+        }
+
+        public PageProcessor getJsonQueryWithJsonInputPageProcessor()
+        {
+            return jsonQueryWithJsonInputPageProcessor;
         }
 
         public PageProcessor getJsonExtractPageProcessor()
@@ -334,6 +450,15 @@ public class BenchmarkJsonFunctions
         {
             return page;
         }
+
+        public Page getJsonPage()
+        {
+            return jsonPage;
+        }
+    }
+
+    private record GeneratedChannels(Block varcharBlock, Block jsonBlock)
+    {
     }
 
     @Test
@@ -342,8 +467,10 @@ public class BenchmarkJsonFunctions
         BenchmarkData data = new BenchmarkData();
         data.setup();
         new BenchmarkJsonFunctions().benchmarkJsonValueFunction(data);
+        new BenchmarkJsonFunctions().benchmarkJsonValueFunctionWithJsonInput(data);
         new BenchmarkJsonFunctions().benchmarkJsonExtractScalarFunction(data);
         new BenchmarkJsonFunctions().benchmarkJsonQueryFunction(data);
+        new BenchmarkJsonFunctions().benchmarkJsonQueryFunctionWithJsonInput(data);
         new BenchmarkJsonFunctions().benchmarkJsonExtractFunction(data);
     }
 
