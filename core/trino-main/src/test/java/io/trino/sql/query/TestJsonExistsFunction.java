@@ -86,6 +86,64 @@ public class TestJsonExistsFunction
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^z\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^a\" flag \"i\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"a\\nb\\nc\"', 'lax $ ? ($ like_regex \"^b$\" flag \"m\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"a\\nc\"', 'lax $ ? ($ like_regex \"a.*c\" flag \"s\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"abc\"', 'lax $ ? ($ like_regex \"a b c\" flag \"x\")')"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"abc\"', 'lax $ ? ($ like_regex \"a.c\" flag \"q\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\" flag \"z\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex flags in JSON path: invalid XQuery regular expression flag: z");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('\"Abc\"', 'lax $ ? ($ like_regex \"^A\" flag \"ii\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex flags in JSON path: duplicate XQuery regular expression flag: i");
+
+        // SQL:2023 §9.46 GR F.V: empty input sequence yields FALSE in both lax and strict
+        // modes (ERR=False, FOUND=False → predicate is FALSE regardless of mode).
+        assertThat(assertions.query(
+                "SELECT json_exists('{}', 'lax $.no_key ? (@ like_regex \"x\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('{}', 'strict $.no_key ? (@ like_regex \"x\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('[]', 'lax $[*] ? (@ starts with \"x\")')"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                "SELECT json_exists('[]', 'strict $[*] ? (@ starts with \"x\")')"))
+                .matches("VALUES false");
     }
 
     @Test
