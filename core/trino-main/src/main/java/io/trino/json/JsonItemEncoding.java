@@ -120,7 +120,7 @@ public final class JsonItemEncoding
     // collide with any ItemTag or TypeTag value.
     static final byte VERSION = (byte) 0xF3;
     // Guard against pathologically deep input encodings; matches Jackson's default nesting limit.
-    private static final int MAX_DEPTH = 1000;
+    public static final int MAX_DEPTH = 1000;
 
     /// Containers with at least this many entries are emitted in indexed form
     /// ([ItemTag#ARRAY_INDEXED]). Below this threshold the offsets table
