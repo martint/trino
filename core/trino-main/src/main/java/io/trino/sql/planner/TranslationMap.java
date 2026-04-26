@@ -21,12 +21,12 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.operator.scalar.TryFunction;
-import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -121,6 +121,7 @@ import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 import io.trino.type.UnknownType;
 
 import java.util.Arrays;
@@ -512,7 +513,7 @@ public class TranslationMap
         Type type = analysis.getType(expression);
 
         if (type.equals(JSON)) {
-            return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
+            return new Constant(type, JsonPayload.of(JsonType.jsonValue(utf8Slice(expression.getValue()))));
         }
 
         InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());

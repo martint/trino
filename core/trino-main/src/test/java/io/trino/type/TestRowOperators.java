@@ -107,6 +107,8 @@ public class TestRowOperators
     @SqlType(StandardTypes.JSON)
     public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
+        // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
+        // by these tests is rejected by the downstream cast (with TrinoException), not here.
         return slice;
     }
 
@@ -144,7 +146,7 @@ public class TestRowOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW(CAST(3.14E0 as REAL), 3.1415E0, 1e308, DECIMAL '3.14', DECIMAL '12345678901234567890.123456789012345678', CAST(null AS REAL), CAST(null AS DOUBLE), CAST(null AS DECIMAL))"))
                 .hasType(JSON)
-                .isEqualTo("{\"\":3.14,\"\":3.1415,\"\":1.0E308,\"\":3.14,\"\":12345678901234567890.123456789012345678,\"\":null,\"\":null,\"\":null}");
+                .isEqualTo("{\"\":3.14,\"\":3.1415,\"\":1E+308,\"\":3.14,\"\":12345678901234567890.123456789012345678,\"\":null,\"\":null,\"\":null}");
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ROW('a', 'bb', CAST(null as VARCHAR), JSON '123', JSON '3.14', JSON 'false', JSON '\"abc\"', JSON '[1, \"a\", null]', JSON '{\"a\": 1, \"b\": \"str\", \"c\": null}', JSON 'null', CAST(null AS JSON))"))

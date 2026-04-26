@@ -16,8 +16,10 @@ package io.trino.json;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import io.airlift.slice.Slices;
 
 import java.io.IOException;
+import java.util.Base64;
 
 public final class JsonValueDeserializer
         extends StdDeserializer<JsonValue>
@@ -31,7 +33,7 @@ public final class JsonValueDeserializer
     public JsonValue deserialize(JsonParser parser, DeserializationContext context)
             throws IOException
     {
-        return JsonItems.parseValue(parser);
+        return JsonItemEncoding.decodeValue(Slices.wrappedBuffer(Base64.getDecoder().decode(parser.getText())));
     }
 
     @Override

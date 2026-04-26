@@ -23,11 +23,13 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -77,10 +79,73 @@ public class TestJsonItems
     }
 
     @Test
+    public void testJsonValueViewScalarText()
+    {
+        JsonValueView view = JsonValueView.fromObject(new EncodedJsonItem(JsonItemEncoding.encode(new TypedValue(VARCHAR, utf8Slice("abc")))))
+                .orElseThrow();
+
+        assertThat(view.scalarText())
+                .map(Slice::toStringUtf8)
+                .contains("abc");
+    }
+
+    @Test
     public void testParseJsonPreservesNumberOutsideDecimalRange()
     {
+        // Values outside DECIMAL(<=38) fall back to NUMBER, preserving arbitrary precision.
         assertThat(parseJson("100000000000000000000000000000000000000000000000000"))
                 .isInstanceOf(TypedValue.class);
+    }
+
+    @Test
+    public void testJsonTextStringifiesDatetimeValue()
+    {
+        assertThat(JsonItems.jsonText(new TypedValue(DATE, 1L)).toStringUtf8())
+                .isEqualTo("\"1970-01-02\"");
+        assertThat(JsonItems.jsonText(new EncodedJsonItem(JsonItemEncoding.encode(new TypedValue(DATE, 1L)))).toStringUtf8())
+                .isEqualTo("\"1970-01-02\"");
+    }
+
+    @Test
+    public void testAsJsonValueAcceptsEncodedJsonItem()
+    {
+        JsonValue value = JsonItems.asJsonValue(new EncodedJsonItem(JsonItemEncoding.encode(parseJson("[1, 2, 3]"))));
+
+        assertThat(value).isEqualTo(new JsonArray(List.of(
+                new TypedValue(INTEGER, 1L),
+                new TypedValue(INTEGER, 2L),
+                new TypedValue(INTEGER, 3L))));
+    }
+
+    @Test
+    public void testJsonTextAcceptsEncodedJsonItem()
+    {
+        String value = JsonItems.jsonText(new EncodedJsonItem(JsonItemEncoding.encode(parseJson("{\"a\":[1,null]}")))).toStringUtf8();
+
+        assertThat(value).isEqualTo("{\"a\":[1,null]}");
+    }
+
+    @Test
+    public void testMaterializeParsesLegacyTextualEncodedJsonItem()
+    {
+        JsonItem item = JsonItems.materialize(new EncodedJsonItem(utf8Slice("{\"a\":1}")));
+
+        assertThat(item).isEqualTo(new JsonObject(List.of(
+                new JsonObjectMember("a", new TypedValue(INTEGER, 1L)))));
+    }
+
+    @Test
+    public void testNumberTypeEncodingRoundTripsFiniteAndNonFinite()
+    {
+        TypedValue finite = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new BigDecimal("12345.6789")));
+        TypedValue nan = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber()));
+        TypedValue positiveInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(false)));
+        TypedValue negativeInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true)));
+
+        for (TypedValue value : List.of(finite, nan, positiveInfinity, negativeInfinity)) {
+            Slice encoded = JsonItemEncoding.encode(value);
+            assertThat(JsonItemEncoding.decodeValue(encoded)).isEqualTo(value);
+        }
     }
 
     @Test
@@ -88,12 +153,26 @@ public class TestJsonItems
     {
         TypedValue nan = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber()));
         assertThat(JsonItems.jsonText(nan).toStringUtf8()).isEqualTo("\"NaN\"");
+        assertThat(JsonItems.jsonText(new EncodedJsonItem(JsonItemEncoding.encode(nan))).toStringUtf8()).isEqualTo("\"NaN\"");
 
         TypedValue positiveInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(false)));
         assertThat(JsonItems.jsonText(positiveInfinity).toStringUtf8()).isEqualTo("\"+Infinity\"");
+        assertThat(JsonItems.jsonText(new EncodedJsonItem(JsonItemEncoding.encode(positiveInfinity))).toStringUtf8()).isEqualTo("\"+Infinity\"");
 
         TypedValue negativeInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true)));
         assertThat(JsonItems.jsonText(negativeInfinity).toStringUtf8()).isEqualTo("\"-Infinity\"");
+        assertThat(JsonItems.jsonText(new EncodedJsonItem(JsonItemEncoding.encode(negativeInfinity))).toStringUtf8()).isEqualTo("\"-Infinity\"");
+    }
+
+    @Test
+    public void testJsonItemSemanticsMatchesEncodedAndMaterializedValues()
+    {
+        JsonValue materialized = parseJson("{\"a\":[1,2],\"b\":\"x\"}");
+        JsonItem encoded = new EncodedJsonItem(JsonItemEncoding.encode(materialized));
+
+        assertThat(JsonItemSemantics.equals(materialized, encoded)).isTrue();
+        assertThat(JsonItemSemantics.equals(encoded, materialized)).isTrue();
+        assertThat(JsonItemSemantics.hash(materialized)).isEqualTo(JsonItemSemantics.hash(encoded));
     }
 
     @Test
@@ -111,6 +190,7 @@ public class TestJsonItems
         assertThat(JsonItemSemantics.hash(zero)).isEqualTo(JsonItemSemantics.hash(zeroPoint));
         assertThat(JsonItemSemantics.hash(zero)).isEqualTo(JsonItemSemantics.hash(zeroExp));
 
+        // 1, 1.0, 1e0 all collapse the same way.
         JsonValue one = parseJson("1");
         JsonValue onePoint = parseJson("1.0");
         JsonValue oneExp = parseJson("1e0");
@@ -171,6 +251,34 @@ public class TestJsonItems
         assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(charShort));
         assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(charPadded5));
         assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(varcharPadded));
+    }
+
+    @Test
+    public void testIndexedArrayEncodingRoundTrip()
+    {
+        // Arrays of size >= INDEXED_CONTAINER_THRESHOLD (=8) are emitted in ARRAY_INDEXED
+        // form; the round-trip through encode/decode/encode must be a fixed point.
+        JsonValue array = parseJson("[0,1,2,3,4,5,6,7,8,9,10]");
+        Slice encoded1 = JsonItemEncoding.encode(array);
+        JsonValue decoded = JsonItemEncoding.decodeValue(encoded1);
+        Slice encoded2 = JsonItemEncoding.encode(decoded);
+        assertThat(encoded1).isEqualTo(encoded2);
+    }
+
+    @Test
+    public void testIndexedObjectEncodingRoundTrip()
+    {
+        // Objects of size >= INDEXED_CONTAINER_THRESHOLD (=8) are emitted in OBJECT_INDEXED
+        // form; round-trip through encode/decode/encode must be a fixed point and preserve
+        // insertion order regardless of the sort permutation header.
+        JsonValue object = parseJson("{\"z\":1,\"a\":2,\"m\":3,\"b\":4,\"c\":5,\"d\":6,\"e\":7,\"f\":8}");
+        Slice encoded1 = JsonItemEncoding.encode(object);
+        JsonValue decoded = JsonItemEncoding.decodeValue(encoded1);
+        Slice encoded2 = JsonItemEncoding.encode(decoded);
+        assertThat(encoded1).isEqualTo(encoded2);
+        // Insertion order survives the round-trip.
+        assertThat(JsonItems.jsonText(decoded).toStringUtf8())
+                .isEqualTo("{\"z\":1,\"a\":2,\"m\":3,\"b\":4,\"c\":5,\"d\":6,\"e\":7,\"f\":8}");
     }
 
     private static JsonValue parseJson(String json)

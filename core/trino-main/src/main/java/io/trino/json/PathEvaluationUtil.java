@@ -13,24 +13,45 @@
  */
 package io.trino.json;
 
-import java.util.List;
-import java.util.stream.Stream;
+import com.google.common.collect.ImmutableList;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import java.util.List;
 
 public final class PathEvaluationUtil
 {
     private PathEvaluationUtil() {}
 
+    public static JsonItem normalize(JsonItem object)
+    {
+        if (object == null) {
+            return null;
+        }
+        return JsonValueView.fromObject(object)
+                .<JsonItem>map(view -> view)
+                .orElseGet(() -> JsonItems.materialize(object));
+    }
+
     public static List<JsonItem> unwrapArrays(List<JsonItem> sequence)
     {
-        return sequence.stream()
-                .flatMap(object -> {
-                    if (object instanceof JsonArray array) {
-                        return array.elements().stream();
-                    }
-                    return Stream.of(object);
-                })
-                .collect(toImmutableList());
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            JsonValueView.fromObject(object).ifPresentOrElse(view -> {
+                if (view.isArray()) {
+                    view.forEachArrayElement(outputSequence::add);
+                }
+                else {
+                    outputSequence.add(object);
+                }
+            }, () -> {
+                JsonItem normalized = normalize(object);
+                if (normalized instanceof JsonArray array) {
+                    array.elements().forEach(outputSequence::add);
+                }
+                else {
+                    outputSequence.add(normalized);
+                }
+            });
+        }
+        return outputSequence.build();
     }
 }

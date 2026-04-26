@@ -415,22 +415,24 @@ public final class JsonFunctions
                 }
                 if (token == END_ARRAY) {
                     if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                        return jsonValue(utf8Slice(tokens.get(0)));
                     }
 
                     return null;
                 }
 
                 String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
+                if (token == JsonToken.VALUE_NULL) {
+                    arrayElement = null;
                 }
                 else {
-                    arrayElement = parser.getValueAsString();
+                    // Always serialize via the tree so the output is valid JSON regardless of token kind
+                    // (strings are emitted with quotes, primitives keep their canonical text form).
+                    arrayElement = parser.readValueAsTree().toString();
                 }
 
                 if (count == index) {
-                    return arrayElement == null ? null : utf8Slice(arrayElement);
+                    return arrayElement == null ? null : jsonValue(utf8Slice(arrayElement));
                 }
 
                 if (tokens != null) {

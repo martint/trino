@@ -34,9 +34,11 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.ComparisonExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
+import static io.trino.json.PathEvaluationUtil.normalize;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.EQUAL;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
@@ -155,7 +157,7 @@ class PathPredicateEvaluationVisitor
         boolean leftHasScalar = false;
         boolean leftHasNonScalar = false;
         for (JsonItem item : leftSequence) {
-            if (item == JsonNull.JSON_NULL) {
+            if (isJsonNull(item)) {
                 leftHasJsonNull = true;
             }
             else if (isNonScalar(item)) {
@@ -170,7 +172,7 @@ class PathPredicateEvaluationVisitor
         boolean rightHasScalar = false;
         boolean rightHasNonScalar = false;
         for (JsonItem item : rightSequence) {
-            if (item == JsonNull.JSON_NULL) {
+            if (isJsonNull(item)) {
                 rightHasJsonNull = true;
             }
             else if (isNonScalar(item)) {
@@ -425,7 +427,12 @@ class PathPredicateEvaluationVisitor
     {
         ImmutableList.Builder<TypedValue> scalars = ImmutableList.builder();
         for (JsonItem item : sequence) {
-            if (item instanceof TypedValue value) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+                scalars.add(view.orElseThrow().typedValue());
+                continue;
+            }
+            if (normalize(item) instanceof TypedValue value) {
                 scalars.add(value);
             }
         }
@@ -435,7 +442,15 @@ class PathPredicateEvaluationVisitor
 
     private static Slice getText(JsonItem item)
     {
-        if (item instanceof TypedValue value && isCharacterStringType(value.getType())) {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent() && view.orElseThrow().isTypedValue() && isCharacterStringType(view.orElseThrow().typedValue().getType())) {
+            TypedValue value = view.orElseThrow().typedValue();
+            if (value.getType() instanceof CharType charType) {
+                return padSpaces((Slice) value.getObjectValue(), charType);
+            }
+            return (Slice) value.getObjectValue();
+        }
+        if (normalize(item) instanceof TypedValue value && isCharacterStringType(value.getType())) {
             if (value.getType() instanceof CharType charType) {
                 return padSpaces((Slice) value.getObjectValue(), charType);
             }
@@ -444,8 +459,25 @@ class PathPredicateEvaluationVisitor
         return null;
     }
 
+    private static boolean isJsonNull(JsonItem item)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            return view.orElseThrow().kind() == JsonValueView.Kind.NULL;
+        }
+        return normalize(item) == JsonNull.JSON_NULL;
+    }
+
     private static boolean isNonScalar(JsonItem item)
     {
-        return item instanceof JsonArray || item instanceof JsonObject;
+        Optional<JsonValueView> view = JsonValueView.fromObject(item);
+        if (view.isPresent()) {
+            return switch (view.orElseThrow().kind()) {
+                case ARRAY, OBJECT -> true;
+                default -> false;
+            };
+        }
+        JsonItem normalized = normalize(item);
+        return normalized instanceof JsonArray || normalized instanceof JsonObject;
     }
 }

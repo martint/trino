@@ -67,6 +67,7 @@ import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -208,6 +209,7 @@ public class TestJsonPath2016TypeSerialization
         // singleton sequence
         assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(JsonNull.JSON_NULL, Optional.empty())));
         assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(new TypedValue(BOOLEAN, true), Optional.of(BOOLEAN))));
+        assertJsonRoundTrip(new IrJsonPath(true, singletonSequence(new TypedValue(DATE, 7L), Optional.of(DATE))));
 
         // long sequence
         assertJsonRoundTrip(new IrJsonPath(true, new IrConstantJsonSequence(

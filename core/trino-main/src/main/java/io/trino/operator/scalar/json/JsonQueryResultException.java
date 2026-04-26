@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.json;
+package io.trino.operator.scalar.json;
 
-/// A carrier value that can appear in JSON path evaluation.
-///
-/// This includes:
-/// - [SQL/JSON values][JsonValue] (materialized as a tree of Java objects)
-/// - the [JsonInputError] sentinel for suppressed input-conversion failures
-/// - execution sentinels such as the empty sequence
-/// - parameter wrappers
-/// - view-backed or encoded wrappers that avoid eager materialization
-public sealed interface JsonItem
-        permits EncodedJsonItem, JsonEmptySequence, JsonInputError, JsonPathParameter, JsonValue, JsonValueView
+import io.trino.spi.TrinoException;
+
+import static io.trino.spi.StandardErrorCode.JSON_QUERY_RESULT_ERROR;
+
+public class JsonQueryResultException
+        extends TrinoException
 {
+    public JsonQueryResultException(String message)
+    {
+        super(JSON_QUERY_RESULT_ERROR, "JSON_QUERY result error: " + message);
+    }
 }

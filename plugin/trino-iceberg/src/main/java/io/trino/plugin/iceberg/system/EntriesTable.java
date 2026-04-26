@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -80,6 +81,7 @@ public class EntriesTable
     private final List<NestedField> primitiveFields;
     private final Optional<IcebergPartitionColumn> partitionColumn;
     private final List<Type> partitionTypes;
+    private final io.trino.spi.type.Type jsonType;
 
     public EntriesTable(TypeManager typeManager, SchemaTableName tableName, Table icebergTable, MetadataTableType metadataTableType, ExecutorService executor)
     {
@@ -103,6 +105,7 @@ public class EntriesTable
         List<PartitionField> partitionFields = getAllPartitionFields(icebergTable);
         partitionColumn = getPartitionColumnType(typeManager, partitionFields, icebergTable.schema());
         partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
+        jsonType = typeManager.getType(new TypeSignature(JSON));
     }
 
     private static List<ColumnMetadata> columns(TypeManager typeManager, Table icebergTable)
@@ -154,7 +157,9 @@ public class EntriesTable
         appendDataFile((RowBlockBuilder) pageSource.nextColumn(), dataFile);
         ReadableMetricsStruct readableMetrics = row.get("readable_metrics", ReadableMetricsStruct.class);
         String readableMetricsJson = readableMetricsToJson(readableMetrics, primitiveFields);
-        pageSource.appendVarchar(readableMetricsJson);
+        // The readable_metrics column is JSON, not VARCHAR; route through its actual type so
+        // the page builder's JsonBlockBuilder is used (avoiding the cast to VariableWidthBlockBuilder).
+        jsonType.writeSlice(pageSource.nextColumn(), Slices.utf8Slice(readableMetricsJson));
     }
 
     private void appendDataFile(RowBlockBuilder blockBuilder, StructProjection dataFile)

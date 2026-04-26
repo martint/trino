@@ -116,7 +116,7 @@ public class JsonObjectFunction
 
             Type valueType = valuesRowType.getFields().get(i).getType();
             Object value = readNativeValue(valueType, valuesRow.getRawFieldBlock(i), valuesRawIndex);
-            checkState(!(value instanceof JsonInputError), "malformed JSON error suppressed in the input function");
+            checkState(!JsonInputError.matches(value), "malformed JSON error suppressed in the input function");
 
             JsonValue valueNode;
             if (value == null) {

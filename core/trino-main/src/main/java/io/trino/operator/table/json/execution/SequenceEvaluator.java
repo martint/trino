@@ -40,14 +40,14 @@ public final class SequenceEvaluator
         }
         // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules 1) e) exception thrown by path evaluation should be handled accordingly to json_table error behavior (ERROR or EMPTY).
         // handle input conversion error for the context item
-        if (item instanceof JsonInputError) {
+        if (JsonInputError.matches(item)) {
             checkState(!errorOnError, "input conversion error should have been thrown in the input function");
             // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
             return ImmutableList.of();
         }
         // handle input conversion error for the path parameters
         for (Object parameter : pathParameters) {
-            if (parameter instanceof JsonInputError) {
+            if (JsonInputError.matches(parameter)) {
                 checkState(!errorOnError, "input conversion error should have been thrown in the input function");
                 // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
                 return ImmutableList.of();

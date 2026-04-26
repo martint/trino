@@ -13,36 +13,38 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonItemEmitter;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
-import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import static io.trino.json.JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD;
+import static io.trino.json.JsonItemEncoding.ItemTag.OBJECT;
+import static io.trino.json.JsonItemEncoding.ItemTag.OBJECT_INDEXED;
+import static io.trino.json.JsonItemEncoding.MAX_OBJECT_INDEXED_COUNT;
+import static io.trino.json.JsonItemEncoding.appendObjectKey;
+import static io.trino.json.JsonItemEncoding.appendVersion;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.JsonUtil.JsonGeneratorWriter.createJsonGeneratorWriter;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class RowToJsonCast
@@ -51,8 +53,6 @@ public class RowToJsonCast
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJsonObject", List.class, List.class, SqlRow.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private RowToJsonCast()
     {
@@ -75,15 +75,13 @@ public class RowToJsonCast
         RowType type = (RowType) boundSignature.getArgumentType(0);
 
         List<RowType.Field> fields = type.getFields();
-
-        List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fields.size());
+        List<JsonItemEmitter> fieldEmitters = new ArrayList<>(fields.size());
         List<String> fieldNames = new ArrayList<>(fields.size());
-
         for (RowType.Field field : fields) {
             fieldNames.add(field.getName().orElse(""));
-            fieldWriters.add(createJsonGeneratorWriter(field.getType()));
+            fieldEmitters.add(JsonItemEmitter.create(field.getType()));
         }
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldWriters);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldEmitters);
 
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
@@ -93,24 +91,50 @@ public class RowToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlRow sqlRow)
+    public static JsonPayload toJsonObject(List<String> fieldNames, List<JsonItemEmitter> fieldEmitters, SqlRow sqlRow)
     {
-        try {
-            int rawIndex = sqlRow.getRawIndex();
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeStartObject();
-                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(fieldNames.get(i));
-                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
-                }
-                jsonGenerator.writeEndObject();
+        int rawIndex = sqlRow.getRawIndex();
+        int fieldCount = sqlRow.getFieldCount();
+        SliceOutput output = new DynamicSliceOutput(40);
+        appendVersion(output);
+        if (fieldCount >= INDEXED_CONTAINER_THRESHOLD && fieldCount <= MAX_OBJECT_INDEXED_COUNT) {
+            // Buffer entries so we can emit count + sorting + offsets header up front.
+            DynamicSliceOutput entries = new DynamicSliceOutput(fieldCount * 16);
+            Slice[] keyBytes = new Slice[fieldCount];
+            int[] offsets = new int[fieldCount + 1];
+            for (int i = 0; i < fieldCount; i++) {
+                offsets[i] = entries.size();
+                Slice key = Slices.utf8Slice(fieldNames.get(i));
+                keyBytes[i] = key;
+                appendObjectKey(entries, fieldNames.get(i));
+                fieldEmitters.get(i).emit(entries, sqlRow.getRawFieldBlock(i), rawIndex);
             }
-            return output.slice();
+            offsets[fieldCount] = entries.size();
+
+            Integer[] perm = new Integer[fieldCount];
+            for (int i = 0; i < fieldCount; i++) {
+                perm[i] = i;
+            }
+            Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
+
+            output.appendByte(OBJECT_INDEXED.encoded());
+            output.appendInt(fieldCount);
+            for (Integer p : perm) {
+                output.appendShort(p);
+            }
+            for (int o : offsets) {
+                output.appendInt(o);
+            }
+            output.writeBytes(entries.slice());
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        else {
+            output.appendByte(OBJECT.encoded());
+            output.appendInt(fieldCount);
+            for (int i = 0; i < fieldCount; i++) {
+                appendObjectKey(output, fieldNames.get(i));
+                fieldEmitters.get(i).emit(output, sqlRow.getRawFieldBlock(i), rawIndex);
+            }
         }
+        return JsonPayload.of(output.slice());
     }
 }

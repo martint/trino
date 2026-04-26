@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.airlift.slice.Slice;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -112,18 +114,28 @@ public final class ColumnMapping
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
         this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
         checkArgument(
-                type.getJavaType() == readFunction.getJavaType(),
+                isCompatible(type, readFunction.getJavaType()),
                 "Trino type %s is not compatible with read function %s returning %s",
                 type,
                 readFunction,
                 readFunction.getJavaType());
         checkArgument(
-                type.getJavaType() == writeFunction.getJavaType(),
+                isCompatible(type, writeFunction.getJavaType()),
                 "Trino type %s is not compatible with write function %s accepting %s",
                 type,
                 writeFunction,
                 writeFunction.getJavaType());
         this.predicatePushdownController = requireNonNull(predicatePushdownController, "predicatePushdownController is null");
+    }
+
+    private static boolean isCompatible(Type type, Class<?> functionJavaType)
+    {
+        // JsonType.getJavaType() is JsonPayload, but JDBC connectors bind/read JSON as raw bytes
+        // through SliceReadFunction/SliceWriteFunction. The conversion happens in JdbcPageSink.
+        if (type.getJavaType() == JsonPayload.class && functionJavaType == Slice.class) {
+            return true;
+        }
+        return type.getJavaType() == functionJavaType;
     }
 
     public Type getType()

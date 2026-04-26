@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -189,7 +190,7 @@ public class MongoPageSink
             return readBigDecimal(decimalType, block, position);
         }
         if (isJsonType(type)) {
-            String json = type.getSlice(block, position).toStringUtf8();
+            String json = jsonText(type, type.getSlice(block, position));
             try {
                 return Document.parse(json);
             }

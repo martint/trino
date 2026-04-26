@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.ManifestReader;
@@ -111,6 +112,7 @@ public final class FilesTablePageSource
     private final Iterator<? extends ContentFile<?>> contentIterator;
     private final Map<String, Integer> columnNameToIndex;
     private final PageBuilder pageBuilder;
+    private final io.trino.spi.type.Type jsonType;
     private final long completedBytes;
     private long completedPositions;
     private long readTimeNanos;
@@ -132,6 +134,7 @@ public final class FilesTablePageSource
                 entry -> PartitionSpecParser.fromJson(schema, entry.getValue())));
         this.partitionFields = getAllPartitionFields(schema, idToPartitionSpecMapping);
         this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, schema);
+        this.jsonType = typeManager.getType(new TypeSignature("json"));
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
@@ -217,7 +220,7 @@ public final class FilesTablePageSource
             writeValueOrNull(pageBuilder, SORT_ORDER_ID_COLUMN_NAME, contentFile::sortOrderId,
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
             writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
-                    (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
+                    (blkBldr, value) -> jsonType.writeSlice(blkBldr, Slices.utf8Slice(readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields))));
             writeValueOrNull(pageBuilder, FilesTable.FILE_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::fileSequenceNumber, BIGINT::writeLong);
             writeValueOrNull(pageBuilder, FilesTable.DATA_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::dataSequenceNumber, BIGINT::writeLong);
             if (contentFile instanceof DeleteFile deleteFile) {

@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -79,6 +80,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -561,7 +563,7 @@ public class SingleStoreClient
             return WriteMapping.longMapping(format("datetime(%s)", SINGLESTORE_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
+            return WriteMapping.sliceMapping("json", jsonWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -743,7 +745,13 @@ public class SingleStoreClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                varcharWriteFunction(),
+                jsonWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private SliceWriteFunction jsonWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.VARCHAR, (statement, index, value) ->
+                statement.setString(index, jsonText(jsonType, value)));
     }
 }

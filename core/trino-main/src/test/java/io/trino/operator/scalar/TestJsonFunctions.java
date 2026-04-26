@@ -480,39 +480,40 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayGetString()
     {
+        // String elements are returned in their JSON form (quoted) so the result is valid JSON.
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -764,5 +765,17 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'null'")::evaluate)
                 .hasMessage("Invalid JSON path: 'null'");
+    }
+
+    @Test
+    public void testJsonFormatRoundTripsLegacyStringPayload()
+    {
+        // json_array_get returns the element in canonical JSON form (string elements are
+        // quoted so the result is itself valid JSON), and json_format renders the JSON text —
+        // so a string scalar round-trips as a quoted JSON string. (Pre-migration, the inner
+        // jsonArrayGet returned the raw unquoted text and json_format passed it through; the
+        // typed-encoding migration shifted both ends to canonical JSON.)
+        assertThat(assertions.query("SELECT json_format(x) FROM (VALUES json_array_get('[\"jhfa\"]', 0)) t(x)"))
+                .matches("VALUES VARCHAR '\"jhfa\"'");
     }
 }

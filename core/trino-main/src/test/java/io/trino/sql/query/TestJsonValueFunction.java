@@ -210,6 +210,13 @@ public class TestJsonValueFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        // Post-migration: json_array_get returns the element in canonical JSON form
+        // (string elements are quoted), so feeding it back into json_value is a valid JSON
+        // input and the path matches the string scalar.
+        assertThat(assertions.query(
+                "SELECT json_value(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .matches("VALUES VARCHAR 'jhfa'");
     }
 
     @Test
