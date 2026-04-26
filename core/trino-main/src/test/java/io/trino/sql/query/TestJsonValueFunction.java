@@ -309,6 +309,18 @@ public class TestJsonValueFunction
                 "SELECT json_value('\"2024-01-02 12:34:56.789 UTC\"', 'lax $.datetime()' RETURNING timestamp(3) with time zone)"))
                 .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 UTC'");
 
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYY-MM-DD\")' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 +05:30\"', 'lax $.datetime(\"YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM\")' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 +05:30'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"12:34:56.789+05:30\"', 'lax $.datetime(\"HH24:MI:SS.FF3TZH:TZM\")' RETURNING time(3) with time zone)"))
+                .matches("VALUES TIME '12:34:56.789+05:30'");
+
         // the actual value does not fit in the expected returned type. the error is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint)"))
@@ -330,6 +342,12 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000000000000 * 1000000000000' RETURNING bigint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES BIGINT '-1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYYRR\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:35: invalid datetime() format template in JSON path: datetime() format template cannot contain both year and rounded year fields");
     }
 
     @Test

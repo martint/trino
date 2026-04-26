@@ -21,6 +21,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.json.JsonArray;
+import io.trino.json.JsonDateTimeTemplate;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonObject;
 import io.trino.json.JsonObjectMember;
@@ -135,7 +136,7 @@ public class TestJsonPath2016TypeSerialization
     {
         assertJsonRoundTrip(new IrJsonPath(true, new IrAbsMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
         assertJsonRoundTrip(new IrJsonPath(true, new IrCeilingMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.of("some_time_format"), Optional.of(createTimeType(DEFAULT_PRECISION)))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.of(JsonDateTimeTemplate.parse("HH24:MI:SS")), Optional.of(createTimeType(DEFAULT_PRECISION)))));
         assertJsonRoundTrip(new IrJsonPath(true, new IrDoubleMethod(literal(BIGINT, 1L), Optional.of(DOUBLE))));
         assertJsonRoundTrip(new IrJsonPath(true, new IrFloorMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
         assertJsonRoundTrip(new IrJsonPath(true, new IrKeyValueMethod(JSON_NULL)));
