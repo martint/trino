@@ -58,6 +58,7 @@ import static java.util.Objects.requireNonNull;
 public class JsonPathEvaluator
 {
     private final IrJsonPath path;
+    private final ConnectorSession session;
     private final Invoker invoker;
     private final CachingResolver resolver;
     private final Optional<List<String>> memberAccessorChain;
@@ -71,6 +72,7 @@ public class JsonPathEvaluator
         requireNonNull(functionManager, "functionManager is null");
 
         this.path = path;
+        this.session = session;
         this.invoker = new Invoker(session, functionManager);
         this.resolver = new CachingResolver(metadata);
         this.memberAccessorChain = getMemberAccessorChain(path.getRoot());
@@ -86,6 +88,7 @@ public class JsonPathEvaluator
                 path.isLax(),
                 input,
                 parameters,
+                session,
                 invoker,
                 resolver)
                 .process(path.getRoot(), new PathEvaluationContext());

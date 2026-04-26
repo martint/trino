@@ -43,6 +43,7 @@ import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -145,11 +146,12 @@ class PathEvaluationVisitor
     private final CachingResolver resolver;
     private int objectId;
 
-    public PathEvaluationVisitor(boolean lax, JsonItem input, JsonItem[] parameters, Invoker invoker, CachingResolver resolver)
+    public PathEvaluationVisitor(boolean lax, JsonItem input, JsonItem[] parameters, ConnectorSession session, Invoker invoker, CachingResolver resolver)
     {
         this.lax = lax;
         this.input = requireNonNull(input, "input is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
+        requireNonNull(session, "session is null");
         this.invoker = requireNonNull(invoker, "invoker is null");
         this.resolver = requireNonNull(resolver, "resolver is null");
         this.predicateVisitor = new PathPredicateEvaluationVisitor(lax, this, invoker, resolver);
@@ -660,7 +662,17 @@ class PathEvaluationVisitor
         for (JsonItem object : sequence) {
             TypedValue value = getTextTypedValue(object)
                     .orElseThrow(() -> itemTypeError("TEXT", itemTypeName(object)));
-            outputSequence.add(getDatetime(value));
+            try {
+                outputSequence.add(node.format()
+                        .map(template -> template.parseValue(getText(value)))
+                        .orElseGet(() -> getDatetime(value)));
+            }
+            catch (PathEvaluationException e) {
+                throw e;
+            }
+            catch (RuntimeException e) {
+                throw new PathEvaluationException(e);
+            }
         }
 
         return outputSequence.build();

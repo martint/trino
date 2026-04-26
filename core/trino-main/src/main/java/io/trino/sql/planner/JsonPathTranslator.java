@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.json.JsonDateTimeTemplate;
 import io.trino.json.ir.IrAbsMethod;
 import io.trino.json.ir.IrArithmeticBinary;
 import io.trino.json.ir.IrArithmeticBinary.Operator;
@@ -224,7 +225,10 @@ class JsonPathTranslator
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
             IrPathNode base = process(node.getBase());
-            return new IrDatetimeMethod(base, node.getFormat(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            return new IrDatetimeMethod(
+                    base,
+                    node.getFormat().map(JsonDateTimeTemplate::parse),
+                    Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
