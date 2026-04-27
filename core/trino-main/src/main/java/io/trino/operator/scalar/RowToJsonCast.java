@@ -15,7 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonItemEmitter;
 import io.trino.metadata.SqlScalarFunction;
@@ -30,6 +32,7 @@ import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.json.JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD;
@@ -97,11 +100,11 @@ public class RowToJsonCast
         if (fieldCount >= INDEXED_CONTAINER_THRESHOLD && fieldCount <= MAX_OBJECT_INDEXED_COUNT) {
             // Buffer entries so we can emit count + sortPerm + offsets header up front.
             DynamicSliceOutput entries = new DynamicSliceOutput(fieldCount * 16);
-            io.airlift.slice.Slice[] keyBytes = new io.airlift.slice.Slice[fieldCount];
+            Slice[] keyBytes = new Slice[fieldCount];
             int[] offsets = new int[fieldCount + 1];
             for (int i = 0; i < fieldCount; i++) {
                 offsets[i] = entries.size();
-                io.airlift.slice.Slice key = io.airlift.slice.Slices.utf8Slice(fieldNames.get(i));
+                Slice key = Slices.utf8Slice(fieldNames.get(i));
                 keyBytes[i] = key;
                 appendObjectKey(entries, fieldNames.get(i));
                 fieldEmitters.get(i).emit(entries, sqlRow.getRawFieldBlock(i), rawIndex);
@@ -112,7 +115,7 @@ public class RowToJsonCast
             for (int i = 0; i < fieldCount; i++) {
                 perm[i] = i;
             }
-            java.util.Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
+            Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
 
             output.appendByte(OBJECT_INDEXED.encoded());
             output.appendInt(fieldCount);

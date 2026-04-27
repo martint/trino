@@ -43,10 +43,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,8 +83,8 @@ public final class JsonItems
     public static EncodedJsonItem encoded(JsonPathItem item)
     {
         requireNonNull(item, "item is null");
-        if (item instanceof EncodedJsonItem) {
-            return (EncodedJsonItem) item;
+        if (item instanceof EncodedJsonItem encoded) {
+            return encoded;
         }
         return new EncodedJsonItem(JsonItemEncoding.encode(item));
     }
@@ -103,7 +106,7 @@ public final class JsonItems
             // Legacy path: EncodedJsonItem may wrap raw JSON text (see
             // testMaterializeParsesLegacyTextualEncodedJsonItem). Parse it as JSON text.
             try {
-                return parseJson(new java.io.InputStreamReader(encoding.getInput(), java.nio.charset.StandardCharsets.UTF_8));
+                return parseJson(new InputStreamReader(encoding.getInput(), StandardCharsets.UTF_8));
             }
             catch (IOException e) {
                 throw new JsonInputConversionException(e);
@@ -207,13 +210,13 @@ public final class JsonItems
             case VALUE_STRING -> JsonItemEncoding.appendVarchar(output, utf8Slice(parser.getText()));
             case VALUE_NUMBER_INT -> streamInteger(parser, output);
             case VALUE_NUMBER_FLOAT -> streamFloat(parser, output);
-            case START_ARRAY -> streamArray(parser, output, patches, depth);
+            case START_ARRAY -> streamArray(parser, output, depth);
             case START_OBJECT -> streamObject(parser, output, patches, depth);
             default -> throw new JsonInputConversionException("unexpected JSON token: " + token);
         }
     }
 
-    private static void streamArray(JsonParser parser, SliceOutput output, PatchList patches, int depth)
+    private static void streamArray(JsonParser parser, SliceOutput output, int depth)
             throws IOException
     {
         // Buffer items into a side output so the element count and per-element offsets are
@@ -222,7 +225,7 @@ public final class JsonItems
         // element lookup at decode time without forcing the streaming writer to make the
         // tag choice up front.
         DynamicSliceOutput items = new DynamicSliceOutput(64);
-        java.util.List<Integer> offsets = new java.util.ArrayList<>();
+        List<Integer> offsets = new ArrayList<>();
         // ARRAY/ARRAY_INDEXED both write recursive items via a fresh PatchList because the
         // outer patches reference the main output, not the buffered side output.
         PatchList itemPatches = new PatchList();
@@ -352,7 +355,7 @@ public final class JsonItems
         void add(int offset, int count)
         {
             if (size + 2 > data.length) {
-                data = java.util.Arrays.copyOf(data, data.length * 2);
+                data = Arrays.copyOf(data, data.length * 2);
             }
             data[size++] = offset;
             data[size++] = count;

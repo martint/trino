@@ -114,8 +114,6 @@ import static java.util.Objects.requireNonNull;
  */
 public final class JsonExtract
 {
-    private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
-
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
             .disable(CANONICALIZE_FIELD_NAMES)
             .build());

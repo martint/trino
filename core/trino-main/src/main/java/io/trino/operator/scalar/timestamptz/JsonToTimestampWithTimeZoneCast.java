@@ -29,6 +29,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -89,7 +90,7 @@ public final class JsonToTimestampWithTimeZoneCast
             }
             else {
                 LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) typed.getObjectValue();
-                formatted = formatTimestampWithTimeZone(timestampType.getPrecision(), value.getEpochMillis(), value.getPicosOfMilli(), io.trino.spi.type.TimeZoneKey.getTimeZoneKey(value.getTimeZoneKey()).getZoneId());
+                formatted = formatTimestampWithTimeZone(timestampType.getPrecision(), value.getEpochMillis(), value.getPicosOfMilli(), TimeZoneKey.getTimeZoneKey(value.getTimeZoneKey()).getZoneId());
             }
             return Slices.utf8Slice(formatted);
         }

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.variant.Metadata;
 import io.trino.type.JsonType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -76,7 +77,8 @@ final class JsonVariantWriter
             return NULL_PLANNED_VALUE;
         }
 
-        Slice json = JsonType.jsonText((Slice) value);
+        Slice payload = value instanceof JsonValue jsonValue ? jsonValue.payload() : (Slice) value;
+        Slice json = JsonType.jsonText(payload);
 
         try (InputStream input = json.getInput(); JsonParser parser = JSON_FACTORY.createParser(input)) {
             JsonToken token = parser.nextToken();

@@ -13,6 +13,8 @@
  */
 package io.trino.operator.scalar.json;
 
+import io.airlift.slice.Slice;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonPathItem;
@@ -20,6 +22,7 @@ import io.trino.json.JsonPathParameter;
 import io.trino.json.JsonValueView;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.JsonType;
@@ -63,11 +66,11 @@ public final class ParameterUtil
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence
                 }
                 else {
-                    io.airlift.slice.Slice payload = value instanceof io.trino.spi.type.JsonValue jsonValue
+                    Slice payload = value instanceof JsonValue jsonValue
                             ? jsonValue.payload()
-                            : (io.airlift.slice.Slice) value;
+                            : (Slice) value;
                     JsonPathItem pathItem = JsonType.toPathItem(payload);
-                    if (pathItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
+                    if (pathItem == JsonInputErrorNode.JSON_ERROR) {
                         array[i] = JsonValueView.jsonError();
                     }
                     else {

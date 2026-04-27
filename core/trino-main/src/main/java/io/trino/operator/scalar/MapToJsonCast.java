@@ -15,7 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonItemEmitter;
 import io.trino.json.JsonItemEmitter.KeyExtractor;
@@ -104,12 +106,12 @@ public class MapToJsonCast
         int count = orderedKeyToValuePosition.size();
         if (count >= INDEXED_CONTAINER_THRESHOLD && count <= MAX_OBJECT_INDEXED_COUNT) {
             DynamicSliceOutput entries = new DynamicSliceOutput(count * 16);
-            io.airlift.slice.Slice[] keyBytes = new io.airlift.slice.Slice[count];
+            Slice[] keyBytes = new Slice[count];
             int[] offsets = new int[count + 1];
             int i = 0;
             for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                 offsets[i] = entries.size();
-                keyBytes[i] = io.airlift.slice.Slices.utf8Slice(entry.getKey());
+                keyBytes[i] = Slices.utf8Slice(entry.getKey());
                 appendObjectKey(entries, entry.getKey());
                 valueEmitter.emit(entries, rawValueBlock, rawOffset + entry.getValue());
                 i++;

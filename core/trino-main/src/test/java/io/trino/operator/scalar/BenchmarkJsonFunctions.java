@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FullConnectorSession;
 import io.trino.jmh.Benchmarks;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrMemberAccessor;
@@ -399,8 +400,8 @@ public class BenchmarkJsonFunctions
                 // The materialized encoder emits OBJECT_INDEXED for objects with
                 // count >= INDEXED_CONTAINER_THRESHOLD (8), so the typed input genuinely
                 // exercises the indexed-form fast paths when width >= 8.
-                io.airlift.slice.Slice typed = io.trino.json.JsonItemEncoding.encode(
-                        io.trino.json.JsonItemEncoding.decode(jsonValue(jsonText)));
+                Slice typed = JsonItemEncoding.encode(
+                        JsonItemEncoding.decode(jsonValue(jsonText)));
                 JSON.writeSlice(jsonBlockBuilder, typed);
             }
             return new GeneratedChannels(varcharBlockBuilder.build(), jsonBlockBuilder.build());

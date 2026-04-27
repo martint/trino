@@ -50,10 +50,12 @@ import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -66,6 +68,9 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.IntFunction;
@@ -130,7 +135,6 @@ class PathEvaluationVisitor
     private final boolean lax;
     private final JsonPathItem input;
     private final JsonPathItem[] parameters;
-    private final ConnectorSession session;
     private final PathPredicateEvaluationVisitor predicateVisitor;
     private final Invoker invoker;
     private final CachingResolver resolver;
@@ -145,7 +149,7 @@ class PathEvaluationVisitor
         this.lax = lax;
         this.input = requireNonNull(input, "input is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
-        this.session = requireNonNull(session, "session is null");
+        requireNonNull(session, "session is null");
         this.invoker = requireNonNull(invoker, "invoker is null");
         this.resolver = requireNonNull(resolver, "resolver is null");
         this.predicateVisitor = new PathPredicateEvaluationVisitor(lax, this, invoker, resolver);
@@ -270,14 +274,14 @@ class PathEvaluationVisitor
             }
             return typedValue;
         }
-        if (type instanceof io.trino.spi.type.NumberType) {
-            io.trino.spi.type.TrinoNumber number = (io.trino.spi.type.TrinoNumber) typedValue.getObjectValue();
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
             return new TypedValue(type, switch (number.toBigDecimal()) {
-                case io.trino.spi.type.TrinoNumber.BigDecimalValue(java.math.BigDecimal value) ->
-                        io.trino.spi.type.TrinoNumber.from(value.abs());
-                case io.trino.spi.type.TrinoNumber.Infinity _ ->
-                        io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.Infinity(false));
-                case io.trino.spi.type.TrinoNumber.NotANumber _ -> number;
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.abs());
+                case TrinoNumber.Infinity _ ->
+                        TrinoNumber.from(new TrinoNumber.Infinity(false));
+                case TrinoNumber.NotANumber _ -> number;
             });
         }
 
@@ -615,12 +619,12 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
-        if (type instanceof io.trino.spi.type.NumberType) {
-            io.trino.spi.type.TrinoNumber number = (io.trino.spi.type.TrinoNumber) typedValue.getObjectValue();
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
             return new TypedValue(type, switch (number.toBigDecimal()) {
-                case io.trino.spi.type.TrinoNumber.BigDecimalValue(java.math.BigDecimal value) ->
-                        io.trino.spi.type.TrinoNumber.from(value.setScale(0, java.math.RoundingMode.CEILING));
-                case io.trino.spi.type.TrinoNumber.Infinity _, io.trino.spi.type.TrinoNumber.NotANumber _ -> number;
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.CEILING));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
             });
         }
 
@@ -821,12 +825,12 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
-        if (type instanceof io.trino.spi.type.NumberType) {
-            io.trino.spi.type.TrinoNumber number = (io.trino.spi.type.TrinoNumber) typedValue.getObjectValue();
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
             return new TypedValue(DOUBLE, switch (number.toBigDecimal()) {
-                case io.trino.spi.type.TrinoNumber.BigDecimalValue(java.math.BigDecimal value) -> value.doubleValue();
-                case io.trino.spi.type.TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
-                case io.trino.spi.type.TrinoNumber.NotANumber _ -> Double.NaN;
+                case TrinoNumber.BigDecimalValue(BigDecimal value) -> value.doubleValue();
+                case TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                case TrinoNumber.NotANumber _ -> Double.NaN;
             });
         }
 
@@ -906,12 +910,12 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
-        if (type instanceof io.trino.spi.type.NumberType) {
-            io.trino.spi.type.TrinoNumber number = (io.trino.spi.type.TrinoNumber) typedValue.getObjectValue();
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
             return new TypedValue(type, switch (number.toBigDecimal()) {
-                case io.trino.spi.type.TrinoNumber.BigDecimalValue(java.math.BigDecimal value) ->
-                        io.trino.spi.type.TrinoNumber.from(value.setScale(0, java.math.RoundingMode.FLOOR));
-                case io.trino.spi.type.TrinoNumber.Infinity _, io.trino.spi.type.TrinoNumber.NotANumber _ -> number;
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.FLOOR));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
             });
         }
 
@@ -1002,7 +1006,7 @@ class PathEvaluationVisitor
                         // a sortPerm probe rather than a linear scan. Collect into a local list
                         // first so we can detect "no match" for strict-mode structural-error
                         // reporting without re-scanning the outer outputSequence builder.
-                        java.util.List<JsonPathItem> matches = new java.util.ArrayList<>();
+                        List<JsonPathItem> matches = new ArrayList<>();
                         jsonView.objectMembers(key, matches::add);
                         if (matches.isEmpty() && !lax) {
                             throw structuralError("missing member '%s' in JSON object", key);
@@ -1178,7 +1182,7 @@ class PathEvaluationVisitor
                 || type.equals(DOUBLE)
                 || type.equals(REAL)
                 || type instanceof DecimalType
-                || type instanceof io.trino.spi.type.NumberType;
+                || type instanceof NumberType;
     }
 
     private static TypedValue getNumericTypedValue(JsonPathItem object)
@@ -1313,7 +1317,7 @@ class PathEvaluationVisitor
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType) {
             return new TypedValue(resultType, utf8Slice("number"));
         }
-        if (type instanceof io.trino.spi.type.NumberType) {
+        if (type instanceof NumberType) {
             // NumberType (the arbitrary-precision NUMBER) is also "number" in SQL/JSON typeOf;
             // exhaustively covering it avoids relying on getDisplayName() coincidentally
             // returning "number".

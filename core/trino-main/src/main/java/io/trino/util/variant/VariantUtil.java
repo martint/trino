@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonItemEncoding;
 import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.operator.scalar.timestamp.VarcharToTimestampCast;
 import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
@@ -32,6 +33,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -46,6 +48,7 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
@@ -69,6 +72,8 @@ import io.trino.type.VarcharOperators;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1201,7 +1206,7 @@ public final class VariantUtil
     public static Slice asJson(Variant variant)
     {
         SliceOutput output = new DynamicSliceOutput(40);
-        io.trino.json.JsonItemEncoding.appendVersion(output);
+        JsonItemEncoding.appendVersion(output);
         JsonContainerPatches patches = new JsonContainerPatches();
         toJsonItem(output, patches, variant);
         Slice result = output.slice();
@@ -1214,48 +1219,48 @@ public final class VariantUtil
         switch (variant.basicType()) {
             case PRIMITIVE -> {
                 switch (variant.primitiveType()) {
-                    case NULL -> io.trino.json.JsonItemEncoding.appendJsonNullItem(output);
+                    case NULL -> JsonItemEncoding.appendJsonNullItem(output);
                     case BINARY -> {
                         // Jackson historically rendered BINARY as a base64 JSON string; preserve that
                         // user-visible behavior by emitting it as a VARCHAR item.
                         Slice binary = variant.getBinary();
-                        io.trino.json.JsonItemEncoding.appendVarchar(
+                        JsonItemEncoding.appendVarchar(
                                 output,
-                                Slices.utf8Slice(java.util.Base64.getEncoder().encodeToString(
+                                Slices.utf8Slice(Base64.getEncoder().encodeToString(
                                         binary.getBytes(0, binary.length()))));
                     }
-                    case STRING -> io.trino.json.JsonItemEncoding.appendVarchar(output, variant.getString());
-                    case BOOLEAN_TRUE -> io.trino.json.JsonItemEncoding.appendBoolean(output, true);
-                    case BOOLEAN_FALSE -> io.trino.json.JsonItemEncoding.appendBoolean(output, false);
-                    case INT8 -> io.trino.json.JsonItemEncoding.appendBigint(output, variant.getByte());
-                    case INT16 -> io.trino.json.JsonItemEncoding.appendBigint(output, variant.getShort());
-                    case INT32 -> io.trino.json.JsonItemEncoding.appendBigint(output, variant.getInt());
-                    case INT64 -> io.trino.json.JsonItemEncoding.appendBigint(output, variant.getLong());
+                    case STRING -> JsonItemEncoding.appendVarchar(output, variant.getString());
+                    case BOOLEAN_TRUE -> JsonItemEncoding.appendBoolean(output, true);
+                    case BOOLEAN_FALSE -> JsonItemEncoding.appendBoolean(output, false);
+                    case INT8 -> JsonItemEncoding.appendBigint(output, variant.getByte());
+                    case INT16 -> JsonItemEncoding.appendBigint(output, variant.getShort());
+                    case INT32 -> JsonItemEncoding.appendBigint(output, variant.getInt());
+                    case INT64 -> JsonItemEncoding.appendBigint(output, variant.getLong());
                     case DECIMAL4, DECIMAL8, DECIMAL16 -> emitDecimal(output, variant.getDecimal());
-                    case FLOAT -> io.trino.json.JsonItemEncoding.appendDouble(output, variant.getFloat());
-                    case DOUBLE -> io.trino.json.JsonItemEncoding.appendDouble(output, variant.getDouble());
-                    case DATE -> io.trino.json.JsonItemEncoding.appendVarchar(
+                    case FLOAT -> JsonItemEncoding.appendDouble(output, variant.getFloat());
+                    case DOUBLE -> JsonItemEncoding.appendDouble(output, variant.getDouble());
+                    case DATE -> JsonItemEncoding.appendVarchar(
                             output,
                             DateOperators.castToVarchar(UNBOUNDED_LENGTH, variant.getDate()));
-                    case TIME_NTZ_MICROS -> io.trino.json.JsonItemEncoding.appendVarchar(
+                    case TIME_NTZ_MICROS -> JsonItemEncoding.appendVarchar(
                             output,
                             TimeOperators.castToVarchar(UNBOUNDED_LENGTH, 6, variant.getTimeMicros() * 1_000_000L));
                     case TIMESTAMP_UTC_MICROS -> {
                         long micros = variant.getTimestampMicros();
                         long epochMillis = floorDiv(micros, 1_000L);
                         int picosOfMilli = floorMod(micros, 1_000) * 1_000_000;
-                        io.trino.json.JsonItemEncoding.appendVarchar(
+                        JsonItemEncoding.appendVarchar(
                                 output,
                                 Slices.utf8Slice(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId())));
                     }
-                    case TIMESTAMP_NTZ_MICROS -> io.trino.json.JsonItemEncoding.appendVarchar(
+                    case TIMESTAMP_NTZ_MICROS -> JsonItemEncoding.appendVarchar(
                             output,
                             Slices.utf8Slice(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC)));
                     case TIMESTAMP_UTC_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMillis = floorDiv(nanos, 1_000_000L);
                         int picosOfMilli = floorMod(nanos, 1_000_000) * 1_000;
-                        io.trino.json.JsonItemEncoding.appendVarchar(
+                        JsonItemEncoding.appendVarchar(
                                 output,
                                 Slices.utf8Slice(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId())));
                     }
@@ -1263,17 +1268,17 @@ public final class VariantUtil
                         long nanos = variant.getTimestampNanos();
                         long epochMicros = floorDiv(nanos, 1_000L);
                         int picosOfMicros = floorMod(nanos, 1_000) * 1_000;
-                        io.trino.json.JsonItemEncoding.appendVarchar(
+                        JsonItemEncoding.appendVarchar(
                                 output,
                                 Slices.utf8Slice(formatTimestamp(9, epochMicros, picosOfMicros, UTC)));
                     }
-                    case UUID -> io.trino.json.JsonItemEncoding.appendVarchar(
+                    case UUID -> JsonItemEncoding.appendVarchar(
                             output, Slices.utf8Slice(variant.getUuid().toString()));
                 }
             }
-            case SHORT_STRING -> io.trino.json.JsonItemEncoding.appendVarchar(output, variant.getString());
+            case SHORT_STRING -> JsonItemEncoding.appendVarchar(output, variant.getString());
             case ARRAY -> {
-                int countOffset = io.trino.json.JsonItemEncoding.appendArrayItemPlaceholder(output);
+                int countOffset = JsonItemEncoding.appendArrayItemPlaceholder(output);
                 int[] count = {0};
                 variant.arrayElements().forEach(element -> {
                     toJsonItem(output, patches, element);
@@ -1283,11 +1288,11 @@ public final class VariantUtil
             }
             case OBJECT -> {
                 Metadata metadata = variant.metadata();
-                int countOffset = io.trino.json.JsonItemEncoding.appendObjectItemPlaceholder(output);
+                int countOffset = JsonItemEncoding.appendObjectItemPlaceholder(output);
                 int[] count = {0};
                 variant.objectFields().forEach(fieldIdValue -> {
                     String fieldName = metadata.get(fieldIdValue.fieldId()).toStringUtf8();
-                    io.trino.json.JsonItemEncoding.appendObjectKey(output, fieldName);
+                    JsonItemEncoding.appendObjectKey(output, fieldName);
                     toJsonItem(output, patches, fieldIdValue.value());
                     count[0]++;
                 });
@@ -1296,7 +1301,7 @@ public final class VariantUtil
         }
     }
 
-    private static void emitDecimal(SliceOutput output, java.math.BigDecimal value)
+    private static void emitDecimal(SliceOutput output, BigDecimal value)
     {
         // Match the canonicalization the JSON path engine does for parsed JSON numbers.
         if (value.scale() < 0) {
@@ -1304,20 +1309,20 @@ public final class VariantUtil
         }
         int scale = value.scale();
         int precision = Math.max(value.precision(), scale);
-        if (precision > io.trino.spi.type.Decimals.MAX_PRECISION) {
+        if (precision > Decimals.MAX_PRECISION) {
             // Out-of-range for DECIMAL(<=38); fall back to NUMBER via TrinoNumber.
-            io.trino.json.JsonItemEncoding.appendNumber(
+            JsonItemEncoding.appendNumber(
                     output,
-                    io.trino.spi.type.TrinoNumber.from(value));
+                    TrinoNumber.from(value));
             return;
         }
-        if (precision <= io.trino.spi.type.Decimals.MAX_SHORT_PRECISION) {
-            io.trino.json.JsonItemEncoding.appendShortDecimal(
-                    output, precision, scale, io.trino.spi.type.Decimals.encodeShortScaledValue(value, scale));
+        if (precision <= Decimals.MAX_SHORT_PRECISION) {
+            JsonItemEncoding.appendShortDecimal(
+                    output, precision, scale, Decimals.encodeShortScaledValue(value, scale));
         }
         else {
-            io.trino.json.JsonItemEncoding.appendLongDecimal(
-                    output, precision, scale, io.trino.spi.type.Decimals.encodeScaledValue(value, scale));
+            JsonItemEncoding.appendLongDecimal(
+                    output, precision, scale, Decimals.encodeScaledValue(value, scale));
         }
     }
 
@@ -1329,7 +1334,7 @@ public final class VariantUtil
         void add(int offset, int count)
         {
             if (size + 2 > data.length) {
-                data = java.util.Arrays.copyOf(data, data.length * 2);
+                data = Arrays.copyOf(data, data.length * 2);
             }
             data[size++] = offset;
             data[size++] = count;

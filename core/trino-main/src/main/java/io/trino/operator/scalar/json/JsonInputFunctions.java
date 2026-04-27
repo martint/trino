@@ -21,6 +21,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.StandardTypes;
+import io.trino.type.JsonType;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -109,13 +110,13 @@ public final class JsonInputFunctions
     private static JsonValue toJson(Reader reader, boolean failOnError)
     {
         try {
-            return JsonValue.of(io.trino.type.JsonType.jsonValue(JsonItems.parseJson(reader)));
+            return JsonValue.of(JsonType.jsonValue(JsonItems.parseJson(reader)));
         }
         catch (RuntimeException | IOException e) {
             if (failOnError) {
                 throw new JsonInputConversionException(e);
             }
-            return JsonValue.of(io.trino.type.JsonType.fromPathItem(JsonValueView.jsonError()));
+            return JsonValue.of(JsonType.fromPathItem(JsonValueView.jsonError()));
         }
     }
 }

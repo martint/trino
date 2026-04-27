@@ -354,7 +354,7 @@ public final class JsonEncodingUtils
             else {
                 // VariantUtil.asJson emits the typed JSON encoding; render to canonical text for
                 // the protocol stream.
-                String json = io.trino.type.JsonType.jsonText(VariantUtil.asJson(variant)).toStringUtf8();
+                String json = JsonType.jsonText(VariantUtil.asJson(variant)).toStringUtf8();
                 if (supportsVariant) {
                     generator.writeRawValue(json);
                 }

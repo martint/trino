@@ -16,7 +16,9 @@ package io.trino.json;
 import io.airlift.slice.Slice;
 import io.trino.json.ir.TypedValue;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.NumberType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.TrinoNumber;
 import org.junit.jupiter.api.Test;
 
@@ -211,9 +213,9 @@ public class TestJsonItems
     {
         // Non-finite REAL, DOUBLE, and NumberType compare equal by kind: NaN==NaN,
         // +Inf==+Inf, -Inf==-Inf, regardless of which numeric type carries the sentinel.
-        TypedValue doubleNaN = new TypedValue(io.trino.spi.type.DoubleType.DOUBLE, Double.NaN);
-        TypedValue realNaN = new TypedValue(io.trino.spi.type.RealType.REAL, (long) Float.floatToRawIntBits(Float.NaN));
-        TypedValue numberNaN = new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.NotANumber()));
+        TypedValue doubleNaN = new TypedValue(DoubleType.DOUBLE, Double.NaN);
+        TypedValue realNaN = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NaN));
+        TypedValue numberNaN = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber()));
 
         assertThat(JsonItemSemantics.equals(doubleNaN, realNaN)).isTrue();
         assertThat(JsonItemSemantics.equals(doubleNaN, numberNaN)).isTrue();
@@ -221,15 +223,15 @@ public class TestJsonItems
         assertThat(JsonItemSemantics.hash(doubleNaN)).isEqualTo(JsonItemSemantics.hash(realNaN));
         assertThat(JsonItemSemantics.hash(doubleNaN)).isEqualTo(JsonItemSemantics.hash(numberNaN));
 
-        TypedValue doublePosInf = new TypedValue(io.trino.spi.type.DoubleType.DOUBLE, Double.POSITIVE_INFINITY);
-        TypedValue realPosInf = new TypedValue(io.trino.spi.type.RealType.REAL, (long) Float.floatToRawIntBits(Float.POSITIVE_INFINITY));
-        TypedValue numberPosInf = new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.Infinity(false)));
+        TypedValue doublePosInf = new TypedValue(DoubleType.DOUBLE, Double.POSITIVE_INFINITY);
+        TypedValue realPosInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.POSITIVE_INFINITY));
+        TypedValue numberPosInf = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(false)));
         assertThat(JsonItemSemantics.equals(doublePosInf, realPosInf)).isTrue();
         assertThat(JsonItemSemantics.equals(doublePosInf, numberPosInf)).isTrue();
 
-        TypedValue doubleNegInf = new TypedValue(io.trino.spi.type.DoubleType.DOUBLE, Double.NEGATIVE_INFINITY);
-        TypedValue realNegInf = new TypedValue(io.trino.spi.type.RealType.REAL, (long) Float.floatToRawIntBits(Float.NEGATIVE_INFINITY));
-        TypedValue numberNegInf = new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.Infinity(true)));
+        TypedValue doubleNegInf = new TypedValue(DoubleType.DOUBLE, Double.NEGATIVE_INFINITY);
+        TypedValue realNegInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NEGATIVE_INFINITY));
+        TypedValue numberNegInf = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true)));
         assertThat(JsonItemSemantics.equals(doubleNegInf, realNegInf)).isTrue();
         assertThat(JsonItemSemantics.equals(doubleNegInf, numberNegInf)).isTrue();
 

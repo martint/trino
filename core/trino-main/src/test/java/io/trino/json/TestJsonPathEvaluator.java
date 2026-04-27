@@ -31,8 +31,11 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
@@ -131,9 +134,9 @@ public class TestJsonPathEvaluator
             .put("boolean_parameter", new TypedValue(BOOLEAN, true))
             .put("date_parameter", new TypedValue(DATE, 1234L))
             .put("timestamp_parameter", new TypedValue(createTimestampType(7), new LongTimestamp(20, 30)))
-            .put("number_parameter", new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new BigDecimal("-123456789012345678901234567890.5"))))
-            .put("number_nan_parameter", new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.NotANumber())))
-            .put("number_neg_inf_parameter", new TypedValue(io.trino.spi.type.NumberType.NUMBER, io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.Infinity(true))))
+            .put("number_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new BigDecimal("-123456789012345678901234567890.5"))))
+            .put("number_nan_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber())))
+            .put("number_neg_inf_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true))))
             .put("empty_sequence_parameter", EMPTY_SEQUENCE)
             .put("null_parameter", normalizeItem(NullNode.instance))
             .put("json_number_parameter", jsonParameter(IntNode.valueOf(-6)))
@@ -694,23 +697,23 @@ public class TestJsonPathEvaluator
                 NullNode.instance,
                 path(true, abs(variable("number_parameter")))))
                 .isEqualTo(singletonSequence(new TypedValue(
-                        io.trino.spi.type.NumberType.NUMBER,
-                        io.trino.spi.type.TrinoNumber.from(new BigDecimal("123456789012345678901234567890.5")))));
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("123456789012345678901234567890.5")))));
 
         // ceiling() and floor() round to integer scale 0
         assertThat(pathResult(
                 NullNode.instance,
                 path(true, ceiling(variable("number_parameter")))))
                 .isEqualTo(singletonSequence(new TypedValue(
-                        io.trino.spi.type.NumberType.NUMBER,
-                        io.trino.spi.type.TrinoNumber.from(new BigDecimal("-123456789012345678901234567890")))));
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567890")))));
 
         assertThat(pathResult(
                 NullNode.instance,
                 path(true, floor(variable("number_parameter")))))
                 .isEqualTo(singletonSequence(new TypedValue(
-                        io.trino.spi.type.NumberType.NUMBER,
-                        io.trino.spi.type.TrinoNumber.from(new BigDecimal("-123456789012345678901234567891")))));
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567891")))));
 
         // double() converts NumberType to DOUBLE (mantissa rounds to nearest representable value)
         assertThat(pathResult(
@@ -723,15 +726,15 @@ public class TestJsonPathEvaluator
                 NullNode.instance,
                 path(true, abs(variable("number_nan_parameter")))))
                 .isEqualTo(singletonSequence(new TypedValue(
-                        io.trino.spi.type.NumberType.NUMBER,
-                        io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.NotANumber()))));
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.NotANumber()))));
 
         assertThat(pathResult(
                 NullNode.instance,
                 path(true, abs(variable("number_neg_inf_parameter")))))
                 .isEqualTo(singletonSequence(new TypedValue(
-                        io.trino.spi.type.NumberType.NUMBER,
-                        io.trino.spi.type.TrinoNumber.from(new io.trino.spi.type.TrinoNumber.Infinity(false)))));
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.Infinity(false)))));
 
         // double() on non-finite NumberType maps to the matching DOUBLE non-finite value
         assertThat(pathResult(
@@ -1691,7 +1694,7 @@ public class TestJsonPathEvaluator
             throw new IllegalArgumentException("decimal JSON literal is too large for test conversion: " + value);
         }
         int scale = value.scale();
-        io.trino.spi.type.DecimalType type = createDecimalType(precision, scale);
+        DecimalType type = createDecimalType(precision, scale);
         Object encoded = type.isShort() ? encodeShortScaledValue(value, scale) : encodeScaledValue(value, scale);
         return TypedValue.fromValueAsObject(type, encoded);
     }

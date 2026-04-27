@@ -45,9 +45,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -137,10 +140,10 @@ public final class JsonItemEncoding
         /// for O(log n) member lookup by key. Entries stay in insertion order so json_format
         /// and forEachObjectMember preserve input order.
         ///
-        /// Layout: tag(1) + count(int32) + sortPerm[count](uint16 each) +
-        ///         offsets[count+1](int32 each) + (keyLen + keyBytes + item)*count.
-        /// sortPerm[i] = the entry index whose key sorts to position i (lex byte order).
-        /// offsets[0] = 0; offsets[count] = entries section size.
+        /// Layout: `tag(1) + count(int32) + sortPerm[count](uint16 each) +
+        /// offsets[count+1](int32 each) + (keyLen + keyBytes + item)*count`.
+        /// `sortPerm[i]` = the entry index whose key sorts to position `i` (lex byte order).
+        /// `offsets[0]` = 0; `offsets[count]` = entries section size.
         OBJECT_INDEXED(7);
 
         private final byte encoded;
@@ -507,7 +510,7 @@ public final class JsonItemEncoding
         // Raw JSON text — parse and emit. Rare in CAST-to-JSON paths (only when a column of
         // JsonType is a member of a map/array/row being cast).
         try {
-            writeItem(output, JsonItems.parseJson(new java.io.InputStreamReader(payload.getInput(), java.nio.charset.StandardCharsets.UTF_8)), 0);
+            writeItem(output, JsonItems.parseJson(new InputStreamReader(payload.getInput(), StandardCharsets.UTF_8)), 0);
         }
         catch (IOException e) {
             throw new IllegalArgumentException("Invalid JSON text", e);
@@ -943,7 +946,7 @@ public final class JsonItemEncoding
         // Each indexed array element costs (Integer.BYTES offset entry) + ≥1 item byte.
         validateContainerCount(count, input, Integer.BYTES + 1);
         // Skip the offsets table — we walk items in sequence, no random access needed.
-        input.skip((count + 1) * Integer.BYTES);
+        input.skip((long) (count + 1) * Integer.BYTES);
         generator.writeStartArray();
         for (int i = 0; i < count; i++) {
             writeJson(input, generator, stringifyUnsupportedScalars, depth);
@@ -1098,7 +1101,7 @@ public final class JsonItemEncoding
         int count = input.readInt();
         validateCount(count);
         // Skip offsets table — sequential read doesn't use it.
-        input.skip((count + 1) * Integer.BYTES);
+        input.skip((long) (count + 1) * Integer.BYTES);
         List<MaterializedJsonValue> elements = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             elements.add(readValue(input, depth));
@@ -1132,7 +1135,7 @@ public final class JsonItemEncoding
         for (int i = 0; i < count; i++) {
             perm[i] = i;
         }
-        java.util.Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
+        Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
 
         output.appendByte(ItemTag.OBJECT_INDEXED.encoded());
         output.appendInt(count);

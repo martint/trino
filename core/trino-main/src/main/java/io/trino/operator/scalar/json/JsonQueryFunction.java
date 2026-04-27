@@ -13,10 +13,12 @@
  */
 package io.trino.operator.scalar.json;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonObjectItem;
@@ -38,12 +40,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -117,7 +121,7 @@ public class JsonQueryFunction
     }
 
     @UsedByGeneratedCode
-    public static io.trino.spi.type.JsonValue jsonQuery(
+    public static JsonValue jsonQuery(
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
@@ -131,8 +135,8 @@ public class JsonQueryFunction
             long emptyBehavior,
             long errorBehavior)
     {
-        Slice payload = io.trino.type.JsonType.fromPathItem(jsonQueryAsItem(functionManager, metadata, typeManager, parametersRowType, invocationContext, session, inputExpression, jsonPath, parametersRow, wrapperBehavior, emptyBehavior, errorBehavior));
-        return payload == null ? null : io.trino.spi.type.JsonValue.of(payload);
+        Slice payload = JsonType.fromPathItem(jsonQueryAsItem(functionManager, metadata, typeManager, parametersRowType, invocationContext, session, inputExpression, jsonPath, parametersRow, wrapperBehavior, emptyBehavior, errorBehavior));
+        return payload == null ? null : JsonValue.of(payload);
     }
 
     private static JsonPathItem jsonQueryAsItem(
@@ -150,11 +154,11 @@ public class JsonQueryFunction
             long errorBehavior)
     {
         JsonPathItem inputItem = switch (inputExpression) {
-            case io.trino.spi.type.JsonValue jsonValue -> io.trino.type.JsonType.toPathItem(jsonValue.payload());
-            case Slice slice -> io.trino.type.JsonType.toPathItem(slice);
+            case JsonValue jsonValue -> JsonType.toPathItem(jsonValue.payload());
+            case Slice slice -> JsonType.toPathItem(slice);
             default -> (JsonPathItem) inputExpression;
         };
-        if (inputItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
+        if (inputItem == JsonInputErrorNode.JSON_ERROR) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);
@@ -244,7 +248,7 @@ public class JsonQueryFunction
         if (item instanceof MaterializedJsonValue jsonValue) {
             return encodedResult(jsonValue);
         }
-        throw new com.google.common.base.VerifyException(format("unexpected JSON path result item: %s", item.getClass().getName()));
+        throw new VerifyException(format("unexpected JSON path result item: %s", item.getClass().getName()));
     }
 
     private static boolean isArrayOrObject(JsonPathItem item)

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
@@ -25,6 +26,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.JsonValue;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -46,6 +48,9 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -153,7 +158,7 @@ public class BenchmarkJsonReadPath
 
             // SELECT json_col = JSON 'constant' — same text bytes, exercises the
             // byte-equality fast path.
-            io.trino.spi.type.JsonValue constantValue = io.trino.spi.type.JsonValue.of(sample);
+            JsonValue constantValue = JsonValue.of(sample);
             List<Expression> equalsProjection = ImmutableList.of(new Comparison(
                     Comparison.Operator.EQUAL,
                     new Reference(JSON, "$col_0"),
@@ -168,7 +173,7 @@ public class BenchmarkJsonReadPath
             return switch (shape) {
                 case SCALAR -> randomString(20);
                 case FLAT_OBJECT -> flatObject(8);
-                case NESTED_OBJECT -> nestedObject(4, 4);
+                case NESTED_OBJECT -> nestedObject(4);
             };
         }
 
@@ -181,7 +186,7 @@ public class BenchmarkJsonReadPath
                 builder.append(characters.charAt(ThreadLocalRandom.current().nextInt(characters.length())));
             }
             builder.append('"');
-            return io.airlift.slice.Slices.utf8Slice(builder.toString());
+            return Slices.utf8Slice(builder.toString());
         }
 
         private static Slice flatObject(int width)
@@ -192,7 +197,7 @@ public class BenchmarkJsonReadPath
                     if (i > 0) {
                         output.appendByte(',');
                     }
-                    output.appendBytes(("\"k" + i + "\":" + ThreadLocalRandom.current().nextInt(1_000_000)).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    output.appendBytes(("\"k" + i + "\":" + ThreadLocalRandom.current().nextInt(1_000_000)).getBytes(StandardCharsets.UTF_8));
                 }
                 output.appendByte('}');
                 return output.slice();
@@ -202,10 +207,9 @@ public class BenchmarkJsonReadPath
             }
         }
 
-        private static Slice nestedObject(int depth, int width)
+        private static Slice nestedObject(int depth)
         {
-            // Wraps a leaf record at `depth` levels of nesting; `width` is unused but
-            // kept for shape variety if a future caller wants siblings per level.
+            // Wraps a leaf record at `depth` levels of nesting.
             StringBuilder builder = new StringBuilder();
             for (int level = 0; level < depth; level++) {
                 builder.append("{\"level").append(level).append("\":");
@@ -214,7 +218,7 @@ public class BenchmarkJsonReadPath
             for (int level = 0; level < depth; level++) {
                 builder.append('}');
             }
-            return io.airlift.slice.Slices.utf8Slice(builder.toString());
+            return Slices.utf8Slice(builder.toString());
         }
     }
 
@@ -264,7 +268,7 @@ public class BenchmarkJsonReadPath
                     "%-14s | %8.1f ns/row | %8.1f ns/row | %8.1f ns/row%n",
                     shape, passThroughNs, jsonFormatNs, equalsConstantNs));
         }
-        java.nio.file.Files.writeString(java.nio.file.Path.of("/tmp/json-readpath-bench.txt"), out.toString());
+        Files.writeString(Path.of("/tmp/json-readpath-bench.txt"), out.toString());
     }
 
     /// Measures the cost of JsonType.jsonValue (parse + encode) on text inputs of each shape.
@@ -285,7 +289,7 @@ public class BenchmarkJsonReadPath
             });
             out.append(String.format("%-14s | %7.1f ns/row%n", shape, parseNs));
         }
-        java.nio.file.Files.writeString(java.nio.file.Path.of("/tmp/json-parse-bench.txt"), out.toString());
+        Files.writeString(Path.of("/tmp/json-parse-bench.txt"), out.toString());
     }
 
     /**
@@ -312,7 +316,7 @@ public class BenchmarkJsonReadPath
                     "%-14s | %7.1f ns/row | %7.1f ns/row%n",
                     shape, textNs, typedNs));
         }
-        java.nio.file.Files.writeString(java.nio.file.Path.of("/tmp/json-ingestion-bench.txt"), out.toString());
+        Files.writeString(Path.of("/tmp/json-ingestion-bench.txt"), out.toString());
     }
 
     private static void writeBlock(Slice value)

@@ -15,6 +15,7 @@ package io.trino.json;
 
 import io.airlift.slice.Slice;
 import io.trino.json.ir.TypedValue;
+import io.trino.spi.type.IntegerType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -69,7 +70,7 @@ public class TestJsonValueView
         // JsonArrayItems above the threshold).
         List<MaterializedJsonValue> elements = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            elements.add(new TypedValue(io.trino.spi.type.IntegerType.INTEGER, (long) (i * 100)));
+            elements.add(new TypedValue(IntegerType.INTEGER, i * 100L));
         }
         Slice encoded = JsonItemEncoding.encode(new JsonArrayItem(elements));
         JsonValueView view = JsonValueView.root(encoded);
@@ -95,14 +96,14 @@ public class TestJsonValueView
         // Build an OBJECT_INDEXED via the materialized-tree encoder. The encoder emits the
         // indexed form for objects with >= 8 entries.
         List<JsonObjectMember> members = new ArrayList<>();
-        members.add(new JsonObjectMember("zebra", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 1L)));
-        members.add(new JsonObjectMember("apple", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 2L)));
-        members.add(new JsonObjectMember("monkey", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 3L)));
-        members.add(new JsonObjectMember("banana", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 4L)));
-        members.add(new JsonObjectMember("cherry", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 5L)));
-        members.add(new JsonObjectMember("date", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 6L)));
-        members.add(new JsonObjectMember("elderberry", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 7L)));
-        members.add(new JsonObjectMember("fig", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 8L)));
+        members.add(new JsonObjectMember("zebra", new TypedValue(IntegerType.INTEGER, 1L)));
+        members.add(new JsonObjectMember("apple", new TypedValue(IntegerType.INTEGER, 2L)));
+        members.add(new JsonObjectMember("monkey", new TypedValue(IntegerType.INTEGER, 3L)));
+        members.add(new JsonObjectMember("banana", new TypedValue(IntegerType.INTEGER, 4L)));
+        members.add(new JsonObjectMember("cherry", new TypedValue(IntegerType.INTEGER, 5L)));
+        members.add(new JsonObjectMember("date", new TypedValue(IntegerType.INTEGER, 6L)));
+        members.add(new JsonObjectMember("elderberry", new TypedValue(IntegerType.INTEGER, 7L)));
+        members.add(new JsonObjectMember("fig", new TypedValue(IntegerType.INTEGER, 8L)));
         Slice encoded = JsonItemEncoding.encode(new JsonObjectItem(members));
         JsonValueView view = JsonValueView.root(encoded);
 
@@ -129,7 +130,7 @@ public class TestJsonValueView
         List<JsonObjectMember> members = new ArrayList<>();
         String[] keys = {"zebra", "apple", "monkey", "banana", "cherry", "date", "elderberry", "fig"};
         for (int i = 0; i < keys.length; i++) {
-            members.add(new JsonObjectMember(keys[i], new TypedValue(io.trino.spi.type.IntegerType.INTEGER, (long) i)));
+            members.add(new JsonObjectMember(keys[i], new TypedValue(IntegerType.INTEGER, (long) i)));
         }
         Slice encoded = JsonItemEncoding.encode(new JsonObjectItem(members));
         JsonValueView view = JsonValueView.root(encoded);
@@ -152,14 +153,14 @@ public class TestJsonValueView
         // every match in INSERTION order — even when the indexed form's binary search
         // visits them in sort order internally.
         List<JsonObjectMember> members = new ArrayList<>();
-        members.add(new JsonObjectMember("a", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 1L)));
-        members.add(new JsonObjectMember("b", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 2L)));
-        members.add(new JsonObjectMember("a", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 3L))); // dup
-        members.add(new JsonObjectMember("c", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 4L)));
-        members.add(new JsonObjectMember("d", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 5L)));
-        members.add(new JsonObjectMember("a", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 6L))); // dup
-        members.add(new JsonObjectMember("e", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 7L)));
-        members.add(new JsonObjectMember("f", new TypedValue(io.trino.spi.type.IntegerType.INTEGER, 8L)));
+        members.add(new JsonObjectMember("a", new TypedValue(IntegerType.INTEGER, 1L)));
+        members.add(new JsonObjectMember("b", new TypedValue(IntegerType.INTEGER, 2L)));
+        members.add(new JsonObjectMember("a", new TypedValue(IntegerType.INTEGER, 3L))); // dup
+        members.add(new JsonObjectMember("c", new TypedValue(IntegerType.INTEGER, 4L)));
+        members.add(new JsonObjectMember("d", new TypedValue(IntegerType.INTEGER, 5L)));
+        members.add(new JsonObjectMember("a", new TypedValue(IntegerType.INTEGER, 6L))); // dup
+        members.add(new JsonObjectMember("e", new TypedValue(IntegerType.INTEGER, 7L)));
+        members.add(new JsonObjectMember("f", new TypedValue(IntegerType.INTEGER, 8L)));
         Slice encoded = JsonItemEncoding.encode(new JsonObjectItem(members));
         JsonValueView view = JsonValueView.root(encoded);
         assertThat(JsonItemEncoding.itemTag(encoded, 1)).isEqualTo(JsonItemEncoding.ItemTag.OBJECT_INDEXED);

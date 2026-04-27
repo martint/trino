@@ -17,10 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonInputErrorNode;
+import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
 import io.trino.json.JsonObjectItem;
 import io.trino.json.JsonObjectMember;
+import io.trino.json.JsonPathItem;
 import io.trino.json.JsonValueView;
 import io.trino.json.MaterializedJsonValue;
 import io.trino.json.ir.TypedValue;
@@ -32,6 +35,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -96,9 +100,9 @@ public class JsonObjectFunction
     }
 
     @UsedByGeneratedCode
-    public static io.trino.spi.type.JsonValue jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
+    public static JsonValue jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
     {
-        return io.trino.spi.type.JsonValue.of(JsonType.jsonValue(buildObject(keysRowType, valuesRowType, keysRow, valuesRow, nullOnNull, uniqueKeys)));
+        return JsonValue.of(JsonType.jsonValue(buildObject(keysRowType, valuesRowType, keysRow, valuesRow, nullOnNull, uniqueKeys)));
     }
 
     private static MaterializedJsonValue buildObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
@@ -133,11 +137,11 @@ public class JsonObjectFunction
                 }
             }
             else if (valueType.equals(JsonType.JSON)) {
-                Slice payload = value instanceof io.trino.spi.type.JsonValue jsonValue
+                Slice payload = value instanceof JsonValue jsonValue
                         ? jsonValue.payload()
                         : (Slice) value;
-                io.trino.json.JsonPathItem pathItem = JsonType.toPathItem(payload);
-                checkState(pathItem != io.trino.json.JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                JsonPathItem pathItem = JsonType.toPathItem(payload);
+                checkState(pathItem != JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
                 if (uniqueKeys) {
                     validateUniqueKeys(pathItem);
                 }
@@ -156,15 +160,15 @@ public class JsonObjectFunction
         return new JsonObjectItem(members);
     }
 
-    private static void validateUniqueKeys(io.trino.json.JsonPathItem item)
+    private static void validateUniqueKeys(JsonPathItem item)
     {
         validateUniqueKeys(item, 0);
     }
 
-    private static void validateUniqueKeys(io.trino.json.JsonPathItem item, int depth)
+    private static void validateUniqueKeys(JsonPathItem item, int depth)
     {
-        if (depth > io.trino.json.JsonItemEncoding.MAX_DEPTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "JSON value passed to JSON_OBJECT exceeds maximum nesting depth of " + io.trino.json.JsonItemEncoding.MAX_DEPTH);
+        if (depth > JsonItemEncoding.MAX_DEPTH) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "JSON value passed to JSON_OBJECT exceeds maximum nesting depth of " + JsonItemEncoding.MAX_DEPTH);
         }
         Optional<JsonValueView> view = JsonValueView.fromItem(item);
         if (view.isPresent()) {

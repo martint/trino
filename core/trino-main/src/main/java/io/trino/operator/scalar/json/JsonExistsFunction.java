@@ -14,7 +14,9 @@
 package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.JsonPathItem;
@@ -32,11 +34,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -115,11 +119,11 @@ public class JsonExistsFunction
             long errorBehavior)
     {
         JsonPathItem inputItem = switch (inputExpression) {
-            case io.trino.spi.type.JsonValue jsonValue -> io.trino.type.JsonType.toPathItem(jsonValue.payload());
-            case io.airlift.slice.Slice slice -> io.trino.type.JsonType.toPathItem(slice);
+            case JsonValue jsonValue -> JsonType.toPathItem(jsonValue.payload());
+            case Slice slice -> JsonType.toPathItem(slice);
             default -> (JsonPathItem) inputExpression;
         };
-        if (inputItem == io.trino.json.JsonInputErrorNode.JSON_ERROR) {
+        if (inputItem == JsonInputErrorNode.JSON_ERROR) {
             return handleError(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         JsonPathItem[] parameters = getParametersArray(parametersRowType, parametersRow);

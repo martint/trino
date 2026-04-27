@@ -25,10 +25,13 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
+import io.trino.type.JsonType;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
 import io.trino.util.JsonUtil.ObjectKeyProvider;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -72,7 +75,7 @@ public class BenchCastMapToJson
                 SqlMap m = mapType.getObject(block, p);
                 Slice text = jacksonPath(keyProvider, valueWriter, m);
                 // Mirror what JsonType.writeSlice did pre-prototype: parse + encode.
-                io.trino.type.JsonType.jsonValue(text);
+                JsonType.jsonValue(text);
             }
         };
         Runnable newPath = () -> {
@@ -84,8 +87,8 @@ public class BenchCastMapToJson
 
         double oldNs = measureNs(oldPath, positions);
         double newNs = measureNs(newPath, positions);
-        java.nio.file.Files.writeString(
-                java.nio.file.Path.of("/tmp/bench-cast-map.txt"),
+        Files.writeString(
+                Path.of("/tmp/bench-cast-map.txt"),
                 String.format("CAST(map(varchar,bigint, 8 entries) AS JSON):%n  Jackson + jsonValue (old): %7.1f ns/row%n  Direct emitter      (new): %7.1f ns/row%n  speedup: %.1fx%n", oldNs, newNs, oldNs / newNs));
     }
 

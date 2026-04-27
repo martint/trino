@@ -24,6 +24,6 @@ public record JsonPathParameter(MaterializedJsonValue item)
 {
     public JsonPathParameter
     {
-        item = requireNonNull(item, "item is null");
+        requireNonNull(item, "item is null");
     }
 }

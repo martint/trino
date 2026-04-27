@@ -49,7 +49,7 @@ public final class JsonToTimeWithTimeZoneCast
     @SqlType("time(p) with time zone")
     public static Long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(JSON) JsonValue json)
     {
-        Slice text = textFromJson(json, precision);
+        Slice text = textFromJson(json);
         return text == null ? null : VarcharToTimeWithTimeZoneCast.castToShort(precision, session, text);
     }
 
@@ -58,11 +58,11 @@ public final class JsonToTimeWithTimeZoneCast
     @SqlType("time(p) with time zone")
     public static LongTimeWithTimeZone castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(JSON) JsonValue json)
     {
-        Slice text = textFromJson(json, precision);
+        Slice text = textFromJson(json);
         return text == null ? null : VarcharToTimeWithTimeZoneCast.castToLong(precision, session, text);
     }
 
-    private static Slice textFromJson(JsonValue json, long precision)
+    private static Slice textFromJson(JsonValue json)
     {
         JsonPathItem item = JsonItemEncoding.decode(json.payload());
         if (item == JsonNull.JSON_NULL) {

@@ -15,9 +15,15 @@ package io.trino.json;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.json.ir.TypedValue;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -93,9 +99,9 @@ public final class JsonValueView
     private static MaterializedJsonValue parseText(Slice text)
     {
         try {
-            return JsonItems.parseJson(new java.io.InputStreamReader(text.getInput(), java.nio.charset.StandardCharsets.UTF_8));
+            return JsonItems.parseJson(new InputStreamReader(text.getInput(), StandardCharsets.UTF_8));
         }
-        catch (java.io.IOException | RuntimeException e) {
+        catch (IOException | RuntimeException e) {
             throw new IllegalArgumentException("Invalid JSON text", e);
         }
     }
@@ -218,7 +224,7 @@ public final class JsonValueView
             int firstInsertion = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, firstSorted);
             // For duplicate keys, return the entry with the smallest insertion-order index.
             int count = JsonItemEncoding.objectSize(encoding, offset);
-            Slice targetBytes = io.airlift.slice.Slices.utf8Slice(key);
+            Slice targetBytes = Slices.utf8Slice(key);
             for (int s = firstSorted + 1; s < count; s++) {
                 int candidateIdx = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, s);
                 int candidateOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, candidateIdx);
@@ -269,7 +275,7 @@ public final class JsonValueView
                 return;
             }
             int count = JsonItemEncoding.objectSize(encoding, offset);
-            Slice targetBytes = io.airlift.slice.Slices.utf8Slice(key);
+            Slice targetBytes = Slices.utf8Slice(key);
             int[] matchingIndices = new int[count - firstSorted];
             int matches = 0;
             matchingIndices[matches++] = JsonItemEncoding.objectIndexedSortPerm(encoding, offset, firstSorted);
@@ -282,7 +288,7 @@ public final class JsonValueView
                 matchingIndices[matches++] = candidateIdx;
             }
             // Emit duplicates in insertion order, regardless of where they sit in the sort permutation.
-            java.util.Arrays.sort(matchingIndices, 0, matches);
+            Arrays.sort(matchingIndices, 0, matches);
             for (int i = 0; i < matches; i++) {
                 int entryIndex = matchingIndices[i];
                 int entryOffset = JsonItemEncoding.objectIndexedEntryOffset(encoding, offset, entryIndex);
@@ -312,7 +318,7 @@ public final class JsonValueView
     {
         checkKind(Kind.OBJECT);
         int count = JsonItemEncoding.objectSize(encoding, offset);
-        java.util.List<String> keys = new java.util.ArrayList<>(count);
+        List<String> keys = new ArrayList<>(count);
         int childOffset = JsonItemEncoding.objectEntriesStart(encoding, offset);
         for (int index = 0; index < count; index++) {
             keys.add(JsonItemEncoding.readString(encoding, childOffset));
@@ -367,7 +373,7 @@ public final class JsonValueView
     private int findFirstSortedIndex(String key)
     {
         int count = JsonItemEncoding.objectSize(encoding, offset);
-        Slice target = io.airlift.slice.Slices.utf8Slice(key);
+        Slice target = Slices.utf8Slice(key);
         int lo = 0;
         int hi = count;
         while (lo < hi) {

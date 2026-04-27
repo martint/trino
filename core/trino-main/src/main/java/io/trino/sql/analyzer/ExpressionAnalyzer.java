@@ -163,6 +163,7 @@ import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.JsonType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 import jakarta.annotation.Nullable;
@@ -2987,7 +2988,7 @@ public class ExpressionAnalyzer
             // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
             // QUOTES parameter). The "effective" type is JSON when RETURNING JSON is declared, or — per SR 1 —
             // when the input is JSON-typed and no RETURNING clause is given.
-            boolean returnsJson = io.trino.type.JsonType.JSON.equals(returnedType)
+            boolean returnsJson = JsonType.JSON.equals(returnedType)
                     || (declaredReturnedType.isEmpty() && isJsonTypedInput);
             if (quotesBehavior.filter(q -> q == JsonQuery.QuotesBehavior.OMIT).isPresent() && returnsJson) {
                 throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON (SQL:2023 §6.35 SR 3)");

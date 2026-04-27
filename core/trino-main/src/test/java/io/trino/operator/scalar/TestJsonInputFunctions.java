@@ -13,11 +13,14 @@
  */
 package io.trino.operator.scalar;
 
+import io.airlift.slice.Slice;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItemSemantics;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonPathItem;
 import io.trino.json.MaterializedJsonValue;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.type.JsonType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -201,17 +204,17 @@ public class TestJsonInputFunctions
     {
         assertThat(assertions.expression(expression))
                 .hasType(JSON)
-                .satisfies(actual -> assertThat(toPathItem(actual) == io.trino.json.JsonInputErrorNode.JSON_ERROR).isTrue());
+                .satisfies(actual -> assertThat(toPathItem(actual) == JsonInputErrorNode.JSON_ERROR).isTrue());
     }
 
     private static JsonPathItem toPathItem(Object actual)
     {
-        if (actual instanceof io.airlift.slice.Slice slice) {
-            return io.trino.type.JsonType.toPathItem(slice);
+        if (actual instanceof Slice slice) {
+            return JsonType.toPathItem(slice);
         }
         if (actual instanceof String text) {
             if (text.equals("JSON_ERROR")) {
-                return io.trino.json.JsonInputErrorNode.JSON_ERROR;
+                return JsonInputErrorNode.JSON_ERROR;
             }
             try (Reader reader = Reader.of(text)) {
                 return JsonItems.parseJson(reader);

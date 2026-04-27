@@ -22,6 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonItemEncoding;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -615,8 +616,8 @@ public final class DecimalCasts
     public static JsonValue shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
     {
         SliceOutput output = new DynamicSliceOutput(20);
-        io.trino.json.JsonItemEncoding.appendVersion(output);
-        io.trino.json.JsonItemEncoding.appendShortDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
+        JsonItemEncoding.appendVersion(output);
+        JsonItemEncoding.appendShortDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
         return JsonValue.of(output.slice());
     }
 
@@ -624,8 +625,8 @@ public final class DecimalCasts
     public static JsonValue longDecimalToJson(Int128 decimal, long precision, long scale, Int128 tenToScale)
     {
         SliceOutput output = new DynamicSliceOutput(28);
-        io.trino.json.JsonItemEncoding.appendVersion(output);
-        io.trino.json.JsonItemEncoding.appendLongDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
+        JsonItemEncoding.appendVersion(output);
+        JsonItemEncoding.appendLongDecimal(output, intPrecision(precision), DecimalConversions.intScale(scale), decimal);
         return JsonValue.of(output.slice());
     }
 

@@ -22,6 +22,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -97,11 +98,11 @@ public class TestMapOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static io.trino.spi.type.JsonValue uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static JsonValue uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
         // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
         // by these tests is rejected by the downstream cast (with TrinoException), not here.
-        return io.trino.spi.type.JsonValue.of(slice);
+        return JsonValue.of(slice);
     }
 
     @Test

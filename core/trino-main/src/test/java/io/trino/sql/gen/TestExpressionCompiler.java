@@ -42,6 +42,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract.Field;
+import io.trino.type.JsonType;
 import io.trino.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
@@ -2875,6 +2876,6 @@ public class TestExpressionCompiler
 
     private static String jsonValueOfLegacyEncoded(JsonValue value)
     {
-        return value == null ? null : io.trino.type.JsonType.jsonText(value.payload()).toStringUtf8();
+        return value == null ? null : JsonType.jsonText(value.payload()).toStringUtf8();
     }
 }

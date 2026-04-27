@@ -21,6 +21,8 @@ import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.JsonBlock;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.JsonValue;
+import io.trino.spi.type.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -55,7 +57,7 @@ public class TestJsonType
     @Override
     protected Object getNonNullValue()
     {
-        return io.trino.spi.type.JsonValue.of(JsonType.jsonValue(Slices.utf8Slice("null")));
+        return JsonValue.of(JsonType.jsonValue(Slices.utf8Slice("null")));
     }
 
     @Test
@@ -135,7 +137,7 @@ public class TestJsonType
         // the value must be a JsonValue.
         Slice payload = JsonType.jsonValue(Slices.utf8Slice("{\"x\":1}"));
         BlockBuilder blockBuilder = JSON.createBlockBuilder(null, 1);
-        io.trino.spi.type.TypeUtils.writeNativeValue(JSON, blockBuilder, io.trino.spi.type.JsonValue.of(payload));
+        TypeUtils.writeNativeValue(JSON, blockBuilder, JsonValue.of(payload));
         assertThat(JSON.getObjectValue(blockBuilder.build(), 0)).isEqualTo("{\"x\":1}");
     }
 }

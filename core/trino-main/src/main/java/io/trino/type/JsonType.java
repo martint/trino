@@ -19,6 +19,7 @@ import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItemEncoding;
 import io.trino.json.JsonItemSemantics;
 import io.trino.json.JsonItems;
+import io.trino.json.JsonPathItem;
 import io.trino.json.JsonValueView;
 import io.trino.json.MaterializedJsonValue;
 import io.trino.spi.block.Block;
@@ -43,6 +44,7 @@ import io.trino.spi.type.VariableWidthType;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
@@ -419,12 +421,12 @@ public class JsonType
         }
     }
 
-    private static java.io.Reader textReader(Slice jsonText)
+    private static Reader textReader(Slice jsonText)
     {
         // For short inputs, StringReader avoids the 8 KB internal buffer InputStreamReader
         // allocates, which otherwise dominates parse time for typical JSON values.
         if (jsonText.length() < SMALL_TEXT_LIMIT) {
-            return java.io.Reader.of(jsonText.toStringUtf8());
+            return Reader.of(jsonText.toStringUtf8());
         }
         return new InputStreamReader(jsonText.getInput(), StandardCharsets.UTF_8);
     }
@@ -457,7 +459,7 @@ public class JsonType
     /// Encodes a {@link io.trino.json.JsonPathItem} (value, view, or error sentinel) as a
     /// {@link JsonType} payload. Used at SQL/JSON function boundaries to bridge path-item
     /// results back into the JSON type.
-    public static Slice fromPathItem(io.trino.json.JsonPathItem item)
+    public static Slice fromPathItem(JsonPathItem item)
     {
         if (item == null) {
             return null;
@@ -471,7 +473,7 @@ public class JsonType
     /// Decodes a {@link JsonType} payload to a {@link io.trino.json.JsonPathItem}. The
     /// JSON_ERROR sentinel is returned as {@link JsonInputErrorNode#JSON_ERROR}; every
     /// other payload yields a {@link JsonValueView} over the stored bytes.
-    public static io.trino.json.JsonPathItem toPathItem(Slice slice)
+    public static JsonPathItem toPathItem(Slice slice)
     {
         if (slice == null) {
             return null;

@@ -23,12 +23,12 @@ public final class PathEvaluationUtil
 
     public static JsonPathItem normalize(JsonPathItem object)
     {
-        if (object instanceof JsonPathItem jsonItem) {
-            return JsonValueView.fromObject(jsonItem)
-                    .<JsonPathItem>map(view -> view)
-                    .orElseGet(() -> JsonItems.materialize(jsonItem));
+        if (object == null) {
+            return null;
         }
-        return object;
+        return JsonValueView.fromObject(object)
+                .<JsonPathItem>map(view -> view)
+                .orElseGet(() -> JsonItems.materialize(object));
     }
 
     public static List<JsonPathItem> unwrapArrays(List<JsonPathItem> sequence)

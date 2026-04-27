@@ -13,20 +13,24 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.core.JsonEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.json.JsonArrayItem;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonObjectItem;
+import io.trino.json.JsonPathItem;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
+import io.trino.type.JsonType;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Optional;
 
 import static io.trino.type.JsonType.jsonValue;
 import static java.util.Objects.requireNonNull;
@@ -51,17 +55,14 @@ public final class JsonOutputFunctions
     public static final String JSON_TO_VARBINARY_UTF32 = "$json_to_varbinary_utf32";
 
     private static final EncodingSpecificConstants UTF_8 = new EncodingSpecificConstants(
-            JsonEncoding.UTF8,
             StandardCharsets.UTF_8,
-            JsonItems.jsonText(new JsonArrayItem(java.util.List.of())),
-            JsonItems.jsonText(new JsonObjectItem(java.util.List.of())));
+            JsonItems.jsonText(new JsonArrayItem(List.of())),
+            JsonItems.jsonText(new JsonObjectItem(List.of())));
     private static final EncodingSpecificConstants UTF_16 = new EncodingSpecificConstants(
-            JsonEncoding.UTF16_LE,
             StandardCharsets.UTF_16LE,
             Slices.copiedBuffer("[]", StandardCharsets.UTF_16LE),
             Slices.copiedBuffer("{}", StandardCharsets.UTF_16LE));
     private static final EncodingSpecificConstants UTF_32 = new EncodingSpecificConstants(
-            JsonEncoding.UTF32_LE,
             StandardCharsets.UTF_32LE,
             Slices.copiedBuffer("[]", StandardCharsets.UTF_32LE),
             Slices.copiedBuffer("{}", StandardCharsets.UTF_32LE));
@@ -71,14 +72,14 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_JSON_OUTPUT, hidden = true)
     @SqlType(StandardTypes.JSON)
-    public static io.trino.spi.type.JsonValue jsonToJson(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static JsonValue jsonToJson(@SqlType(StandardTypes.JSON) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         // The omitQuotes parameter is part of the JSON_QUERY output-conversion contract but is
         // always false here: SQL:2023 §6.35 SR 3 forbids OMIT QUOTES on a JSON-typed return,
         // and ExpressionAnalyzer.analyzeJsonQueryExpression rejects it at analysis time.
         // Producing bare scalar text in this code path would manufacture an invalid JSON value.
         Slice result = serialize(jsonExpression, UTF_8, errorBehavior, false);
-        return result == null ? null : io.trino.spi.type.JsonValue.of(jsonValue(result));
+        return result == null ? null : JsonValue.of(jsonValue(result));
     }
 
     @SqlNullable
@@ -124,13 +125,13 @@ public final class JsonOutputFunctions
     private static Slice serialize(Object json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
     {
         Slice payload = switch (json) {
-            case io.trino.spi.type.JsonValue jsonValue -> jsonValue.payload();
+            case JsonValue jsonValue -> jsonValue.payload();
             case Slice slice -> slice;
             default -> throw new IllegalStateException("Unexpected json input type: " + json.getClass().getName());
         };
-        io.trino.json.JsonPathItem jsonItem = io.trino.type.JsonType.toPathItem(payload);
+        JsonPathItem jsonItem = JsonType.toPathItem(payload);
         if (omitQuotes) {
-            java.util.Optional<Slice> scalarText = JsonItems.scalarText(jsonItem);
+            Optional<Slice> scalarText = JsonItems.scalarText(jsonItem);
             if (scalarText.isPresent()) {
                 return Slices.copiedBuffer(scalarText.get().toStringUtf8(), constants.charset);
             }
@@ -154,14 +155,12 @@ public final class JsonOutputFunctions
 
     private static class EncodingSpecificConstants
     {
-        private final JsonEncoding jsonEncoding;
         private final Charset charset;
         private final Slice emptyArray;
         private final Slice emptyObject;
 
-        public EncodingSpecificConstants(JsonEncoding jsonEncoding, Charset charset, Slice emptyArray, Slice emptyObject)
+        public EncodingSpecificConstants(Charset charset, Slice emptyArray, Slice emptyObject)
         {
-            this.jsonEncoding = requireNonNull(jsonEncoding, "jsonEncoding is null");
             this.charset = requireNonNull(charset, "charset is null");
             this.emptyArray = requireNonNull(emptyArray, "emptyArray is null");
             this.emptyObject = requireNonNull(emptyObject, "emptyObject is null");

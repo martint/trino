@@ -744,7 +744,7 @@ public final class JsonUtil
             value = value.setScale(0);
         }
         int precision = Math.max(value.precision(), value.scale());
-        if (precision > io.trino.spi.type.Decimals.MAX_PRECISION) {
+        if (precision > Decimals.MAX_PRECISION) {
             // NUMBER fallback: mirror TrinoNumber.toString → BigDecimal.toString (scientific for extreme magnitudes)
             return value.stripTrailingZeros().toString();
         }

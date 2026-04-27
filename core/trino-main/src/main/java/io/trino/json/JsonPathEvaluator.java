@@ -13,6 +13,7 @@
  */
 package io.trino.json;
 
+import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrPathNode;
@@ -30,6 +31,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.util.ArrayList;
@@ -109,7 +111,7 @@ public class JsonPathEvaluator
             keys.add(accessor.key().orElseThrow());
             current = accessor.base();
         }
-        if (!(current instanceof io.trino.json.ir.IrContextVariable)) {
+        if (!(current instanceof IrContextVariable)) {
             return Optional.empty();
         }
         Collections.reverse(keys);
@@ -221,12 +223,12 @@ public class JsonPathEvaluator
         if (object instanceof JsonObjectItem) {
             return "OBJECT";
         }
-        if (object instanceof io.trino.json.ir.TypedValue typedValue) {
+        if (object instanceof TypedValue typedValue) {
             Type type = typedValue.getType();
             if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType) {
                 return "NUMBER";
             }
-            if (type instanceof io.trino.spi.type.VarcharType || type instanceof CharType) {
+            if (type instanceof VarcharType || type instanceof CharType) {
                 return "STRING";
             }
             if (type.equals(BOOLEAN)) {
@@ -258,7 +260,7 @@ public class JsonPathEvaluator
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType) {
             return "NUMBER";
         }
-        if (type instanceof io.trino.spi.type.VarcharType || type instanceof CharType) {
+        if (type instanceof VarcharType || type instanceof CharType) {
             return "STRING";
         }
         if (type.equals(BOOLEAN)) {

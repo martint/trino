@@ -31,6 +31,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -221,7 +222,7 @@ public final class FormatFunction
         // TODO: support TIME WITH TIME ZONE by https://github.com/trinodb/trino/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             MethodHandle handle = functionDependencies.getScalarFunctionImplementation(JSON_FORMAT_NAME, ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-            return (block, position) -> convertToString(handle, type.getSlice(block, position));
+            return (block, position) -> convertToString(handle, JsonValue.of(type.getSlice(block, position)));
         }
         if (type instanceof DecimalType decimalType) {
             int scale = decimalType.getScale();

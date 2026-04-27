@@ -13,8 +13,10 @@
  */
 package io.trino.json;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.json.JsonItemEncoding.ItemTag;
 import io.trino.json.JsonItemEncoding.TypeTag;
 import io.trino.spi.TrinoException;
@@ -25,6 +27,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Chars;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -52,6 +55,7 @@ import io.trino.type.UnknownType;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -265,7 +269,7 @@ public interface JsonItemEmitter
 
     private static void emitVarchar(SliceOutput output, String text)
     {
-        Slice bytes = io.airlift.slice.Slices.utf8Slice(text);
+        Slice bytes = Slices.utf8Slice(text);
         output.appendByte(ItemTag.TYPED_VALUE.encoded());
         output.appendByte(TypeTag.VARCHAR.encoded());
         output.appendInt(bytes.length());
@@ -558,7 +562,7 @@ public interface JsonItemEmitter
             int count = arrayBlock.getPositionCount();
             if (count >= JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD) {
                 // Buffer items so we can write the offsets table before them.
-                io.airlift.slice.DynamicSliceOutput items = new io.airlift.slice.DynamicSliceOutput(count * 8);
+                DynamicSliceOutput items = new DynamicSliceOutput(count * 8);
                 int[] offsets = new int[count + 1];
                 for (int i = 0; i < count; i++) {
                     offsets[i] = items.size();
@@ -619,7 +623,7 @@ public interface JsonItemEmitter
             if (count >= JsonItemEncoding.INDEXED_CONTAINER_THRESHOLD && count <= JsonItemEncoding.MAX_OBJECT_INDEXED_COUNT) {
                 // Buffer entries to compute offsets. Entries are already in lexicographic
                 // key order (TreeMap), so sortPerm is the identity permutation.
-                io.airlift.slice.DynamicSliceOutput entries = new io.airlift.slice.DynamicSliceOutput(count * 16);
+                DynamicSliceOutput entries = new DynamicSliceOutput(count * 16);
                 int[] offsets = new int[count + 1];
                 int idx = 0;
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
@@ -682,13 +686,13 @@ public interface JsonItemEmitter
                 // Row fields are emitted in declaration order (insertion order); compute the
                 // sort permutation by lex byte order on field names so binary-search lookups
                 // on the resulting OBJECT_INDEXED payload work.
-                io.airlift.slice.DynamicSliceOutput entries = new io.airlift.slice.DynamicSliceOutput(fieldCount * 16);
+                DynamicSliceOutput entries = new DynamicSliceOutput(fieldCount * 16);
                 int[] offsets = new int[fieldCount + 1];
                 Slice[] keyBytes = new Slice[fieldCount];
                 for (int i = 0; i < fieldCount; i++) {
                     offsets[i] = entries.size();
                     String name = fieldNames.get(i);
-                    keyBytes[i] = io.airlift.slice.Slices.utf8Slice(name);
+                    keyBytes[i] = Slices.utf8Slice(name);
                     appendObjectKey(entries, name);
                     fieldEmitters.get(i).emit(entries, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
@@ -698,7 +702,7 @@ public interface JsonItemEmitter
                 for (int i = 0; i < fieldCount; i++) {
                     perm[i] = i;
                 }
-                java.util.Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
+                Arrays.sort(perm, (a, b) -> keyBytes[a].compareTo(keyBytes[b]));
 
                 output.appendByte(JsonItemEncoding.ItemTag.OBJECT_INDEXED.encoded());
                 output.appendInt(fieldCount);
@@ -768,7 +772,7 @@ public interface JsonItemEmitter
                 // storage padding (e.g. CHAR(5) 'ab' becomes key "ab", not "ab   "). This
                 // also keeps CHAR-keyed and VARCHAR-keyed maps producing the same JSON shape
                 // for the same logical key.
-                return (block, position) -> io.trino.spi.type.Chars.trimTrailingSpaces(charType.getSlice(block, position)).toStringUtf8();
+                return (block, position) -> Chars.trimTrailingSpaces(charType.getSlice(block, position)).toStringUtf8();
             }
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported map key type for cast to JSON: %s", keyType));
         }

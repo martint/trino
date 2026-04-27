@@ -19,7 +19,7 @@ public record JsonObjectMember(String key, MaterializedJsonValue value)
 {
     public JsonObjectMember
     {
-        key = requireNonNull(key, "key is null");
-        value = requireNonNull(value, "value is null");
+        requireNonNull(key, "key is null");
+        requireNonNull(value, "value is null");
     }
 }

@@ -14,10 +14,13 @@
 package io.trino.operator.scalar.json;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonInputErrorNode;
 import io.trino.json.JsonItems;
 import io.trino.json.JsonNull;
+import io.trino.json.JsonPathItem;
 import io.trino.json.MaterializedJsonValue;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
@@ -27,6 +30,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -80,9 +84,9 @@ public class JsonArrayFunction
     }
 
     @UsedByGeneratedCode
-    public static io.trino.spi.type.JsonValue jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
+    public static JsonValue jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
     {
-        return io.trino.spi.type.JsonValue.of(JsonType.jsonValue(buildArray(elementsRowType, elementsRow, nullOnNull)));
+        return JsonValue.of(JsonType.jsonValue(buildArray(elementsRowType, elementsRow, nullOnNull)));
     }
 
     private static MaterializedJsonValue buildArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
@@ -108,11 +112,11 @@ public class JsonArrayFunction
                 }
             }
             else if (elementType.equals(JsonType.JSON)) {
-                io.airlift.slice.Slice payload = element instanceof io.trino.spi.type.JsonValue jsonValue
+                Slice payload = element instanceof JsonValue jsonValue
                         ? jsonValue.payload()
-                        : (io.airlift.slice.Slice) element;
-                io.trino.json.JsonPathItem pathItem = JsonType.toPathItem(payload);
-                checkState(pathItem != io.trino.json.JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                        : (Slice) element;
+                JsonPathItem pathItem = JsonType.toPathItem(payload);
+                checkState(pathItem != JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
                 elementNode = JsonItems.asJsonValue(pathItem);
             }
             else {

@@ -26,6 +26,8 @@ import io.trino.spi.type.VarcharType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -168,13 +170,13 @@ public final class JsonItemSemantics
         // Use TreeMap (O(log n) lookup with String.compareTo ordering) rather than HashMap.
         // HashMap is vulnerable to adversarial-key collision attacks via Java's well-known
         // String.hashCode(). TreeMap is key-ordering-based and immune.
-        TreeMap<String, java.util.ArrayDeque<MaterializedJsonValue>> leftByKey = new TreeMap<>();
+        TreeMap<String, ArrayDeque<MaterializedJsonValue>> leftByKey = new TreeMap<>();
         for (JsonObjectMember leftMember : left) {
-            leftByKey.computeIfAbsent(leftMember.key(), _ -> new java.util.ArrayDeque<>())
+            leftByKey.computeIfAbsent(leftMember.key(), _ -> new ArrayDeque<>())
                     .add(leftMember.value());
         }
         for (JsonObjectMember rightMember : right) {
-            java.util.ArrayDeque<MaterializedJsonValue> bucket = leftByKey.get(rightMember.key());
+            ArrayDeque<MaterializedJsonValue> bucket = leftByKey.get(rightMember.key());
             if (bucket == null) {
                 return false;
             }
@@ -206,7 +208,7 @@ public final class JsonItemSemantics
         }
         // Short-circuit on first mismatch via parallel traversal; materializing both sides
         // would waste allocations on early-mismatch inputs.
-        java.util.ArrayList<JsonValueView> leftElements = new java.util.ArrayList<>(left.arraySize());
+        ArrayList<JsonValueView> leftElements = new ArrayList<>(left.arraySize());
         left.forEachArrayElement(leftElements::add);
         int[] index = {0};
         boolean[] equal = {true};
@@ -246,9 +248,9 @@ public final class JsonItemSemantics
 
     private static boolean viewObjectEquals(JsonValueView left, JsonValueView right)
     {
-        TreeMap<String, java.util.ArrayDeque<JsonValueView>> leftByKey = new TreeMap<>();
+        TreeMap<String, ArrayDeque<JsonValueView>> leftByKey = new TreeMap<>();
         left.forEachObjectMember((key, value) ->
-                leftByKey.computeIfAbsent(key, _ -> new java.util.ArrayDeque<>()).add(value));
+                leftByKey.computeIfAbsent(key, _ -> new ArrayDeque<>()).add(value));
 
         boolean[] equal = {true};
         int[] matchedCount = {0};
@@ -256,7 +258,7 @@ public final class JsonItemSemantics
             if (!equal[0]) {
                 return;
             }
-            java.util.ArrayDeque<JsonValueView> bucket = leftByKey.get(key);
+            ArrayDeque<JsonValueView> bucket = leftByKey.get(key);
             if (bucket == null) {
                 equal[0] = false;
                 return;
@@ -299,7 +301,7 @@ public final class JsonItemSemantics
                 // numeric rule where NaN != NaN); the release notes call this out.
                 return nonFiniteKind(left) == nonFiniteKind(right);
             }
-            return leftNumber.stripTrailingZeros().equals(rightNumber.stripTrailingZeros());
+            return leftNumber.compareTo(rightNumber) == 0;
         }
         if (isString(left.getType()) && isString(right.getType())) {
             // Per SQL:2023 §8.2 GR 10 with PAD SPACE collation (the default for SQL/JSON
