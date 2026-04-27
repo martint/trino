@@ -45,6 +45,12 @@ public class TestJsonType
         return null;
     }
 
+    @Override
+    protected Object getNonNullValue()
+    {
+        return io.trino.spi.type.JsonValue.of(JsonType.jsonValue(Slices.utf8Slice("null")));
+    }
+
     @Test
     public void testRange()
     {

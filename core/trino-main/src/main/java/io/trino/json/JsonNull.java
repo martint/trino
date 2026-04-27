@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.table.json.execution;
+package io.trino.json;
 
-import io.trino.json.JsonPathItem;
-import io.trino.spi.Page;
-
-public interface Column
+/// The materialized SQL/JSON `null` value in the [MaterializedJsonValue] hierarchy.
+public enum JsonNull
+        implements MaterializedJsonValue
 {
-    Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position);
-
-    int getOutputIndex();
+    JSON_NULL
 }

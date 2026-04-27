@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.json.ir;
+package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.spi.TrinoException;
-
-import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
-import static java.lang.String.format;
-
-public class JsonLiteralConversionException
-        extends TrinoException
+/// A carrier value that can appear in JSON path evaluation.
+///
+/// This includes:
+/// - [materialized SQL/JSON items][JsonItem]
+/// - execution sentinels such as the empty sequence
+/// - parameter wrappers
+/// - view-backed or encoded wrappers that avoid eager materialization
+public sealed interface JsonPathItem
+        permits EncodedJsonItem, JsonEmptySequenceNode, JsonItem, JsonPathParameter, JsonValueView
 {
-    public JsonLiteralConversionException(JsonNode jsonNode, String message)
-    {
-        super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, message));
-    }
 }

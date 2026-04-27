@@ -11,14 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.table.json.execution;
+package io.trino.json;
 
-import io.trino.json.JsonPathItem;
-import io.trino.spi.Page;
+import com.google.common.collect.ImmutableList;
 
-public interface Column
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+
+/// A materialized SQL/JSON object value.
+///
+/// Members are kept in encounter order, and duplicate keys are preserved in
+/// [JsonObjectMember] entries.
+public record JsonObjectItem(List<JsonObjectMember> members)
+        implements MaterializedJsonValue
 {
-    Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position);
-
-    int getOutputIndex();
+    public JsonObjectItem
+    {
+        members = ImmutableList.copyOf(requireNonNull(members, "members is null"));
+    }
 }

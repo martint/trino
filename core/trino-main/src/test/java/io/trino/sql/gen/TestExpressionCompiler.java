@@ -35,6 +35,7 @@ import io.trino.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.trino.operator.scalar.timestamp.ExtractYear;
 import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
@@ -2496,11 +2497,11 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertThat(assertions.function("json_extract", toLiteral(value), toLiteral(pattern)))
                         .hasType(JSON)
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(utf8Slice(value), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtract(JsonValue.of(utf8Slice(value)), new JsonPath(pattern))));
 
                 assertThat(assertions.function("json_extract_scalar", toLiteral(value), toLiteral(pattern)))
                         .hasType(value == null ? createUnboundedVarcharType() : createVarcharType(value.length()))
-                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtractScalar(utf8Slice(value), new JsonPath(pattern))));
+                        .isEqualTo(value == null || pattern == null ? null : toString(JsonFunctions.jsonExtractScalar(JsonValue.of(utf8Slice(value)), new JsonPath(pattern))));
             }
         }
 
@@ -2865,5 +2866,10 @@ public class TestExpressionCompiler
     private static String toString(Slice value)
     {
         return value == null ? null : value.toStringUtf8();
+    }
+
+    private static String toString(JsonValue value)
+    {
+        return value == null ? null : value.payload().toStringUtf8();
     }
 }

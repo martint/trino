@@ -13,32 +13,17 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
+import static java.util.Objects.requireNonNull;
+
+/// Wrapper for a JSON path parameter value.
 ///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public final class JsonEmptySequenceNode
+/// Path parameters are represented distinctly from ordinary input items so the evaluator can keep
+/// track of parameter-originated values without widening the materialized value hierarchy.
+public record JsonPathParameter(MaterializedJsonValue item)
         implements JsonPathItem
 {
-    public static final JsonEmptySequenceNode EMPTY_SEQUENCE = new JsonEmptySequenceNode();
-
-    private JsonEmptySequenceNode() {}
-
-    @Override
-    public String toString()
+    public JsonPathParameter
     {
-        return "EMPTY_SEQUENCE";
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        return o == this;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
+        item = requireNonNull(item, "item is null");
     }
 }

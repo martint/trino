@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.table.json.execution;
+package io.trino.json;
 
-import io.trino.json.JsonPathItem;
-import io.trino.spi.Page;
+import static java.util.Objects.requireNonNull;
 
-public interface Column
+public record JsonObjectMember(String key, MaterializedJsonValue value)
 {
-    Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position);
-
-    int getOutputIndex();
+    public JsonObjectMember
+    {
+        key = requireNonNull(key, "key is null");
+        value = requireNonNull(value, "value is null");
+    }
 }

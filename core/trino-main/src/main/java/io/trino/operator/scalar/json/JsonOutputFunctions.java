@@ -14,32 +14,20 @@
 package io.trino.operator.scalar.json;
 
 import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.TrinoException;
+import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonObjectItem;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
 
-import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
-import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
-import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
-import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,29 +48,28 @@ public final class JsonOutputFunctions
     public static final String JSON_TO_VARBINARY_UTF16 = "$json_to_varbinary_utf16";
     public static final String JSON_TO_VARBINARY_UTF32 = "$json_to_varbinary_utf32";
 
-    private static final JsonMapper MAPPER = new JsonMapper();
     private static final EncodingSpecificConstants UTF_8 = new EncodingSpecificConstants(
             JsonEncoding.UTF8,
             StandardCharsets.UTF_8,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_8),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_8));
+            JsonItems.jsonText(new JsonArrayItem(java.util.List.of())),
+            JsonItems.jsonText(new JsonObjectItem(java.util.List.of())));
     private static final EncodingSpecificConstants UTF_16 = new EncodingSpecificConstants(
             JsonEncoding.UTF16_LE,
             StandardCharsets.UTF_16LE,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_16LE),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_16LE));
+            Slices.copiedBuffer("[]", StandardCharsets.UTF_16LE),
+            Slices.copiedBuffer("{}", StandardCharsets.UTF_16LE));
     private static final EncodingSpecificConstants UTF_32 = new EncodingSpecificConstants(
             JsonEncoding.UTF32_LE,
             StandardCharsets.UTF_32LE,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE));
+            Slices.copiedBuffer("[]", StandardCharsets.UTF_32LE),
+            Slices.copiedBuffer("{}", StandardCharsets.UTF_32LE));
 
     private JsonOutputFunctions() {}
 
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARCHAR, hidden = true)
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonToVarchar(@SqlType(StandardTypes.JSON_2016) JsonNode jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarchar(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_8, errorBehavior, omitQuotes);
     }
@@ -90,7 +77,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinary(@SqlType(StandardTypes.JSON_2016) JsonNode jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinary(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return jsonToVarbinaryUtf8(jsonExpression, errorBehavior, omitQuotes);
     }
@@ -98,7 +85,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF8, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf8(@SqlType(StandardTypes.JSON_2016) JsonNode jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf8(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_8, errorBehavior, omitQuotes);
     }
@@ -106,7 +93,7 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF16, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf16(@SqlType(StandardTypes.JSON_2016) JsonNode jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf16(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_16, errorBehavior, omitQuotes);
     }
@@ -114,40 +101,35 @@ public final class JsonOutputFunctions
     @SqlNullable
     @ScalarFunction(value = JSON_TO_VARBINARY_UTF32, hidden = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice jsonToVarbinaryUtf32(@SqlType(StandardTypes.JSON_2016) JsonNode jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
+    public static Slice jsonToVarbinaryUtf32(@SqlType(StandardTypes.JSON_2016) Object jsonExpression, @SqlType(StandardTypes.TINYINT) long errorBehavior, @SqlType(StandardTypes.BOOLEAN) boolean omitQuotes)
     {
         return serialize(jsonExpression, UTF_32, errorBehavior, omitQuotes);
     }
 
-    private static Slice serialize(JsonNode json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
+    private static Slice serialize(Object json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
     {
-        if (omitQuotes && json.isTextual()) {
-            return Slices.copiedBuffer(json.asText(), constants.charset);
-        }
-
-        ByteArrayBuilder builder = new ByteArrayBuilder();
-        try (JsonGenerator generator = MAPPER.createGenerator(builder, constants.jsonEncoding)) {
-            MAPPER.writeTree(generator, json);
-        }
-        catch (JsonProcessingException e) {
-            if (errorBehavior == NULL.ordinal()) {
-                return null;
+        io.trino.json.JsonPathItem jsonItem = (io.trino.json.JsonPathItem) json;
+        if (omitQuotes) {
+            java.util.Optional<Slice> scalarText = JsonItems.scalarText(jsonItem);
+            if (scalarText.isPresent()) {
+                return Slices.copiedBuffer(scalarText.get().toStringUtf8(), constants.charset);
             }
-            if (errorBehavior == ERROR.ordinal()) {
-                throw new JsonOutputConversionException(e);
-            }
-            if (errorBehavior == EMPTY_ARRAY.ordinal()) {
-                return constants.emptyArray;
-            }
-            if (errorBehavior == EMPTY_OBJECT.ordinal()) {
-                return constants.emptyObject;
-            }
-            throw new IllegalStateException("unexpected behavior");
         }
-        catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        try {
+            Slice utf8Json = JsonItems.jsonText(jsonItem);
+            if (constants.charset.equals(StandardCharsets.UTF_8)) {
+                return utf8Json;
+            }
+            return Slices.copiedBuffer(utf8Json.toStringUtf8(), constants.charset);
         }
-        return wrappedBuffer(builder.toByteArray());
+        catch (JsonOutputConversionException e) {
+            return switch (EmptyOrErrorBehavior.values()[(int) errorBehavior]) {
+                case NULL -> null;
+                case ERROR -> throw e;
+                case EMPTY_ARRAY -> constants.emptyArray;
+                case EMPTY_OBJECT -> constants.emptyObject;
+            };
+        }
     }
 
     private static class EncodingSpecificConstants

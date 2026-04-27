@@ -28,6 +28,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.JsonPathType;
 
@@ -90,7 +91,12 @@ public final class JsonFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
+    public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) JsonValue json)
+    {
+        return isJsonScalar(json.payload());
+    }
+
+    private static boolean isJsonScalar(Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             JsonToken nextToken = parser.nextToken();
@@ -120,17 +126,17 @@ public final class JsonFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
+    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) JsonValue slice)
     {
-        return slice;
+        return slice.payload();
     }
 
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
+    public static JsonValue jsonParse(@SqlType("varchar(x)") Slice slice)
     {
-        return JsonTypeUtil.jsonParse(slice);
+        return JsonValue.of(JsonTypeUtil.jsonParse(slice));
     }
 
     @SqlNullable
@@ -145,7 +151,12 @@ public final class JsonFunctions
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Slice json)
+    public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) JsonValue json)
+    {
+        return jsonArrayLength(json.payload());
+    }
+
+    private static Long jsonArrayLength(Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -182,7 +193,12 @@ public final class JsonFunctions
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        return jsonArrayContains(json.payload(), value);
+    }
+
+    private static Boolean jsonArrayContains(Slice json, boolean value)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -222,7 +238,12 @@ public final class JsonFunctions
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        return jsonArrayContains(json.payload(), value);
+    }
+
+    private static Boolean jsonArrayContains(Slice json, long value)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -263,7 +284,12 @@ public final class JsonFunctions
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        return jsonArrayContains(json.payload(), value);
+    }
+
+    private static Boolean jsonArrayContains(Slice json, double value)
     {
         if (!Doubles.isFinite(value)) {
             return false;
@@ -309,7 +335,12 @@ public final class JsonFunctions
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType("varchar(x)") Slice value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType("varchar(x)") Slice value)
+    {
+        return jsonArrayContains(json.payload(), value);
+    }
+
+    private static Boolean jsonArrayContains(Slice json, Slice value)
     {
         String valueString = value.toStringUtf8();
 
@@ -342,15 +373,22 @@ public final class JsonFunctions
     @ScalarFunction("json_array_get")
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonArrayGet(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static JsonValue varcharJsonArrayGet(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        return jsonArrayGet(json, index);
+        Slice result = jsonArrayGet(json, index);
+        return result == null ? null : JsonValue.of(result);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static JsonValue jsonArrayGet(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(StandardTypes.BIGINT) long index)
+    {
+        Slice result = jsonArrayGet(json.payload(), index);
+        return result == null ? null : JsonValue.of(result);
+    }
+
+    private static Slice jsonArrayGet(Slice json, long index)
     {
         // this value cannot be converted to positive number
         if (index == Long.MIN_VALUE) {
@@ -421,26 +459,28 @@ public final class JsonFunctions
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
+        return JsonExtract.extract(json.payload(), jsonPath.getScalarExtractor());
     }
 
     @ScalarFunction("json_extract")
     @LiteralParameters("x")
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static JsonValue varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : JsonValue.of(result);
     }
 
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static JsonValue jsonExtract(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        Slice result = JsonExtract.extract(json.payload(), jsonPath.getObjectExtractor());
+        return result == null ? null : JsonValue.of(result);
     }
 
     @ScalarFunction("json_size")
@@ -455,8 +495,8 @@ public final class JsonFunctions
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Long jsonSize(@SqlType(StandardTypes.JSON) JsonValue json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+        return JsonExtract.extract(json.payload(), jsonPath.getSizeExtractor());
     }
 }

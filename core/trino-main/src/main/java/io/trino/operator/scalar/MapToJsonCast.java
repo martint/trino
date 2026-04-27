@@ -17,7 +17,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
@@ -26,6 +25,7 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -91,7 +91,7 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
+    public static JsonValue toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
     {
         try {
             int rawOffset = map.getRawOffset();
@@ -113,7 +113,7 @@ public class MapToJsonCast
                 }
                 jsonGenerator.writeEndObject();
             }
-            return output.slice();
+            return JsonValue.of(output.slice());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
