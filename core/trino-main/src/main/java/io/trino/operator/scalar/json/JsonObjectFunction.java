@@ -13,14 +13,17 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.ir.TypedValue;
+import io.trino.json.JsonInputError;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonObject;
+import io.trino.json.JsonObjectMember;
+import io.trino.json.JsonValue;
+import io.trino.json.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
@@ -35,13 +38,13 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.type.Json2016Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputError.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -59,7 +62,7 @@ public class JsonObjectFunction
     public static final JsonObjectFunction JSON_OBJECT_FUNCTION = new JsonObjectFunction();
     public static final String JSON_OBJECT_FUNCTION_NAME = "$json_object";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonObjectFunction.class, "jsonObject", RowType.class, RowType.class, SqlRow.class, SqlRow.class, boolean.class, boolean.class);
-    private static final JsonNode EMPTY_OBJECT = new ObjectNode(JsonNodeFactory.instance);
+    private static final JsonValue EMPTY_OBJECT = new JsonObject(ImmutableList.of());
 
     private JsonObjectFunction()
     {
@@ -93,13 +96,14 @@ public class JsonObjectFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
+    public static JsonValue jsonObject(RowType keysRowType, RowType valuesRowType, SqlRow keysRow, SqlRow valuesRow, boolean nullOnNull, boolean uniqueKeys)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(keysRowType)) {
             return EMPTY_OBJECT;
         }
 
-        Map<String, JsonNode> members = new HashMap<>();
+        List<JsonObjectMember> members = new ArrayList<>();
+        Set<String> seenKeyNames = new HashSet<>();
         int keysRawIndex = keysRow.getRawIndex();
         int valuesRawIndex = valuesRow.getRawIndex();
 
@@ -113,37 +117,33 @@ public class JsonObjectFunction
 
             Type valueType = valuesRowType.getFields().get(i).getType();
             Object value = readNativeValue(valueType, valuesRow.getRawFieldBlock(i), valuesRawIndex);
-            checkState(!JSON_ERROR.equals(value), "malformed JSON error suppressed in the input function");
+            checkState(!(value instanceof JsonInputError), "malformed JSON error suppressed in the input function");
 
-            JsonNode valueNode;
+            JsonValue valueNode;
             if (value == null) {
                 if (nullOnNull) {
-                    valueNode = NullNode.getInstance();
+                    valueNode = JsonNull.JSON_NULL;
                 }
                 else { // absent on null
                     continue;
                 }
             }
             else if (valueType.equals(Json2016Type.JSON_2016)) {
-                valueNode = (JsonNode) value;
+                valueNode = JsonItems.asJsonValue((JsonItem) value);
             }
             else {
-                valueNode = getJsonNode(TypedValue.fromValueAsObject(valueType, value))
-                        .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "value passed to JSON_OBJECT function cannot be converted to JSON"));
+                valueNode = TypedValue.fromValueAsObject(valueType, value);
             }
 
-            if (members.put(keyName, valueNode) != null) {
+            if (!seenKeyNames.add(keyName)) {
                 if (uniqueKeys) {
-                    // failure is the expected behavior when a duplicate key is found in the WITH UNIQUE KEYS option
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
                 }
-                // in the WITHOUT UNIQUE KEYS option, if a duplicate key is found, both entries should be present in the resulting JSON object (per SQL standard p. 359-360).
-                // the chosen library does not support JSON objects with duplicate keys.
-                // we try to support the WITHOUT UNIQUE KEYS option, which is the default, but we have to fail if a duplicate key appears.
                 throw new TrinoException(NOT_SUPPORTED, "cannot construct a JSON object with duplicate key");
             }
+            members.add(new JsonObjectMember(keyName, valueNode));
         }
 
-        return new ObjectNode(JsonNodeFactory.instance, members);
+        return new JsonObject(members);
     }
 }

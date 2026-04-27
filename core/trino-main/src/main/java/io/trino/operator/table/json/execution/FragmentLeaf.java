@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonItem;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class FragmentLeaf
         implements JsonTableProcessingFragment
 {
-    private static final Object[] NO_PARAMETERS = new Object[0];
+    private static final JsonItem[] NO_PARAMETERS = new JsonItem[0];
 
     private final JsonPathEvaluator pathEvaluator;
     private final List<Column> columns;
@@ -43,7 +43,7 @@ public class FragmentLeaf
 
     private Page input;
     private int position;
-    private List<JsonNode> sequence;
+    private List<JsonItem> sequence;
     private int nextItemIndex;
 
     public FragmentLeaf(
@@ -67,7 +67,7 @@ public class FragmentLeaf
     }
 
     @Override
-    public void reset(JsonNode item, Page input, int position)
+    public void reset(JsonItem item, Page input, int position)
     {
         resetRoot(item, input, position, NO_PARAMETERS);
     }
@@ -77,7 +77,7 @@ public class FragmentLeaf
      * Prepares the root Fragment to produce rows for the new JSON item and a set of path parameters.
      */
     @Override
-    public void resetRoot(JsonNode item, Page input, int position, Object[] pathParameters)
+    public void resetRoot(JsonItem item, Page input, int position, JsonItem[] pathParameters)
     {
         requireNonNull(pathParameters, "pathParameters is null");
         this.input = requireNonNull(input, "input is null");
@@ -93,7 +93,7 @@ public class FragmentLeaf
             // fragment is finished
             return false;
         }
-        JsonNode currentItem = sequence.get(nextItemIndex);
+        JsonItem currentItem = sequence.get(nextItemIndex);
         nextItemIndex++; // it is correct to pass the updated value to `column.evaluate()` because ordinality numbers are 1-based according to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules.
         for (Column column : columns) {
             newRow[column.getOutputIndex()] = column.evaluate(nextItemIndex, currentItem, input, position);

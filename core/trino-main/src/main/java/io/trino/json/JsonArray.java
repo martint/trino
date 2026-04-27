@@ -13,12 +13,21 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+
+/// A materialized SQL/JSON array value.
 ///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public record JsonEmptySequence()
-        implements JsonItem
+/// The elements are stored in encounter order and are themselves [materialized SQL/JSON
+/// values][JsonValue].
+public record JsonArray(List<JsonValue> elements)
+        implements JsonValue
 {
-    public static final JsonEmptySequence EMPTY_SEQUENCE = new JsonEmptySequence();
+    public JsonArray
+    {
+        elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
+    }
 }

@@ -70,10 +70,9 @@ public class TestJsonObjectFunction
     @Test
     public void testMultipleMembers()
     {
-        // the order of members in the result JSON object is arbitrary
         assertThat(assertions.query(
                 "SELECT json_object('key_1' : 1, 'key_2' : 2)"))
-                .matches("VALUES VARCHAR '{\"key_2\":2,\"key_1\":1}'");
+                .matches("VALUES VARCHAR '{\"key_1\":1,\"key_2\":2}'");
     }
 
     @Test

@@ -13,12 +13,9 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
-///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public record JsonEmptySequence()
-        implements JsonItem
+/// The materialized SQL/JSON `null` value in the [JsonValue] hierarchy.
+public record JsonNull()
+        implements JsonValue
 {
-    public static final JsonEmptySequence EMPTY_SEQUENCE = new JsonEmptySequence();
+    public static final JsonNull JSON_NULL = new JsonNull();
 }
