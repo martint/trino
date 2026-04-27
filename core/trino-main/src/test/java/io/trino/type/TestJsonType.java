@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.JsonValue;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.type.JsonType.JSON;
@@ -43,6 +44,12 @@ public class TestJsonType
     protected Object getGreaterValue(Object value)
     {
         return null;
+    }
+
+    @Override
+    protected Object getNonNullValue()
+    {
+        return JsonValue.of(JsonType.jsonValue(Slices.utf8Slice("null")));
     }
 
     @Test

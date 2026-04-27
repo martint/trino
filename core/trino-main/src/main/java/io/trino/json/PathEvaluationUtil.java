@@ -13,28 +13,45 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.stream.Stream;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class PathEvaluationUtil
 {
     private PathEvaluationUtil() {}
 
-    public static List<Object> unwrapArrays(List<Object> sequence)
+    public static JsonPathItem normalize(JsonPathItem object)
     {
-        return sequence.stream()
-                .flatMap(object -> {
-                    if (object instanceof JsonNode node && node.getNodeType() == ARRAY) {
-                        return ImmutableList.copyOf(node.elements()).stream();
-                    }
-                    return Stream.of(object);
-                })
-                .collect(toImmutableList());
+        if (object == null) {
+            return null;
+        }
+        return JsonValueView.fromObject(object)
+                .<JsonPathItem>map(view -> view)
+                .orElseGet(() -> JsonItems.materialize(object));
+    }
+
+    public static List<JsonPathItem> unwrapArrays(List<JsonPathItem> sequence)
+    {
+        ImmutableList.Builder<JsonPathItem> outputSequence = ImmutableList.builder();
+        for (JsonPathItem object : sequence) {
+            JsonValueView.fromObject(object).ifPresentOrElse(view -> {
+                if (view.isArray()) {
+                    view.forEachArrayElement(outputSequence::add);
+                }
+                else {
+                    outputSequence.add(object);
+                }
+            }, () -> {
+                JsonPathItem normalized = normalize(object);
+                if (normalized instanceof JsonArrayItem arrayItem) {
+                    arrayItem.elements().forEach(outputSequence::add);
+                }
+                else {
+                    outputSequence.add(normalized);
+                }
+            });
+        }
+        return outputSequence.build();
     }
 }

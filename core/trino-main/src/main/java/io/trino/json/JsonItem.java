@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.table.json.execution;
+package io.trino.json;
 
-import io.trino.json.JsonPathItem;
-import io.trino.spi.Page;
-
-public interface Column
+/// A materialized path item.
+///
+/// This is the branch of [JsonPathItem] that is represented as ordinary Java
+/// objects rather than encoded or view-backed wrappers.
+public sealed interface JsonItem
+        extends JsonPathItem
+        permits JsonInputErrorNode, MaterializedJsonValue
 {
-    Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position);
-
-    int getOutputIndex();
 }

@@ -84,6 +84,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.JsonType.jsonText;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -296,7 +297,10 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else {
-                        row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
+                        // Canonicalize via parse-and-render so equality-by-text ignores
+                        // whitespace and key ordering differences. jsonParse returns the
+                        // typed-item encoding; jsonText renders that to canonical JSON text.
+                        row.add(jsonText(jsonParse(utf8Slice(stringValue)).payload()).toStringUtf8());
                     }
                 }
                 else if (type instanceof VarcharType || type instanceof CharType) {

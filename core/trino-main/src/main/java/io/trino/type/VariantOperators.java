@@ -20,6 +20,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
@@ -258,18 +259,19 @@ public final class VariantOperators
     @SqlNullable
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.JSON)
-    public static Slice castToJson(@SqlType(StandardTypes.VARIANT) Variant value)
+    public static JsonValue castToJson(@SqlType(StandardTypes.VARIANT) Variant value)
     {
-        return VariantUtil.asJson(value);
+        Slice json = VariantUtil.asJson(value);
+        return json == null ? null : JsonValue.of(json);
     }
 
     private static final VariantWriter JSON_VARIANT_WRITER = VariantWriter.create(JsonType.JSON);
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARIANT)
-    public static Variant castFromJson(@SqlType(StandardTypes.JSON) Slice value)
+    public static Variant castFromJson(@SqlType(StandardTypes.JSON) JsonValue value)
     {
-        return JSON_VARIANT_WRITER.write(value);
+        return JSON_VARIANT_WRITER.write(value.payload());
     }
 
     @ScalarOperator(CAST)

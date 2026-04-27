@@ -31,8 +31,11 @@ import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
@@ -41,6 +44,8 @@ import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguratio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -53,8 +58,12 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -106,6 +115,7 @@ import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -123,13 +133,16 @@ public class TestJsonPathEvaluator
             .put("boolean_parameter", new TypedValue(BOOLEAN, true))
             .put("date_parameter", new TypedValue(DATE, 1234L))
             .put("timestamp_parameter", new TypedValue(createTimestampType(7), new LongTimestamp(20, 30)))
+            .put("number_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new BigDecimal("-123456789012345678901234567890.5"))))
+            .put("number_nan_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber())))
+            .put("number_neg_inf_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true))))
             .put("empty_sequence_parameter", EMPTY_SEQUENCE)
-            .put("null_parameter", NullNode.instance)
-            .put("json_number_parameter", IntNode.valueOf(-6))
-            .put("json_text_parameter", TextNode.valueOf("JSON text"))
-            .put("json_boolean_parameter", BooleanNode.FALSE)
-            .put("json_array_parameter", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance)))
-            .put("json_object_parameter", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)))
+            .put("null_parameter", normalizeItem(NullNode.instance))
+            .put("json_number_parameter", jsonParameter(IntNode.valueOf(-6)))
+            .put("json_text_parameter", jsonParameter(TextNode.valueOf("JSON text")))
+            .put("json_boolean_parameter", jsonParameter(BooleanNode.FALSE))
+            .put("json_array_parameter", jsonParameter(new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance))))
+            .put("json_object_parameter", jsonParameter(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance))))
             .buildOrThrow();
 
     private static final List<String> PARAMETERS_ORDER = ImmutableList.copyOf(PARAMETERS.keySet());
@@ -673,6 +686,60 @@ public class TestJsonPathEvaluator
                 path(true, floor(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testNumericMethodsAcceptNumberType()
+    {
+        // abs() preserves NumberType and BigDecimal magnitude
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, abs(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("123456789012345678901234567890.5")))));
+
+        // ceiling() and floor() round to integer scale 0
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, ceiling(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567890")))));
+
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, floor(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567891")))));
+
+        // double() converts NumberType to DOUBLE (mantissa rounds to nearest representable value)
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, toDouble(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, new BigDecimal("-123456789012345678901234567890.5").doubleValue())));
+
+        // abs() of NaN stays NaN; abs() of -Infinity becomes +Infinity
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, abs(variable("number_nan_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.NotANumber()))));
+
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, abs(variable("number_neg_inf_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.Infinity(false)))));
+
+        // double() on non-finite NumberType maps to the matching DOUBLE non-finite value
+        assertThat(pathResult(
+                NullNode.instance,
+                path(true, toDouble(variable("number_neg_inf_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, Double.NEGATIVE_INFINITY)));
     }
 
     @Test
@@ -1457,7 +1524,7 @@ public class TestJsonPathEvaluator
         return () -> new RecursiveComparisonAssert<>(evaluate(input, path), COMPARISON_CONFIGURATION);
     }
 
-    private static List<Object> evaluate(JsonNode input, IrJsonPath path)
+    private static List<JsonPathItem> evaluate(JsonNode input, IrJsonPath path)
     {
         return createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
     }
@@ -1469,15 +1536,15 @@ public class TestJsonPathEvaluator
 
     private static Boolean evaluatePredicate(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
     {
-        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem(currentItem));
+        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem((JsonPathItem) normalizeItem(currentItem)));
     }
 
     private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
     {
         return new PathEvaluationVisitor(
                 lax,
-                input,
-                PARAMETERS.values().toArray(),
+                (JsonPathItem) normalizeItem(input),
+                PARAMETERS.values().toArray(new JsonPathItem[0]),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
     }
@@ -1489,5 +1556,104 @@ public class TestJsonPathEvaluator
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
+    }
+
+    private static List<JsonPathItem> sequence(Object... items)
+    {
+        ImmutableList.Builder<JsonPathItem> builder = ImmutableList.builder();
+        for (Object item : items) {
+            builder.add((JsonPathItem) normalizeItem(item));
+        }
+        return builder.build();
+    }
+
+    private static List<JsonPathItem> singletonSequence(Object item)
+    {
+        return ImmutableList.of((JsonPathItem) normalizeItem(item));
+    }
+
+    private static List<JsonPathItem> emptySequence()
+    {
+        return ImmutableList.of();
+    }
+
+    private static Object normalizeItem(Object item)
+    {
+        if (item instanceof JsonNode jsonNode) {
+            return fromJsonNode(jsonNode);
+        }
+        return item;
+    }
+
+    private static JsonPathParameter jsonParameter(JsonNode item)
+    {
+        return new JsonPathParameter((MaterializedJsonValue) normalizeItem(item));
+    }
+
+    private static MaterializedJsonValue fromJsonNode(JsonNode jsonNode)
+    {
+        if (jsonNode.isNull()) {
+            return JsonNull.JSON_NULL;
+        }
+        if (jsonNode.isBoolean()) {
+            return new TypedValue(BOOLEAN, jsonNode.booleanValue());
+        }
+        if (jsonNode.isTextual()) {
+            return new TypedValue(VARCHAR, utf8Slice(jsonNode.textValue()));
+        }
+        if (jsonNode.isNumber()) {
+            return fromNumericNode(jsonNode);
+        }
+        if (jsonNode.isArray()) {
+            List<MaterializedJsonValue> elements = new ArrayList<>();
+            jsonNode.elements().forEachRemaining(element -> elements.add(fromJsonNode(element)));
+            return new JsonArrayItem(elements);
+        }
+        if (jsonNode.isObject()) {
+            List<JsonObjectMember> members = new ArrayList<>();
+            jsonNode.properties().forEach(entry -> members.add(new JsonObjectMember(entry.getKey(), fromJsonNode(entry.getValue()))));
+            return new JsonObjectItem(members);
+        }
+        throw new IllegalArgumentException("unsupported JSON node in test: " + jsonNode);
+    }
+
+    private static TypedValue fromNumericNode(JsonNode jsonNode)
+    {
+        if (jsonNode instanceof ShortNode) {
+            return new TypedValue(SMALLINT, jsonNode.longValue());
+        }
+
+        return switch (jsonNode.numberType()) {
+            case INT -> new TypedValue(INTEGER, jsonNode.longValue());
+            case LONG -> new TypedValue(BIGINT, jsonNode.longValue());
+            case BIG_INTEGER -> fromBigInteger(jsonNode.bigIntegerValue());
+            case FLOAT -> new TypedValue(REAL, floatToRawIntBits(jsonNode.floatValue()));
+            case DOUBLE -> new TypedValue(DOUBLE, jsonNode.doubleValue());
+            case BIG_DECIMAL -> fromBigDecimal(jsonNode.decimalValue());
+            default -> throw new IllegalArgumentException("unsupported numeric JSON node in test: " + jsonNode);
+        };
+    }
+
+    private static TypedValue fromBigInteger(BigInteger value)
+    {
+        if (value.bitLength() < Integer.SIZE) {
+            return new TypedValue(INTEGER, value.longValue());
+        }
+        if (value.bitLength() < Long.SIZE) {
+            return new TypedValue(BIGINT, value.longValue());
+        }
+        throw new IllegalArgumentException("integer JSON literal is too large for test conversion: " + value);
+    }
+
+    private static TypedValue fromBigDecimal(BigDecimal value)
+    {
+        int precision = value.precision();
+        if (precision > MAX_PRECISION) {
+            throw new IllegalArgumentException("decimal JSON literal is too large for test conversion: " + value);
+        }
+        int scale = value.scale();
+        DecimalType type = createDecimalType(precision, scale);
+        Object encoded = type.isShort() ? encodeShortScaledValue(value, scale) : encodeScaledValue(value, scale);
+        return TypedValue.fromValueAsObject(type, encoded);
     }
 }

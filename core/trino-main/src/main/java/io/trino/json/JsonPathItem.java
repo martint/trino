@@ -11,14 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.table.json.execution;
+package io.trino.json;
 
-import io.trino.json.JsonPathItem;
-import io.trino.spi.Page;
-
-public interface Column
+/// A carrier value that can appear in JSON path evaluation.
+///
+/// This includes:
+/// - [materialized SQL/JSON items][JsonItem]
+/// - execution sentinels such as the empty sequence
+/// - parameter wrappers
+/// - view-backed or encoded wrappers that avoid eager materialization
+public sealed interface JsonPathItem
+        permits EncodedJsonItem, JsonEmptySequenceNode, JsonItem, JsonPathParameter, JsonValueView
 {
-    Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position);
-
-    int getOutputIndex();
 }
