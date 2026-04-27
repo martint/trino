@@ -32,6 +32,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -207,7 +210,23 @@ public class TestJsonInputFunctions
 
     private static JsonItem toPathItem(Object actual)
     {
-        return JsonType.toPathItem((Slice) actual);
+        if (actual instanceof JsonInputError) {
+            return JsonInputError.JSON_ERROR;
+        }
+        if (actual instanceof Slice slice) {
+            return JsonType.toPathItem(slice);
+        }
+        return parseJsonValue((String) actual);
+    }
+
+    private static JsonValue parseJsonValue(String text)
+    {
+        try {
+            return JsonItems.parseJson(Reader.of(text));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static String toVarbinary(String value, Charset encoding)
