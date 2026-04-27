@@ -13,8 +13,12 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.node.NullNode;
-import io.trino.json.ir.TypedValue;
+import io.trino.json.JsonInputError;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonPathParameter;
+import io.trino.json.TypedValue;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -41,16 +45,16 @@ public final class ParameterUtil
      * @param parametersRow a row containing parameters
      * @return an array containing the converted values
      */
-    public static Object[] getParametersArray(Type parametersRowType, SqlRow parametersRow)
+    public static JsonItem[] getParametersArray(Type parametersRowType, SqlRow parametersRow)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
-            return new Object[] {};
+            return new JsonItem[] {};
         }
 
         RowType rowType = (RowType) parametersRowType;
         int rawIndex = parametersRow.getRawIndex();
 
-        Object[] array = new Object[rowType.getFields().size()];
+        JsonItem[] array = new JsonItem[rowType.getFields().size()];
         for (int i = 0; i < rowType.getFields().size(); i++) {
             Type type = rowType.getFields().get(i).getType();
             Object value = readNativeValue(type, parametersRow.getRawFieldBlock(i), rawIndex);
@@ -58,12 +62,15 @@ public final class ParameterUtil
                 if (value == null) {
                     array[i] = EMPTY_SEQUENCE; // null as JSON value shall produce an empty sequence
                 }
+                else if (value instanceof JsonInputError) {
+                    array[i] = JsonInputError.JSON_ERROR;
+                }
                 else {
-                    array[i] = value;
+                    array[i] = new JsonPathParameter(JsonItems.asJsonValue((JsonItem) value));
                 }
             }
             else if (value == null) {
-                array[i] = NullNode.getInstance(); // null as a non-JSON value shall produce a JSON null
+                array[i] = JsonNull.JSON_NULL; // null as a non-JSON value shall produce a JSON null
             }
             else {
                 array[i] = TypedValue.fromValueAsObject(type, value);

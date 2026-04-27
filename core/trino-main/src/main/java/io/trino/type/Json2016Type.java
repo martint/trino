@@ -13,12 +13,12 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
-import io.trino.operator.scalar.json.JsonInputConversionException;
-import io.trino.operator.scalar.json.JsonOutputConversionException;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonInputError;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonValue;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -26,7 +26,9 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static io.airlift.slice.Slices.utf8Slice;
+import java.io.IOException;
+import java.io.Reader;
+
 import static io.trino.json.JsonInputError.JSON_ERROR;
 
 public class Json2016Type
@@ -34,11 +36,14 @@ public class Json2016Type
 {
     public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
-    private static final JsonMapper MAPPER = new JsonMapper();
+
+    // Single-byte sentinel that cannot appear at the start of valid UTF-8.
+    private static final byte JSON_ERROR_MARKER = (byte) 0xFF;
+    private static final Slice JSON_ERROR_SENTINEL = Slices.wrappedBuffer(new byte[] {JSON_ERROR_MARKER});
 
     public Json2016Type()
     {
-        super(new TypeSignature(NAME), JsonNode.class);
+        super(new TypeSignature(NAME), JsonItem.class);
     }
 
     @Override
@@ -54,42 +59,33 @@ public class Json2016Type
     }
 
     @Override
-    public Object getObject(Block block, int position)
+    public JsonItem getObject(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        int valuePosition = block.getUnderlyingValuePosition(position);
-        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
-        if (json.equals(JSON_ERROR.toString())) {
+        Slice slice = valueBlock.getSlice(block.getUnderlyingValuePosition(position));
+        if (slice.length() == 1 && slice.getByte(0) == JSON_ERROR_MARKER) {
             return JSON_ERROR;
         }
         try {
-            return MAPPER.readTree(json);
+            return JsonItems.parseJson(Reader.of(slice.toStringUtf8()));
         }
-        catch (JsonProcessingException e) {
-            throw new JsonInputConversionException(e);
+        catch (IOException e) {
+            throw new IllegalStateException("Invalid JSON text in JSON2016 column", e);
         }
     }
 
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        String json;
-        if (value == JSON_ERROR) {
-            json = JSON_ERROR.toString();
-        }
-        else {
-            try {
-                json = MAPPER.writeValueAsString(value);
-            }
-            catch (JsonProcessingException e) {
-                throw new JsonOutputConversionException(e);
-            }
-        }
-        Slice bytes = utf8Slice(json);
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
+        Slice payload = switch ((JsonItem) value) {
+            case JsonInputError _ -> JSON_ERROR_SENTINEL;
+            case JsonValue jsonValue -> JsonItems.jsonText(jsonValue);
+            default -> throw new IllegalArgumentException("Unsupported JSON2016 value: " + value.getClass().getName());
+        };
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(payload);
     }
 }

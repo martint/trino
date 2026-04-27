@@ -13,12 +13,24 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
-///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public record JsonEmptySequence()
-        implements JsonItem
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+
+import java.io.IOException;
+
+public final class JsonValueSerializer
+        extends StdSerializer<JsonValue>
 {
-    public static final JsonEmptySequence EMPTY_SEQUENCE = new JsonEmptySequence();
+    public JsonValueSerializer()
+    {
+        super(JsonValue.class);
+    }
+
+    @Override
+    public void serialize(JsonValue value, JsonGenerator generator, SerializerProvider provider)
+            throws IOException
+    {
+        JsonItems.writeJson(generator, value, 0);
+    }
 }

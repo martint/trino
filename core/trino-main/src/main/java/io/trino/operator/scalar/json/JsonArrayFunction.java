@@ -13,17 +13,18 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.json.ir.TypedValue;
+import io.trino.json.JsonArray;
+import io.trino.json.JsonInputError;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonValue;
+import io.trino.json.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -36,9 +37,6 @@ import io.trino.type.Json2016Type;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputError.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -54,7 +52,7 @@ public class JsonArrayFunction
     public static final JsonArrayFunction JSON_ARRAY_FUNCTION = new JsonArrayFunction();
     public static final String JSON_ARRAY_FUNCTION_NAME = "$json_array";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonArrayFunction.class, "jsonArray", RowType.class, SqlRow.class, boolean.class);
-    private static final JsonNode EMPTY_ARRAY = new ArrayNode(JsonNodeFactory.instance);
+    private static final JsonValue EMPTY_ARRAY = new JsonArray(ImmutableList.of());
 
     private JsonArrayFunction()
     {
@@ -84,40 +82,39 @@ public class JsonArrayFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
+    public static JsonValue jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(elementsRowType)) {
             return EMPTY_ARRAY;
         }
 
         int rawIndex = elementsRow.getRawIndex();
-        ImmutableList.Builder<JsonNode> arrayElements = ImmutableList.builder();
+        ImmutableList.Builder<JsonValue> arrayElements = ImmutableList.builder();
 
         for (int i = 0; i < elementsRowType.getFields().size(); i++) {
             Type elementType = elementsRowType.getFields().get(i).getType();
             Object element = readNativeValue(elementType, elementsRow.getRawFieldBlock(i), rawIndex);
-            checkState(!JSON_ERROR.equals(element), "malformed JSON error suppressed in the input function");
+            checkState(!(element instanceof JsonInputError), "malformed JSON error suppressed in the input function");
 
-            JsonNode elementNode;
+            JsonValue elementNode;
             if (element == null) {
                 if (nullOnNull) {
-                    elementNode = NullNode.getInstance();
+                    elementNode = JsonNull.JSON_NULL;
                 }
                 else { // absent on null
                     continue;
                 }
             }
             else if (elementType.equals(Json2016Type.JSON_2016)) {
-                elementNode = (JsonNode) element;
+                elementNode = JsonItems.asJsonValue((JsonItem) element);
             }
             else {
-                elementNode = getJsonNode(TypedValue.fromValueAsObject(elementType, element))
-                        .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "value passed to JSON_ARRAY function cannot be converted to JSON"));
+                elementNode = TypedValue.fromValueAsObject(elementType, element);
             }
 
             arrayElements.add(elementNode);
         }
 
-        return new ArrayNode(JsonNodeFactory.instance, arrayElements.build());
+        return new JsonArray(arrayElements.build());
     }
 }

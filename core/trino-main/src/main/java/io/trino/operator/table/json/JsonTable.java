@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonItem;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.table.json.execution.JsonTableProcessingFragment;
@@ -156,7 +156,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                (JsonItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));
@@ -180,7 +180,7 @@ public final class JsonTable
                         totalPositionsProcessed++;
                         SqlRow parametersRow = (SqlRow) readNativeValue(parametersType, inputPage.getBlock(1), currentPosition);
                         executionPlan.resetRoot(
-                                (JsonNode) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
+                                (JsonItem) readNativeValue(JSON_2016, inputPage.getBlock(0), currentPosition),
                                 inputPage,
                                 currentPosition,
                                 getParametersArray(parametersType, parametersRow));

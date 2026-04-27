@@ -13,12 +13,15 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
-///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public record JsonEmptySequence()
-        implements JsonItem
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+/// A materialized SQL/JSON value. Unlike execution-only sentinels and storage wrappers, this
+/// represents an actual SQL/JSON value.
+@JsonSerialize(using = JsonValueSerializer.class)
+@JsonDeserialize(using = JsonValueDeserializer.class)
+public sealed interface JsonValue
+        extends JsonItem
+        permits JsonArray, JsonNull, JsonObject, TypedValue
 {
-    public static final JsonEmptySequence EMPTY_SEQUENCE = new JsonEmptySequence();
 }

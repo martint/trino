@@ -13,15 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonArray;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonObject;
+import io.trino.json.JsonObjectMember;
+import io.trino.json.JsonValue;
+import io.trino.json.TypedValue;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,6 +33,8 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.json.JsonInputError.JSON_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
@@ -48,10 +48,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJsonInputFunctions
 {
-    private static final String INPUT = "{\"key1\" : 1e0, \"key2\" : true, \"key3\" : null}";
-    private static final JsonNode JSON_OBJECT = new ObjectNode(
-            JsonNodeFactory.instance,
-            ImmutableMap.of("key1", DoubleNode.valueOf(1e0), "key2", BooleanNode.TRUE, "key3", NullNode.instance));
+    private static final String INPUT = "{\"key1\" : 1, \"key2\" : true, \"key3\" : null}";
+    private static final JsonValue JSON_OBJECT = new JsonObject(ImmutableList.of(
+            new JsonObjectMember("key1", new TypedValue(INTEGER, 1L)),
+            new JsonObjectMember("key2", new TypedValue(BOOLEAN, true)),
+            new JsonObjectMember("key3", JsonNull.JSON_NULL)));
     private static final String ERROR_INPUT = "[...";
 
     private QueryAssertions assertions;
@@ -74,7 +75,7 @@ public class TestJsonInputFunctions
     {
         assertThat(assertions.expression("\"$varchar_to_json\"('[]', true)"))
                 .hasType(JSON_2016)
-                .isEqualTo(new ArrayNode(JsonNodeFactory.instance));
+                .isEqualTo(new JsonArray(ImmutableList.of()));
 
         assertThat(assertions.expression("\"$varchar_to_json\"('" + INPUT + "', true)"))
                 .hasType(JSON_2016)
@@ -207,13 +208,12 @@ public class TestJsonInputFunctions
     @Test
     public void testDuplicateObjectKeys()
     {
-        // A duplicate key does not cause error. The resulting object has one member with that key, chosen arbitrarily from the input entries.
-        // According to the SQL standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
+        // A duplicate key does not cause error. The parser deduplicates by key, with the
+        // last occurrence retained at the position of the first. According to the SQL
+        // standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
         assertThat(assertions.expression("\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)"))
                 .hasType(JSON_2016)
-                .isIn(
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(1))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(2))));
+                .isEqualTo(new JsonObject(ImmutableList.of(new JsonObjectMember("key", new TypedValue(INTEGER, 2L)))));
     }
 
     private static String toVarbinary(String value, Charset encoding)

@@ -13,12 +13,14 @@
  */
 package io.trino.json;
 
-/// Sentinel representing an empty path result sequence.
+/// A carrier value that can appear in JSON path evaluation.
 ///
-/// This is not a SQL/JSON value itself. It exists only so the path runtime can carry an explicit
-/// `"no items produced"` marker through evaluation.
-public record JsonEmptySequence()
-        implements JsonItem
+/// This includes:
+/// - [SQL/JSON values][JsonValue] (materialized as a tree of Java objects)
+/// - the [JsonInputError] sentinel for suppressed input-conversion failures
+/// - execution sentinels such as the empty sequence
+/// - parameter wrappers
+public sealed interface JsonItem
+        permits JsonEmptySequence, JsonInputError, JsonPathParameter, JsonValue
 {
-    public static final JsonEmptySequence EMPTY_SEQUENCE = new JsonEmptySequence();
 }

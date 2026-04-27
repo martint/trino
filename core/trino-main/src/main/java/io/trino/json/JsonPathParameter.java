@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.json.ir;
+package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import io.trino.spi.TrinoException;
+import static java.util.Objects.requireNonNull;
 
-import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
-import static java.lang.String.format;
-
-public class JsonLiteralConversionException
-        extends TrinoException
+/// Wrapper for a JSON path parameter value.
+///
+/// Path parameters are represented distinctly from ordinary input items so the evaluator can keep
+/// track of parameter-originated values without widening the materialized value hierarchy.
+public record JsonPathParameter(JsonValue item)
+        implements JsonItem
 {
-    public JsonLiteralConversionException(JsonNode jsonNode, String message)
+    public JsonPathParameter
     {
-        super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, message));
+        requireNonNull(item, "item is null");
     }
 }

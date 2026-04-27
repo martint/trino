@@ -13,19 +13,18 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonInputError;
+import io.trino.json.JsonItem;
+import io.trino.json.JsonItems;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.PathEvaluationException;
-import io.trino.json.ir.TypedValue;
+import io.trino.json.TypedValue;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputError.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static java.lang.String.format;
 
 public final class SequenceEvaluator
@@ -33,7 +32,7 @@ public final class SequenceEvaluator
     private SequenceEvaluator() {}
 
     // creates a sequence of JSON items, and applies error handling
-    public static List<JsonNode> getSequence(JsonNode item, Object[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)
+    public static List<JsonItem> getSequence(JsonItem item, JsonItem[] pathParameters, JsonPathEvaluator pathEvaluator, boolean errorOnError)
     {
         if (item == null) {
             // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules 1) a) empty table should be returned for null input. Empty sequence will result in an empty table.
@@ -41,21 +40,21 @@ public final class SequenceEvaluator
         }
         // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules 1) e) exception thrown by path evaluation should be handled accordingly to json_table error behavior (ERROR or EMPTY).
         // handle input conversion error for the context item
-        if (item.equals(JSON_ERROR)) {
+        if (item instanceof JsonInputError) {
             checkState(!errorOnError, "input conversion error should have been thrown in the input function");
             // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
             return ImmutableList.of();
         }
         // handle input conversion error for the path parameters
         for (Object parameter : pathParameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (parameter instanceof JsonInputError) {
                 checkState(!errorOnError, "input conversion error should have been thrown in the input function");
                 // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
                 return ImmutableList.of();
             }
         }
         // evaluate path into a sequence
-        List<Object> pathResult;
+        List<JsonItem> pathResult;
         try {
             pathResult = pathEvaluator.evaluate(item, pathParameters);
         }
@@ -66,26 +65,18 @@ public final class SequenceEvaluator
             // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
             return ImmutableList.of();
         }
-        // convert sequence to JSON items
-        ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
-        for (Object element : pathResult) {
-            if (element instanceof TypedValue typedValue) {
-                Optional<JsonNode> jsonNode = getJsonNode(typedValue);
-                if (jsonNode.isEmpty()) {
-                    if (errorOnError) {
-                        throw new JsonOutputConversionException(format(
-                                "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                                ((TypedValue) element).getType()));
-                    }
-                    // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
-                    return ImmutableList.of();
+        // verify each typed scalar can be represented as JSON
+        for (JsonItem element : pathResult) {
+            if (element instanceof TypedValue typedValue && !JsonItems.canBeRepresentedAsJson(typedValue.type())) {
+                if (errorOnError) {
+                    throw new JsonOutputConversionException(format(
+                            "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
+                            typedValue.type()));
                 }
-                builder.add(jsonNode.get());
-            }
-            else {
-                builder.add((JsonNode) element);
+                // the error behavior is EMPTY ON ERROR. Empty sequence will result in an empty table.
+                return ImmutableList.of();
             }
         }
-        return builder.build();
+        return pathResult;
     }
 }
