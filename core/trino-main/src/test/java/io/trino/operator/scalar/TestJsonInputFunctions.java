@@ -208,7 +208,13 @@ public class TestJsonInputFunctions
 
     private static JsonItem toPathItem(Object actual)
     {
-        return JsonType.toPathItem((Slice) actual);
+        if (actual instanceof JsonInputError) {
+            return JsonInputError.JSON_ERROR;
+        }
+        if (actual instanceof Slice slice) {
+            return JsonType.toPathItem(slice);
+        }
+        return parseJsonValue((String) actual);
     }
 
     private static JsonValue parseJsonValue(String json)
