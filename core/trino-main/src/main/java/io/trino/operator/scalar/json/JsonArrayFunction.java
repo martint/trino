@@ -13,37 +13,37 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.JsonArrayItem;
+import io.trino.json.JsonInputErrorNode;
+import io.trino.json.JsonItems;
+import io.trino.json.JsonNull;
+import io.trino.json.JsonPathItem;
+import io.trino.json.MaterializedJsonValue;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.type.Json2016Type;
+import io.trino.type.JsonType;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
@@ -54,14 +54,14 @@ public class JsonArrayFunction
     public static final JsonArrayFunction JSON_ARRAY_FUNCTION = new JsonArrayFunction();
     public static final String JSON_ARRAY_FUNCTION_NAME = "$json_array";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonArrayFunction.class, "jsonArray", RowType.class, SqlRow.class, boolean.class);
-    private static final JsonNode EMPTY_ARRAY = new ArrayNode(JsonNodeFactory.instance);
+    private static final MaterializedJsonValue EMPTY_ARRAY = new JsonArrayItem(ImmutableList.of());
 
     private JsonArrayFunction()
     {
         super(FunctionMetadata.scalarBuilder(JSON_ARRAY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(new TypeSignature(JSON_2016))
+                        .returnType(new TypeSignature(StandardTypes.JSON))
                         .argumentTypes(ImmutableList.of(new TypeSignature("E"), new TypeSignature(BOOLEAN)))
                         .build())
                 .argumentNullability(true, false)
@@ -84,40 +84,48 @@ public class JsonArrayFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
+    public static JsonValue jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
+    {
+        return JsonValue.of(JsonType.jsonValue(buildArray(elementsRowType, elementsRow, nullOnNull)));
+    }
+
+    private static MaterializedJsonValue buildArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(elementsRowType)) {
             return EMPTY_ARRAY;
         }
 
         int rawIndex = elementsRow.getRawIndex();
-        ImmutableList.Builder<JsonNode> arrayElements = ImmutableList.builder();
+        ImmutableList.Builder<MaterializedJsonValue> arrayElements = ImmutableList.builder();
 
         for (int i = 0; i < elementsRowType.getFields().size(); i++) {
             Type elementType = elementsRowType.getFields().get(i).getType();
             Object element = readNativeValue(elementType, elementsRow.getRawFieldBlock(i), rawIndex);
-            checkState(!JSON_ERROR.equals(element), "malformed JSON error suppressed in the input function");
 
-            JsonNode elementNode;
+            MaterializedJsonValue elementNode;
             if (element == null) {
                 if (nullOnNull) {
-                    elementNode = NullNode.getInstance();
+                    elementNode = JsonNull.JSON_NULL;
                 }
                 else { // absent on null
                     continue;
                 }
             }
-            else if (elementType.equals(Json2016Type.JSON_2016)) {
-                elementNode = (JsonNode) element;
+            else if (elementType.equals(JsonType.JSON)) {
+                Slice payload = element instanceof JsonValue jsonValue
+                        ? jsonValue.payload()
+                        : (Slice) element;
+                JsonPathItem pathItem = JsonType.toPathItem(payload);
+                checkState(pathItem != JsonInputErrorNode.JSON_ERROR, "malformed JSON error suppressed in the input function");
+                elementNode = JsonItems.asJsonValue(pathItem);
             }
             else {
-                elementNode = getJsonNode(TypedValue.fromValueAsObject(elementType, element))
-                        .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "value passed to JSON_ARRAY function cannot be converted to JSON"));
+                elementNode = TypedValue.fromValueAsObject(elementType, element);
             }
 
             arrayElements.add(elementNode);
         }
 
-        return new ArrayNode(JsonNodeFactory.instance, arrayElements.build());
+        return new JsonArrayItem(arrayElements.build());
     }
 }

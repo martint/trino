@@ -27,6 +27,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
@@ -111,9 +112,11 @@ public class TestArrayOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static JsonValue uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
+        // by these tests is rejected by the downstream cast (with TrinoException), not here.
+        return JsonValue.of(slice);
     }
 
     @Test
@@ -342,7 +345,7 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null]"))
                 .hasType(JSON)
-                .isEqualTo("[3.14,9.9E-324,1.0E308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
+                .isEqualTo("[3.14,9.9E-324,1E+308,\"NaN\",\"Infinity\",\"-Infinity\",null]");
 
         assertThat(assertions.expression("CAST(a AS JSON)")
                 .binding("a", "ARRAY[DECIMAL '3.14', null]"))
@@ -494,12 +497,20 @@ public class TestArrayOperators
         assertThat(assertions.expression("CAST(a AS array(VARCHAR))")
                 .binding("a", "JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]'"))
                 .hasType(new ArrayType(VARCHAR))
-                .isEqualTo(asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null));
+                .isEqualTo(asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null));
 
         assertThat(assertions.expression("CAST(a AS array(JSON))")
                 .binding("a", "JSON '[5, 3.14, [1, 2, 3], \"e\", {\"a\": \"b\"}, null, \"null\", [null]]'"))
                 .hasType(new ArrayType(JSON))
-                .isEqualTo(ImmutableList.of("5", "3.14", "[1,2,3]", "\"e\"", "{\"a\":\"b\"}", "null", "\"null\"", "[null]"));
+                .isEqualTo(ImmutableList.of(
+                        "5",
+                        "3.14",
+                        "[1,2,3]",
+                        "\"e\"",
+                        "{\"a\":\"b\"}",
+                        "null",
+                        "\"null\"",
+                        "[null]"));
 
         // nested array/map
         assertThat(assertions.expression("CAST(a AS array(ARRAY(BIGINT)))")
@@ -1209,7 +1220,11 @@ public class TestArrayOperators
 
         // array with various types including scientific notation and string "null"
         String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
-        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]";
+        // Numbers render from BigDecimal.toPlainString so precision is preserved and trailing zeros in
+        // decimal notation (e.g. "0.000000000000000") survive. Values with extreme exponents where
+        // Jackson already simplifies the token (e.g. "0e1000" -> "0", "100...e-68" -> "1") pass
+        // through as-is from the simplified token text.
+        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '12.3', '12.3', '0', '0.000000000000000', '0', '0', '1', '1', '0.100000000000000', 'puppies', 'kittens', 'null', null]";
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))

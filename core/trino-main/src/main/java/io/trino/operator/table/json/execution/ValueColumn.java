@@ -13,7 +13,7 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.json.JsonPathItem;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -68,7 +68,7 @@ public class ValueColumn
     }
 
     @Override
-    public Object evaluate(long sequentialNumber, JsonNode item, Page input, int position)
+    public Object evaluate(long sequentialNumber, JsonPathItem item, Page input, int position)
     {
         SourcePage sourcePage = SourcePage.create(input);
         SelectedPositions selectedPosition = SelectedPositions.positionsRange(position, 1);
@@ -76,10 +76,10 @@ public class ValueColumn
         DefaultValueLambda errorDefault = () -> errorDefaultProjection == null ? null : readNativeValue(errorDefaultType, errorDefaultProjection.project(session, errorDefaultProjection.getInputChannels().getInputChannels(sourcePage), selectedPosition), 0);
 
         try {
-            return methodHandle.invoke(item, path, null, null, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
+            return methodHandle.invoke(item, path, null, emptyBehavior, emptyDefault, errorBehavior, errorDefault);
         }
         catch (Throwable throwable) {
-            // According to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.462 General rules 1) e) ii) 2) D) any exception thrown by column evaluation should be propagated.
+            // According to ISO/IEC 9075-2:2023(E) 7.11 <JSON table> General rules 1) e) ii) 2) D) any exception thrown by column evaluation should be propagated.
             throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }

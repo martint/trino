@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -28,6 +29,7 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -41,6 +43,7 @@ import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTR
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -57,6 +60,27 @@ public final class JsonTypeUtil
             .build();
 
     private JsonTypeUtil() {}
+
+    /**
+     * Return the JSON text for a value of the {@code JSON} type. Intended for connector
+     * write paths that need the text representation of a typed JSON value.
+     *
+     * <p>For the JSON type, {@link Type#getObjectValue} already returns the canonical JSON text
+     * as a {@code String}. We still have to build a single-entry block to use that SPI method;
+     * a cheaper direct {@code Slice}-to-text path lives in {@code JsonType.jsonText} but is not
+     * reachable from plugin-toolkit because of module layering.
+     */
+    public static String jsonText(Type jsonType, Slice value)
+    {
+        Object result = jsonType.getObjectValue(writeNativeValue(jsonType, JsonValue.of(value)), 0);
+        if (result == null) {
+            return null;
+        }
+        if (result instanceof String string) {
+            return string;
+        }
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot write JSON_ERROR sentinel to a JSON column");
+    }
 
     public static Slice jsonParse(Slice slice)
     {

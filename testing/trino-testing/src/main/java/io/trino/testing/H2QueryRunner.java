@@ -296,7 +296,7 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else {
-                        row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
+                        row.add(jsonParse(utf8Slice(stringValue)).payload().toStringUtf8());
                     }
                 }
                 else if (type instanceof VarcharType || type instanceof CharType) {

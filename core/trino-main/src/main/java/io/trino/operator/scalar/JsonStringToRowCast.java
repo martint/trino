@@ -13,20 +13,33 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
+import io.trino.util.JsonUtil.BlockBuilderAppender;
 
-import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import java.lang.invoke.MethodHandle;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction
 {
     public static final JsonStringToRowCast JSON_STRING_TO_ROW = new JsonStringToRowCast();
     public static final String JSON_STRING_TO_ROW_NAME = "$internal$json_string_to_row_cast";
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRowFromText", RowType.class, BlockBuilderAppender.class, Slice.class);
 
     private JsonStringToRowCast()
     {
@@ -46,6 +59,16 @@ public final class JsonStringToRowCast
     @Override
     protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        return JSON_TO_ROW.specialize(boundSignature);
+        checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
+        RowType rowType = (RowType) boundSignature.getReturnType();
+        checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
+
+        BlockBuilderAppender fieldAppender = BlockBuilderAppender.createBlockBuilderAppender(rowType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppender);
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL),
+                methodHandle);
     }
 }

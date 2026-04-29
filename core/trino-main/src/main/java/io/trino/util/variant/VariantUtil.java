@@ -13,12 +13,12 @@
  */
 package io.trino.util.variant;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
+import io.trino.json.JsonItemEncoding;
 import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.operator.scalar.timestamp.VarcharToTimestampCast;
 import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
@@ -33,6 +33,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
@@ -47,6 +48,7 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
@@ -67,23 +69,19 @@ import io.trino.type.UnknownType;
 import io.trino.type.UuidOperators;
 import io.trino.type.VarcharOperators;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.json.JsonWriteFeature.COMBINE_UNICODE_SURROGATES_IN_UTF8;
-import static com.fasterxml.jackson.core.json.JsonWriteFeature.ESCAPE_NON_ASCII;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -113,7 +111,6 @@ import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -123,13 +120,6 @@ import static java.time.ZoneOffset.UTC;
 
 public final class VariantUtil
 {
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
-            // prevents characters outside BMP (e.g., emoji) from being escaped as surrogate pairs
-            .enable(COMBINE_UNICODE_SURROGATES_IN_UTF8)
-            .disable(ESCAPE_NON_ASCII)
-            .build());
-
     private VariantUtil() {}
 
     public static boolean canCastToVariant(Type type)
@@ -1215,90 +1205,145 @@ public final class VariantUtil
 
     public static Slice asJson(Variant variant)
     {
-        try (SliceOutput output = new DynamicSliceOutput(40); JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-            toJsonValue(jsonGenerator, variant);
-            jsonGenerator.flush();
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        SliceOutput output = new DynamicSliceOutput(40);
+        JsonItemEncoding.appendVersion(output);
+        JsonContainerPatches patches = new JsonContainerPatches();
+        toJsonItem(output, patches, variant);
+        Slice result = output.slice();
+        patches.apply(result);
+        return result;
     }
 
-    private static void toJsonValue(JsonGenerator generator, Variant variant)
-            throws IOException
+    private static void toJsonItem(SliceOutput output, JsonContainerPatches patches, Variant variant)
     {
         switch (variant.basicType()) {
             case PRIMITIVE -> {
                 switch (variant.primitiveType()) {
-                    case NULL -> generator.writeNull();
+                    case NULL -> JsonItemEncoding.appendJsonNullItem(output);
                     case BINARY -> {
+                        // Jackson historically rendered BINARY as a base64 JSON string; preserve that
+                        // user-visible behavior by emitting it as a VARCHAR item.
                         Slice binary = variant.getBinary();
-                        generator.writeBinary(binary.byteArray(), binary.byteArrayOffset(), binary.length());
+                        JsonItemEncoding.appendVarchar(
+                                output,
+                                Slices.utf8Slice(Base64.getEncoder().encodeToString(
+                                        binary.getBytes(0, binary.length()))));
                     }
-                    case STRING -> generator.writeString(variant.getString().toStringUtf8());
-                    case BOOLEAN_TRUE -> generator.writeBoolean(true);
-                    case BOOLEAN_FALSE -> generator.writeBoolean(false);
-                    case INT8 -> generator.writeNumber(variant.getByte());
-                    case INT16 -> generator.writeNumber(variant.getShort());
-                    case INT32 -> generator.writeNumber(variant.getInt());
-                    case INT64 -> generator.writeNumber(variant.getLong());
-                    case DECIMAL4, DECIMAL8, DECIMAL16 -> generator.writeNumber(variant.getDecimal());
-                    case FLOAT -> generator.writeNumber(variant.getFloat());
-                    case DOUBLE -> generator.writeNumber(variant.getDouble());
-                    case DATE -> generator.writeString(DateOperators.castToVarchar(UNBOUNDED_LENGTH, variant.getDate()).toStringUtf8());
-                    case TIME_NTZ_MICROS -> generator.writeString(TimeOperators.castToVarchar(UNBOUNDED_LENGTH, 6, variant.getTimeMicros() * 1_000_000L).toStringUtf8());
+                    case STRING -> JsonItemEncoding.appendVarchar(output, variant.getString());
+                    case BOOLEAN_TRUE -> JsonItemEncoding.appendBoolean(output, true);
+                    case BOOLEAN_FALSE -> JsonItemEncoding.appendBoolean(output, false);
+                    case INT8 -> JsonItemEncoding.appendBigint(output, variant.getByte());
+                    case INT16 -> JsonItemEncoding.appendBigint(output, variant.getShort());
+                    case INT32 -> JsonItemEncoding.appendBigint(output, variant.getInt());
+                    case INT64 -> JsonItemEncoding.appendBigint(output, variant.getLong());
+                    case DECIMAL4, DECIMAL8, DECIMAL16 -> emitDecimal(output, variant.getDecimal());
+                    case FLOAT -> JsonItemEncoding.appendDouble(output, variant.getFloat());
+                    case DOUBLE -> JsonItemEncoding.appendDouble(output, variant.getDouble());
+                    case DATE -> JsonItemEncoding.appendVarchar(
+                            output,
+                            DateOperators.castToVarchar(UNBOUNDED_LENGTH, variant.getDate()));
+                    case TIME_NTZ_MICROS -> JsonItemEncoding.appendVarchar(
+                            output,
+                            TimeOperators.castToVarchar(UNBOUNDED_LENGTH, 6, variant.getTimeMicros() * 1_000_000L));
                     case TIMESTAMP_UTC_MICROS -> {
                         long micros = variant.getTimestampMicros();
                         long epochMillis = floorDiv(micros, 1_000L);
                         int picosOfMilli = floorMod(micros, 1_000) * 1_000_000;
-                        generator.writeString(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
+                        JsonItemEncoding.appendVarchar(
+                                output,
+                                Slices.utf8Slice(formatTimestampWithTimeZone(6, epochMillis, picosOfMilli, UTC_KEY.getZoneId())));
                     }
-                    case TIMESTAMP_NTZ_MICROS -> generator.writeString(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC));
+                    case TIMESTAMP_NTZ_MICROS -> JsonItemEncoding.appendVarchar(
+                            output,
+                            Slices.utf8Slice(formatTimestamp(6, variant.getTimestampMicros(), 0, UTC)));
                     case TIMESTAMP_UTC_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMillis = floorDiv(nanos, 1_000_000L);
-
                         int picosOfMilli = floorMod(nanos, 1_000_000) * 1_000;
-                        generator.writeString(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId()));
+                        JsonItemEncoding.appendVarchar(
+                                output,
+                                Slices.utf8Slice(formatTimestampWithTimeZone(9, epochMillis, picosOfMilli, UTC_KEY.getZoneId())));
                     }
                     case TIMESTAMP_NTZ_NANOS -> {
                         long nanos = variant.getTimestampNanos();
                         long epochMicros = floorDiv(nanos, 1_000L);
-
                         int picosOfMicros = floorMod(nanos, 1_000) * 1_000;
-                        generator.writeString(formatTimestamp(9, epochMicros, picosOfMicros, UTC));
+                        JsonItemEncoding.appendVarchar(
+                                output,
+                                Slices.utf8Slice(formatTimestamp(9, epochMicros, picosOfMicros, UTC)));
                     }
-                    case UUID -> generator.writeString(variant.getUuid().toString());
+                    case UUID -> JsonItemEncoding.appendVarchar(
+                            output, Slices.utf8Slice(variant.getUuid().toString()));
                 }
             }
-            case SHORT_STRING -> generator.writeString(variant.getString().toStringUtf8());
+            case SHORT_STRING -> JsonItemEncoding.appendVarchar(output, variant.getString());
             case ARRAY -> {
-                generator.writeStartArray();
+                int countOffset = JsonItemEncoding.appendArrayItemPlaceholder(output);
+                int[] count = {0};
                 variant.arrayElements().forEach(element -> {
-                    try {
-                        toJsonValue(generator, element);
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+                    toJsonItem(output, patches, element);
+                    count[0]++;
                 });
-                generator.writeEndArray();
+                patches.add(countOffset, count[0]);
             }
             case OBJECT -> {
                 Metadata metadata = variant.metadata();
-                generator.writeStartObject();
+                int countOffset = JsonItemEncoding.appendObjectItemPlaceholder(output);
+                int[] count = {0};
                 variant.objectFields().forEach(fieldIdValue -> {
-                    try {
-                        String fieldName = metadata.get(fieldIdValue.fieldId()).toStringUtf8();
-                        generator.writeFieldName(fieldName);
-                        toJsonValue(generator, fieldIdValue.value());
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+                    String fieldName = metadata.get(fieldIdValue.fieldId()).toStringUtf8();
+                    JsonItemEncoding.appendObjectKey(output, fieldName);
+                    toJsonItem(output, patches, fieldIdValue.value());
+                    count[0]++;
                 });
-                generator.writeEndObject();
+                patches.add(countOffset, count[0]);
+            }
+        }
+    }
+
+    private static void emitDecimal(SliceOutput output, BigDecimal value)
+    {
+        // Match the canonicalization the JSON path engine does for parsed JSON numbers.
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+        int scale = value.scale();
+        int precision = Math.max(value.precision(), scale);
+        if (precision > Decimals.MAX_PRECISION) {
+            // Out-of-range for DECIMAL(<=38); fall back to NUMBER via TrinoNumber.
+            JsonItemEncoding.appendNumber(
+                    output,
+                    TrinoNumber.from(value));
+            return;
+        }
+        if (precision <= Decimals.MAX_SHORT_PRECISION) {
+            JsonItemEncoding.appendShortDecimal(
+                    output, precision, scale, Decimals.encodeShortScaledValue(value, scale));
+        }
+        else {
+            JsonItemEncoding.appendLongDecimal(
+                    output, precision, scale, Decimals.encodeScaledValue(value, scale));
+        }
+    }
+
+    private static final class JsonContainerPatches
+    {
+        private int[] data = new int[16];
+        private int size;
+
+        void add(int offset, int count)
+        {
+            if (size + 2 > data.length) {
+                data = Arrays.copyOf(data, data.length * 2);
+            }
+            data[size++] = offset;
+            data[size++] = count;
+        }
+
+        void apply(Slice slice)
+        {
+            for (int i = 0; i < size; i += 2) {
+                slice.setInt(data[i], data[i + 1]);
             }
         }
     }

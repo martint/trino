@@ -1,0 +1,47 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.operator.scalar.timetz;
+
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.ir.TypedValue;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonValue;
+import io.trino.spi.type.LongTimeWithTimeZone;
+
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+
+@ScalarOperator(CAST)
+public final class TimeWithTimeZoneToJsonCast
+{
+    private TimeWithTimeZoneToJsonCast() {}
+
+    @LiteralParameters("p")
+    @SqlType(JSON)
+    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") long value)
+    {
+        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimeWithTimeZoneType((int) precision), value)));
+    }
+
+    @LiteralParameters("p")
+    @SqlType(JSON)
+    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") LongTimeWithTimeZone value)
+    {
+        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimeWithTimeZoneType((int) precision), value)));
+    }
+}

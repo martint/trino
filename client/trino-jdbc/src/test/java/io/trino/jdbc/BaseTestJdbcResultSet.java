@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.IntMath;
 import com.google.errorprone.annotations.CheckReturnValue;
+import io.trino.client.JsonColumnValue;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
@@ -1355,6 +1356,22 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+        }
+    }
+
+    @Test
+    public void testJson()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "JSON '[1, 2, 3]'", Types.JAVA_OBJECT, (rs, column) -> {
+                JsonColumnValue json = rs.getObject(column, JsonColumnValue.class);
+                assertThat(json.jsonText()).isEqualTo("[1,2,3]");
+                assertThat(json.typedItemEncoding()).isPresent();
+                assertThat(rs.getObject(column)).isEqualTo("[1,2,3]");
+                assertThat(rs.getObject(column, String.class)).isEqualTo("[1,2,3]");
+                assertThat(rs.getString(column)).isEqualTo("[1,2,3]");
+            });
         }
     }
 

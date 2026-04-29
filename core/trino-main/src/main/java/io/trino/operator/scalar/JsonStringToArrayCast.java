@@ -13,21 +13,34 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
+import io.trino.util.JsonUtil.BlockBuilderAppender;
 
-import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
+import java.lang.invoke.MethodHandle;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class JsonStringToArrayCast
         extends SqlScalarFunction
 {
     public static final JsonStringToArrayCast JSON_STRING_TO_ARRAY = new JsonStringToArrayCast();
     public static final String JSON_STRING_TO_ARRAY_NAME = "$internal$json_string_to_array_cast";
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArrayFromText", ArrayType.class, BlockBuilderAppender.class, Slice.class);
 
     private JsonStringToArrayCast()
     {
@@ -47,6 +60,16 @@ public final class JsonStringToArrayCast
     @Override
     protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        return JSON_TO_ARRAY.specialize(boundSignature);
+        checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
+        ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
+        checkCondition(canCastFromJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", arrayType);
+
+        BlockBuilderAppender arrayAppender = BlockBuilderAppender.createBlockBuilderAppender(arrayType);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType).bindTo(arrayAppender);
+        return new ChoicesSpecializedSqlScalarFunction(
+                boundSignature,
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL),
+                methodHandle);
     }
 }

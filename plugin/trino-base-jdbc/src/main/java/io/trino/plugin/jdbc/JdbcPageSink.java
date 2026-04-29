@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
@@ -99,7 +100,7 @@ public class JdbcPageSink
                         WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
                         WriteFunction writeFunction = writeMapping.getWriteFunction();
                         verify(
-                                type.getJavaType() == writeFunction.getJavaType(),
+                                isCompatible(type, writeFunction),
                                 "Trino type %s is not compatible with write function %s accepting %s",
                                 type,
                                 writeFunction,
@@ -190,9 +191,23 @@ public class JdbcPageSink
         else if (javaType == Slice.class) {
             ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
+        else if (javaType == JsonValue.class) {
+            // JsonType payload is JsonValue at the type level but the connector binds bytes.
+            ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, ((JsonValue) type.getObject(block, position)).payload());
+        }
         else {
             ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, type.getObject(block, position));
         }
+    }
+
+    private static boolean isCompatible(Type type, WriteFunction writeFunction)
+    {
+        // JsonType.getJavaType() is JsonValue but connectors bind it through SliceWriteFunction
+        // because the wire format is JSON text or the typed-encoding bytes.
+        if (type.getJavaType() == JsonValue.class && writeFunction.getJavaType() == Slice.class) {
+            return true;
+        }
+        return type.getJavaType() == writeFunction.getJavaType();
     }
 
     @Override

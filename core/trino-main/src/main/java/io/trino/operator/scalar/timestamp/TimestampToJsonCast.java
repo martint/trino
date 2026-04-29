@@ -13,64 +13,35 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSession;
+import io.trino.json.JsonItemEncoding;
+import io.trino.json.ir.TypedValue;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonValue;
 import io.trino.spi.type.LongTimestamp;
 
-import java.io.IOException;
-import java.time.format.DateTimeFormatter;
-
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.type.DateTimes.formatTimestamp;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
-import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 
 @ScalarOperator(CAST)
 public final class TimestampToJsonCast
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
-
     private TimestampToJsonCast() {}
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
     {
-        return toJson(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER));
+        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
     }
 
-    @LiteralParameters({"x", "p"})
+    @LiteralParameters("p")
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static JsonValue cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return toJson(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
-    }
-
-    private static Slice toJson(String formatted)
-    {
-        try {
-            SliceOutput output = new DynamicSliceOutput(formatted.length() + 2); // 2 for the quotes
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeString(formatted);
-            }
-            return output.slice();
-        }
-        catch (IOException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", formatted, JSON));
-        }
+        return JsonValue.of(JsonItemEncoding.encode(new TypedValue(createTimestampType((int) precision), timestamp)));
     }
 }
