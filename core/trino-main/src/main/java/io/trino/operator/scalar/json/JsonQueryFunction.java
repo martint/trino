@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.json.JsonInputError.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;

@@ -20,7 +20,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.Json2016Type;
 
-import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
+import static io.trino.json.JsonEmptySequence.EMPTY_SEQUENCE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 

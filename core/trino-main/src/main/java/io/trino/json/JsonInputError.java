@@ -26,12 +26,12 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import java.io.IOException;
 import java.util.List;
 
-public class JsonEmptySequenceNode
+public class JsonInputError
         extends JsonNode
 {
-    public static final JsonEmptySequenceNode EMPTY_SEQUENCE = new JsonEmptySequenceNode();
+    public static final JsonInputError JSON_ERROR = new JsonInputError();
 
-    private JsonEmptySequenceNode() {}
+    private JsonInputError() {}
 
     @Override
     public <T extends JsonNode> T deepCopy()
@@ -138,7 +138,7 @@ public class JsonEmptySequenceNode
     @Override
     public String toString()
     {
-        return "EMPTY_SEQUENCE";
+        return "JSON_ERROR";
     }
 
     @Override

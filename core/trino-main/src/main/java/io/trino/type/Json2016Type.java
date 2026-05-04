@@ -27,7 +27,7 @@ import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.json.JsonInputError.JSON_ERROR;
 
 public class Json2016Type
         extends AbstractVariableWidthType

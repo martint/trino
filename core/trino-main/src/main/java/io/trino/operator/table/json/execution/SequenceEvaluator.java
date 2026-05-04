@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.json.JsonInputError.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static java.lang.String.format;
 

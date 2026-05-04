@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
+import static io.trino.json.JsonEmptySequence.EMPTY_SEQUENCE;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;

@@ -36,7 +36,7 @@ import io.trino.type.Json2016Type;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.json.JsonInputError.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;

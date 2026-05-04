@@ -83,7 +83,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
-import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
+import static io.trino.json.JsonEmptySequence.EMPTY_SEQUENCE;
 import static io.trino.json.PathEvaluationException.itemTypeError;
 import static io.trino.json.PathEvaluationException.structuralError;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
