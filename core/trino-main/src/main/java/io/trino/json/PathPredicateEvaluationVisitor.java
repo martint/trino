@@ -200,6 +200,13 @@ class PathPredicateEvaluationVisitor
                 found = true;
             }
         }
+        // SQL:2023 §9.46 GR for <JSON comparison predicate>: JSON_NULL compared with a scalar under <, >, <=, >= is UNKNOWN.
+        // In strict mode that UNKNOWN surfaces as null; in lax mode, fall through to the scalar loop and let any matching pair decide.
+        if (!lax && node.operator() != EQUAL && node.operator() != NOT_EQUAL) {
+            if ((leftHasJsonNull && rightHasScalar) || (rightHasJsonNull && leftHasScalar)) {
+                return null;
+            }
+        }
         if (found && lax) {
             return TRUE;
         }
