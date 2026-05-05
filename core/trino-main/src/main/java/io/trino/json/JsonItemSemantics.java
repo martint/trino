@@ -20,9 +20,11 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -249,6 +251,14 @@ public final class JsonItemSemantics
                 return NonFiniteKind.NEGATIVE_INFINITY;
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.value();
+            return switch (number.toBigDecimal()) {
+                case TrinoNumber.NotANumber _ -> NonFiniteKind.NAN;
+                case TrinoNumber.Infinity(boolean negative) -> negative ? NonFiniteKind.NEGATIVE_INFINITY : NonFiniteKind.POSITIVE_INFINITY;
+                case TrinoNumber.BigDecimalValue _ -> NonFiniteKind.FINITE;
+            };
+        }
         return NonFiniteKind.FINITE;
     }
 
@@ -270,7 +280,8 @@ public final class JsonItemSemantics
                 type.equals(TINYINT) ||
                 type.equals(DOUBLE) ||
                 type.equals(REAL) ||
-                type instanceof DecimalType;
+                type instanceof DecimalType ||
+                type instanceof NumberType;
     }
 
     private static boolean isString(Type type)
@@ -311,6 +322,10 @@ public final class JsonItemSemantics
             case RealType _ -> {
                 float number = intBitsToFloat(toIntExact(value.getLongValue()));
                 yield Float.isFinite(number) ? BigDecimal.valueOf(number) : null;
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) value.getObjectValue();
+                yield number.toBigDecimal() instanceof TrinoNumber.BigDecimalValue(BigDecimal decimal) ? decimal : null;
             }
             default -> throw new IllegalArgumentException("Typed JSON item is not numeric: " + type);
         };

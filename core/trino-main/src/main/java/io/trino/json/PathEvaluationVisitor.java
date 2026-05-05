@@ -54,6 +54,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
@@ -61,6 +62,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -73,6 +75,8 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
@@ -251,6 +255,16 @@ class PathEvaluationVisitor
                 return new TypedValue(type, result);
             }
             return typedValue;
+        }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.abs());
+                case TrinoNumber.Infinity _ ->
+                        TrinoNumber.from(new TrinoNumber.Infinity(false));
+                case TrinoNumber.NotANumber _ -> number;
+            });
         }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
@@ -566,6 +580,14 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.CEILING));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
+            });
+        }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
     }
@@ -680,6 +702,14 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(DOUBLE, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) -> value.doubleValue();
+                case TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                case TrinoNumber.NotANumber _ -> Double.NaN;
+            });
+        }
 
         throw itemTypeError("NUMBER or TEXT", type.getDisplayName());
     }
@@ -756,6 +786,14 @@ class PathEvaluationVisitor
             catch (Exception e) {
                 throw new PathEvaluationException(e);
             }
+        }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.FLOOR));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
+            });
         }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
@@ -923,7 +961,8 @@ class PathEvaluationVisitor
                      TypedValue(TinyintType _, _),
                      TypedValue(DoubleType _, _),
                      TypedValue(RealType _, _),
-                     TypedValue(DecimalType _, _) -> utf8Slice("number");
+                     TypedValue(DecimalType _, _),
+                     TypedValue(NumberType _, _) -> utf8Slice("number");
                 case TypedValue(VarcharType _, _), TypedValue(CharType _, _) -> utf8Slice("string");
                 case TypedValue(BooleanType _, _) -> utf8Slice("boolean");
                 case TypedValue(DateType _, _) -> utf8Slice("date");
@@ -958,7 +997,8 @@ class PathEvaluationVisitor
                 || type.equals(TINYINT)
                 || type.equals(DOUBLE)
                 || type.equals(REAL)
-                || type instanceof DecimalType;
+                || type instanceof DecimalType
+                || type instanceof NumberType;
     }
 
     private static TypedValue getNumericTypedValue(JsonItem object)
@@ -999,7 +1039,8 @@ class PathEvaluationVisitor
                  TypedValue(TinyintType _, _),
                  TypedValue(DoubleType _, _),
                  TypedValue(RealType _, _),
-                 TypedValue(DecimalType _, _) -> "NUMBER";
+                 TypedValue(DecimalType _, _),
+                 TypedValue(NumberType _, _) -> "NUMBER";
             case TypedValue(VarcharType _, _), TypedValue(CharType _, _) -> "STRING";
             case TypedValue(BooleanType _, _) -> "BOOLEAN";
             case TypedValue(Type type, _) -> type.getDisplayName();

@@ -33,9 +33,11 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -275,7 +277,7 @@ public final class JsonItems
         if (value.bitLength() < Long.SIZE) {
             return new TypedValue(BIGINT, value.longValue());
         }
-        throw new JsonInputConversionException("value too big");
+        return parseBigDecimal(new BigDecimal(value));
     }
 
     private static TypedValue parseDecimal(JsonParser parser)
@@ -302,7 +304,8 @@ public final class JsonItems
         // BigDecimal.precision is always >= 1, even for zero; DECIMAL requires precision >= scale.
         int precision = Math.max(value.precision(), scale);
         if (precision > MAX_PRECISION) {
-            throw new JsonInputConversionException("precision too big");
+            // Fall back to the arbitrary-precision NUMBER type for values that don't fit DECIMAL(<=38).
+            return new TypedValue(NumberType.NUMBER, TrinoNumber.from(value));
         }
         DecimalType type = createDecimalType(precision, scale);
         Object encoded = type.isShort() ? encodeShortScaledValue(value, scale) : encodeScaledValue(value, scale);
@@ -344,6 +347,16 @@ public final class JsonItems
                 }
                 else {
                     generator.writeString(Float.toString(value));
+                }
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                switch (number.toBigDecimal()) {
+                    // Use BigDecimal.toString() (not toPlainString) so values like 1E+309 keep
+                    // scientific notation rather than expanding to ~309 zero digits.
+                    case TrinoNumber.BigDecimalValue(BigDecimal value) -> generator.writeNumber(value.toString());
+                    case TrinoNumber.NotANumber _ -> generator.writeString("NaN");
+                    case TrinoNumber.Infinity(boolean negative) -> generator.writeString(negative ? "-Infinity" : "+Infinity");
                 }
             }
             default -> generator.writeString(typedValueText(typedValue));
