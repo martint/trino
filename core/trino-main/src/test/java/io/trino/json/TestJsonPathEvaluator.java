@@ -21,6 +21,8 @@ import io.trino.json.ir.IrPredicate;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
@@ -114,6 +116,9 @@ public class TestJsonPathEvaluator
             .put("boolean_parameter", new TypedValue(BOOLEAN, true))
             .put("date_parameter", new TypedValue(DATE, 1234L))
             .put("timestamp_parameter", new TypedValue(createTimestampType(7), new LongTimestamp(20, 30)))
+            .put("number_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new BigDecimal("-123456789012345678901234567890.5"))))
+            .put("number_nan_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber())))
+            .put("number_neg_inf_parameter", new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true))))
             .put("empty_sequence_parameter", EMPTY_SEQUENCE)
             .put("null_parameter", JsonNull.JSON_NULL)
             .put("json_number_parameter", jsonParameter(integer(-6)))
@@ -654,6 +659,60 @@ public class TestJsonPathEvaluator
                 path(true, floor(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testNumericMethodsAcceptNumberType()
+    {
+        // abs() preserves NumberType and BigDecimal magnitude
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, abs(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("123456789012345678901234567890.5")))));
+
+        // ceiling() and floor() round to integer scale 0
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, ceiling(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567890")))));
+
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, floor(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new BigDecimal("-123456789012345678901234567891")))));
+
+        // double() converts NumberType to DOUBLE (mantissa rounds to nearest representable value)
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, toDouble(variable("number_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, new BigDecimal("-123456789012345678901234567890.5").doubleValue())));
+
+        // abs() of NaN stays NaN; abs() of -Infinity becomes +Infinity
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, abs(variable("number_nan_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.NotANumber()))));
+
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, abs(variable("number_neg_inf_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(
+                        NumberType.NUMBER,
+                        TrinoNumber.from(new TrinoNumber.Infinity(false)))));
+
+        // double() on non-finite NumberType maps to the matching DOUBLE non-finite value
+        assertThat(pathResult(
+                JsonNull.JSON_NULL,
+                path(true, toDouble(variable("number_neg_inf_parameter")))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, Double.NEGATIVE_INFINITY)));
     }
 
     @Test

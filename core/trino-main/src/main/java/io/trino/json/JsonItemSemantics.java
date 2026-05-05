@@ -20,9 +20,11 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -227,6 +229,11 @@ public final class JsonItemSemantics
         return switch (value.getType()) {
             case DoubleType _ -> classifyDouble(value.getDoubleValue());
             case RealType _ -> classifyDouble(intBitsToFloat(toIntExact(value.getLongValue())));
+            case NumberType _ -> switch (((TrinoNumber) value.value()).toBigDecimal()) {
+                case TrinoNumber.NotANumber _ -> NumericKind.NAN;
+                case TrinoNumber.Infinity(boolean negative) -> negative ? NumericKind.NEGATIVE_INFINITY : NumericKind.POSITIVE_INFINITY;
+                case TrinoNumber.BigDecimalValue _ -> NumericKind.FINITE;
+            };
             default -> NumericKind.FINITE;
         };
     }
@@ -263,7 +270,8 @@ public final class JsonItemSemantics
                 type.equals(TINYINT) ||
                 type.equals(DOUBLE) ||
                 type.equals(REAL) ||
-                type instanceof DecimalType;
+                type instanceof DecimalType ||
+                type instanceof NumberType;
     }
 
     private static boolean isString(Type type)
@@ -304,6 +312,10 @@ public final class JsonItemSemantics
             case RealType _ -> {
                 float number = intBitsToFloat(toIntExact(value.getLongValue()));
                 yield Float.isFinite(number) ? BigDecimal.valueOf(number) : null;
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) value.getObjectValue();
+                yield number.toBigDecimal() instanceof TrinoNumber.BigDecimalValue(BigDecimal decimal) ? decimal : null;
             }
             default -> throw new IllegalArgumentException("Typed JSON item is not numeric: " + type);
         };

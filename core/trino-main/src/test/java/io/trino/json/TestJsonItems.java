@@ -15,7 +15,9 @@ package io.trino.json;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.TrinoNumber;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -75,6 +77,26 @@ public class TestJsonItems
     }
 
     @Test
+    public void testParseJsonPreservesNumberOutsideDecimalRange()
+    {
+        assertThat(parseJson("100000000000000000000000000000000000000000000000000"))
+                .isInstanceOf(TypedValue.class);
+    }
+
+    @Test
+    public void testJsonTextStringifiesNonFiniteNumber()
+    {
+        TypedValue nan = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber()));
+        assertThat(JsonItems.jsonText(nan).toStringUtf8()).isEqualTo("\"NaN\"");
+
+        TypedValue positiveInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(false)));
+        assertThat(JsonItems.jsonText(positiveInfinity).toStringUtf8()).isEqualTo("\"+Infinity\"");
+
+        TypedValue negativeInfinity = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true)));
+        assertThat(JsonItems.jsonText(negativeInfinity).toStringUtf8()).isEqualTo("\"-Infinity\"");
+    }
+
+    @Test
     public void testJsonItemSemanticsCanonicalizesZero()
     {
         // SQL/JSON numeric equality compares on canonical decimal value, so 0, 0.0, and 0e0
@@ -101,21 +123,29 @@ public class TestJsonItems
     @Test
     public void testJsonItemSemanticsNonFiniteEqualityAcrossKinds()
     {
-        // Non-finite REAL and DOUBLE compare equal by kind: NaN==NaN, +Inf==+Inf, -Inf==-Inf,
-        // regardless of which numeric type carries the sentinel.
+        // Non-finite REAL, DOUBLE, and NumberType compare equal by kind: NaN==NaN,
+        // +Inf==+Inf, -Inf==-Inf, regardless of which numeric type carries the sentinel.
         TypedValue doubleNaN = new TypedValue(DoubleType.DOUBLE, Double.NaN);
         TypedValue realNaN = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NaN));
+        TypedValue numberNaN = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.NotANumber()));
 
         assertThat(JsonItemSemantics.equals(doubleNaN, realNaN)).isTrue();
+        assertThat(JsonItemSemantics.equals(doubleNaN, numberNaN)).isTrue();
+        assertThat(JsonItemSemantics.equals(realNaN, numberNaN)).isTrue();
         assertThat(JsonItemSemantics.hash(doubleNaN)).isEqualTo(JsonItemSemantics.hash(realNaN));
+        assertThat(JsonItemSemantics.hash(doubleNaN)).isEqualTo(JsonItemSemantics.hash(numberNaN));
 
         TypedValue doublePosInf = new TypedValue(DoubleType.DOUBLE, Double.POSITIVE_INFINITY);
         TypedValue realPosInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.POSITIVE_INFINITY));
+        TypedValue numberPosInf = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(false)));
         assertThat(JsonItemSemantics.equals(doublePosInf, realPosInf)).isTrue();
+        assertThat(JsonItemSemantics.equals(doublePosInf, numberPosInf)).isTrue();
 
         TypedValue doubleNegInf = new TypedValue(DoubleType.DOUBLE, Double.NEGATIVE_INFINITY);
         TypedValue realNegInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NEGATIVE_INFINITY));
+        TypedValue numberNegInf = new TypedValue(NumberType.NUMBER, TrinoNumber.from(new TrinoNumber.Infinity(true)));
         assertThat(JsonItemSemantics.equals(doubleNegInf, realNegInf)).isTrue();
+        assertThat(JsonItemSemantics.equals(doubleNegInf, numberNegInf)).isTrue();
 
         // +Inf and -Inf are distinct kinds.
         assertThat(JsonItemSemantics.equals(doublePosInf, doubleNegInf)).isFalse();
