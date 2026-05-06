@@ -153,6 +153,7 @@ public class JsonValueFunction
                 .bindTo(returnType)
                 .bindTo(emptyDefaultCoercion)
                 .bindTo(errorDefaultCoercion);
+        methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(returnType.getJavaType())));
         methodHandle = dropArguments(methodHandle, 5, Primitives.wrap(boundSignature.getArgumentType(3).getJavaType()));
         MethodHandle instanceFactory = constructorMethodHandle(JsonPathInvocationContext.class);
         return new ChoicesSpecializedSqlScalarFunction(

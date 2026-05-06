@@ -273,12 +273,12 @@ public class FunctionManager
         Type returnType = boundSignature.getReturnType();
         switch (convention.getReturnConvention()) {
             case DEFAULT_ON_NULL, FAIL_ON_NULL -> {
-                verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
-                        "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
+                verifyFunctionSignature(returnType.getJavaType().isAssignableFrom(methodType.returnType()),
+                        "Expected return type to be a subtype of %s, but is %s", returnType.getJavaType(), methodType.returnType());
             }
             case NULLABLE_RETURN -> {
-                verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
-                        "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
+                verifyFunctionSignature(wrap(returnType.getJavaType()).isAssignableFrom(methodType.returnType()),
+                        "Expected return type to be a subtype of %s, but is %s", wrap(returnType.getJavaType()), methodType.returnType());
             }
             case BLOCK_BUILDER -> {
                 verifyFunctionSignature(methodType.lastParameterType().equals(BlockBuilder.class),
