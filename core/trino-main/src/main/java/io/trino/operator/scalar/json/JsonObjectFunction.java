@@ -46,7 +46,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -103,7 +102,7 @@ public class JsonObjectFunction
         }
 
         List<JsonObjectMember> members = new ArrayList<>();
-        Set<String> seenKeyNames = new HashSet<>();
+        Set<String> uniqueKeyNames = uniqueKeys ? new HashSet<>() : null;
         int keysRawIndex = keysRow.getRawIndex();
         int valuesRawIndex = valuesRow.getRawIndex();
 
@@ -135,11 +134,8 @@ public class JsonObjectFunction
                 valueNode = TypedValue.fromValueAsObject(valueType, value);
             }
 
-            if (!seenKeyNames.add(keyName)) {
-                if (uniqueKeys) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
-                }
-                throw new TrinoException(NOT_SUPPORTED, "cannot construct a JSON object with duplicate key");
+            if (uniqueKeys && !uniqueKeyNames.add(keyName)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
             }
             members.add(new JsonObjectMember(keyName, valueNode));
         }

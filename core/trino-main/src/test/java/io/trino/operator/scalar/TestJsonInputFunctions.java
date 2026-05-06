@@ -208,12 +208,13 @@ public class TestJsonInputFunctions
     @Test
     public void testDuplicateObjectKeys()
     {
-        // A duplicate key does not cause error. The parser deduplicates by key, with the
-        // last occurrence retained at the position of the first. According to the SQL
-        // standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
+        // A duplicate key does not cause error. The resulting object preserves all members with that key.
+        // According to the SQL standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
         assertThat(assertions.expression("\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)"))
                 .hasType(JSON_2016)
-                .isEqualTo(new JsonObject(ImmutableList.of(new JsonObjectMember("key", new TypedValue(INTEGER, 2L)))));
+                .isEqualTo(new JsonObject(ImmutableList.of(
+                        new JsonObjectMember("key", new TypedValue(INTEGER, 1L)),
+                        new JsonObjectMember("key", new TypedValue(INTEGER, 2L)))));
     }
 
     private static String toVarbinary(String value, Charset encoding)

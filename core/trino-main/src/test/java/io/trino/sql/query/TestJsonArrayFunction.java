@@ -104,10 +104,10 @@ public class TestJsonArrayFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
-        // duplicate key inside the formatted element: only one entry is retained
+        // duplicate keys inside the formatted element are preserved
         assertThat(assertions.query(
                 "SELECT json_array('{\"a\" : 1, \"a\" : 1}' FORMAT JSON)"))
-                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+                .matches("VALUES VARCHAR '[{\"a\":1,\"a\":1}]'");
     }
 
     @Test

@@ -44,7 +44,6 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -151,8 +150,7 @@ public final class JsonItems
     private static JsonObject parseObject(JsonParser parser, int depth)
             throws IOException
     {
-        // Deduplicate by key: later occurrences overwrite earlier ones, preserving the position of the first.
-        LinkedHashMap<String, JsonObjectMember> members = new LinkedHashMap<>();
+        List<JsonObjectMember> members = new ArrayList<>();
         for (JsonToken next = parser.nextToken(); next != JsonToken.END_OBJECT; next = parser.nextToken()) {
             if (next == null) {
                 throw new JsonInputConversionException("unexpected end of JSON object");
@@ -165,9 +163,9 @@ public final class JsonItems
             if (valueToken == null) {
                 throw new JsonInputConversionException("unexpected end of JSON object");
             }
-            members.put(fieldName, new JsonObjectMember(fieldName, parseItem(parser, valueToken, depth + 1)));
+            members.add(new JsonObjectMember(fieldName, parseItem(parser, valueToken, depth + 1)));
         }
-        return new JsonObject(new ArrayList<>(members.values()));
+        return new JsonObject(members);
     }
 
     public static boolean canBeRepresentedAsJson(Type type)
