@@ -14,6 +14,8 @@
 package io.trino.json;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RealType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -70,6 +72,75 @@ public class TestJsonItems
                 .contains("abc");
 
         assertThat(JsonItems.scalarText(JsonNull.JSON_NULL)).isEmpty();
+    }
+
+    @Test
+    public void testJsonItemSemanticsCanonicalizesZero()
+    {
+        // SQL/JSON numeric equality compares on canonical decimal value, so 0, 0.0, and 0e0
+        // collapse to the same parsed item even though their textual forms differ.
+        JsonValue zero = parseJson("0");
+        JsonValue zeroPoint = parseJson("0.0");
+        JsonValue zeroExp = parseJson("0e0");
+
+        assertThat(JsonItemSemantics.equals(zero, zeroPoint)).isTrue();
+        assertThat(JsonItemSemantics.equals(zero, zeroExp)).isTrue();
+        assertThat(JsonItemSemantics.equals(zeroPoint, zeroExp)).isTrue();
+        assertThat(JsonItemSemantics.hash(zero)).isEqualTo(JsonItemSemantics.hash(zeroPoint));
+        assertThat(JsonItemSemantics.hash(zero)).isEqualTo(JsonItemSemantics.hash(zeroExp));
+
+        JsonValue one = parseJson("1");
+        JsonValue onePoint = parseJson("1.0");
+        JsonValue oneExp = parseJson("1e0");
+        assertThat(JsonItemSemantics.equals(one, onePoint)).isTrue();
+        assertThat(JsonItemSemantics.equals(one, oneExp)).isTrue();
+        assertThat(JsonItemSemantics.hash(one)).isEqualTo(JsonItemSemantics.hash(onePoint));
+        assertThat(JsonItemSemantics.hash(one)).isEqualTo(JsonItemSemantics.hash(oneExp));
+    }
+
+    @Test
+    public void testJsonItemSemanticsNonFiniteEqualityAcrossKinds()
+    {
+        // Non-finite REAL and DOUBLE compare equal by kind: NaN==NaN, +Inf==+Inf, -Inf==-Inf,
+        // regardless of which numeric type carries the sentinel.
+        TypedValue doubleNaN = new TypedValue(DoubleType.DOUBLE, Double.NaN);
+        TypedValue realNaN = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NaN));
+
+        assertThat(JsonItemSemantics.equals(doubleNaN, realNaN)).isTrue();
+        assertThat(JsonItemSemantics.hash(doubleNaN)).isEqualTo(JsonItemSemantics.hash(realNaN));
+
+        TypedValue doublePosInf = new TypedValue(DoubleType.DOUBLE, Double.POSITIVE_INFINITY);
+        TypedValue realPosInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.POSITIVE_INFINITY));
+        assertThat(JsonItemSemantics.equals(doublePosInf, realPosInf)).isTrue();
+
+        TypedValue doubleNegInf = new TypedValue(DoubleType.DOUBLE, Double.NEGATIVE_INFINITY);
+        TypedValue realNegInf = new TypedValue(RealType.REAL, (long) Float.floatToRawIntBits(Float.NEGATIVE_INFINITY));
+        assertThat(JsonItemSemantics.equals(doubleNegInf, realNegInf)).isTrue();
+
+        // +Inf and -Inf are distinct kinds.
+        assertThat(JsonItemSemantics.equals(doublePosInf, doubleNegInf)).isFalse();
+        // NaN and +Inf are distinct kinds.
+        assertThat(JsonItemSemantics.equals(doubleNaN, doublePosInf)).isFalse();
+    }
+
+    @Test
+    public void testJsonItemSemanticsCharVarcharPadSpace()
+    {
+        // SQL/JSON character comparison uses PAD SPACE collation: trailing spaces are
+        // not significant, so CHAR(5) "ab" and VARCHAR "ab" compare equal regardless
+        // of how the storage type pads the value.
+        TypedValue varcharShort = new TypedValue(VARCHAR, utf8Slice("ab"));
+        TypedValue varcharPadded = new TypedValue(VARCHAR, utf8Slice("ab   "));
+        TypedValue charShort = new TypedValue(createCharType(2), utf8Slice("ab"));
+        TypedValue charPadded5 = new TypedValue(createCharType(5), utf8Slice("ab"));
+
+        assertThat(JsonItemSemantics.equals(varcharShort, charShort)).isTrue();
+        assertThat(JsonItemSemantics.equals(varcharShort, charPadded5)).isTrue();
+        assertThat(JsonItemSemantics.equals(varcharPadded, charPadded5)).isTrue();
+        assertThat(JsonItemSemantics.equals(varcharPadded, charShort)).isTrue();
+        assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(charShort));
+        assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(charPadded5));
+        assertThat(JsonItemSemantics.hash(varcharShort)).isEqualTo(JsonItemSemantics.hash(varcharPadded));
     }
 
     private static JsonValue parseJson(String json)

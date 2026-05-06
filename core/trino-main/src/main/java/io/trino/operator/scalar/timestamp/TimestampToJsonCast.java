@@ -16,7 +16,6 @@ package io.trino.operator.scalar.timestamp;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -24,6 +23,7 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.LongTimestamp;
 
 import java.io.IOException;
@@ -48,26 +48,26 @@ public final class TimestampToJsonCast
 
     @LiteralParameters("p")
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static JsonPayload cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
         return toJson(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(JSON)
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static JsonPayload cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
         return toJson(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
     }
 
-    private static Slice toJson(String formatted)
+    private static JsonPayload toJson(String formatted)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(formatted.length() + 2); // 2 for the quotes
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(formatted);
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", formatted, JSON));

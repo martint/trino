@@ -25,7 +25,9 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.type.JsonType;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
@@ -72,9 +74,10 @@ public final class JsonOperators
     @SqlNullable
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(JSON) Slice json)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Slice result = currentTokenAsVarchar(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to VARCHAR"); // check no trailing token
@@ -83,33 +86,35 @@ public final class JsonOperators
             }
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", JsonType.jsonText(payload).toStringUtf8(), x), e);
         }
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", json.toStringUtf8(), x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", JsonType.jsonText(payload).toStringUtf8(), x));
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(BIGINT)
-    public static Long castToBigint(@SqlType(JSON) Slice json)
+    public static Long castToBigint(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Long result = currentTokenAsBigint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to BIGINT"); // check no trailing token
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BIGINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), BIGINT), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(INTEGER)
-    public static Long castToInteger(@SqlType(JSON) Slice json)
+    public static Long castToInteger(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Long result = currentTokenAsInteger(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to INTEGER"); // check no trailing token
@@ -117,21 +122,22 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (ArithmeticException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), INTEGER), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(SMALLINT)
-    public static Long castToSmallint(@SqlType(JSON) Slice json)
+    public static Long castToSmallint(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Long result = currentTokenAsSmallint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to SMALLINT"); // check no trailing token
@@ -139,21 +145,22 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), SMALLINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), SMALLINT), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(TINYINT)
-    public static Long castToTinyint(@SqlType(JSON) Slice json)
+    public static Long castToTinyint(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Long result = currentTokenAsTinyint(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to TINYINT"); // check no trailing token
@@ -161,90 +168,94 @@ public final class JsonOperators
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), TINYINT), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), TINYINT), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(DOUBLE)
-    public static Double castToDouble(@SqlType(JSON) Slice json)
+    public static Double castToDouble(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Double result = currentTokenAsDouble(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DOUBLE"); // check no trailing token
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), DOUBLE), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), DOUBLE), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(REAL)
-    public static Long castToReal(@SqlType(JSON) Slice json)
+    public static Long castToReal(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Long result = currentTokenAsReal(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to REAL"); // check no trailing token
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), REAL), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(NUMBER)
-    public static TrinoNumber castToNumber(@SqlType(JSON) Slice json)
+    public static TrinoNumber castToNumber(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             TrinoNumber result = currentTokenAsNumber(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to NUMBER"); // check no trailing token
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), NUMBER), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", payload.toStringUtf8(), NUMBER), e);
         }
     }
 
     @ScalarOperator(CAST)
     @SqlNullable
     @SqlType(BOOLEAN)
-    public static Boolean castToBoolean(@SqlType(JSON) Slice json)
+    public static Boolean castToBoolean(@SqlType(JSON) JsonPayload json)
     {
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
+        Slice payload = json.payload();
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, payload)) {
             parser.nextToken();
             Boolean result = currentTokenAsBoolean(parser);
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to BOOLEAN"); // check no trailing token
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BOOLEAN), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", JsonType.jsonText(payload).toStringUtf8(), BOOLEAN), e);
         }
     }
 
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(JSON)
-    public static Slice castFromVarchar(@SqlType("varchar(x)") Slice value)
+    public static JsonPayload castFromVarchar(@SqlType("varchar(x)") Slice value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(value.length() + 2);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(value.toStringUtf8());
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
@@ -253,40 +264,40 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromTinyInt(@SqlType(TINYINT) long value)
+    public static JsonPayload castFromTinyInt(@SqlType(TINYINT) long value)
     {
         return internalCastFromLong(value, 4);
     }
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromSmallInt(@SqlType(SMALLINT) long value)
+    public static JsonPayload castFromSmallInt(@SqlType(SMALLINT) long value)
     {
         return internalCastFromLong(value, 8);
     }
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromInteger(@SqlType(INTEGER) long value)
+    public static JsonPayload castFromInteger(@SqlType(INTEGER) long value)
     {
         return internalCastFromLong(value, 12);
     }
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromBigint(@SqlType(BIGINT) long value)
+    public static JsonPayload castFromBigint(@SqlType(BIGINT) long value)
     {
         return internalCastFromLong(value, 20);
     }
 
-    private static Slice internalCastFromLong(long value, int estimatedSize)
+    private static JsonPayload internalCastFromLong(long value, int estimatedSize)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(estimatedSize);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -295,14 +306,14 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromDouble(@SqlType(DOUBLE) double value)
+    public static JsonPayload castFromDouble(@SqlType(DOUBLE) double value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(32);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(value);
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -311,14 +322,14 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromReal(@SqlType(REAL) long value)
+    public static JsonPayload castFromReal(@SqlType(REAL) long value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(32);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeNumber(intBitsToFloat((int) value));
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -327,7 +338,7 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromNumber(@SqlType(NUMBER) TrinoNumber value)
+    public static JsonPayload castFromNumber(@SqlType(NUMBER) TrinoNumber value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(32);
@@ -338,7 +349,7 @@ public final class JsonOperators
                     case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> jsonGenerator.writeNumber(bigDecimal);
                 }
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to %s", value.toBigDecimal(), JSON), e);
@@ -347,14 +358,14 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromBoolean(@SqlType(BOOLEAN) boolean value)
+    public static JsonPayload castFromBoolean(@SqlType(BOOLEAN) boolean value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(5);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeBoolean(value);
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
@@ -363,14 +374,14 @@ public final class JsonOperators
 
     @ScalarOperator(CAST)
     @SqlType(JSON)
-    public static Slice castFromDate(@SqlType(DATE) long value)
+    public static JsonPayload castFromDate(@SqlType(DATE) long value)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(12);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(printDate((int) value));
             }
-            return output.slice();
+            return JsonPayload.of(output.slice());
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));

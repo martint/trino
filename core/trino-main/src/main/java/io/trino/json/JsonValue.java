@@ -18,6 +18,11 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /// A materialized SQL/JSON value. Unlike execution-only sentinels and storage wrappers, this
 /// represents an actual SQL/JSON value.
+///
+/// Equality and hashing across the [JsonItem] hierarchy follow the default Java contract —
+/// structural equality on records. For SQL/JSON equivalence (cross-type numeric, PAD SPACE
+/// strings, multiset object members, non-finite-by-kind), use
+/// [JsonItemSemantics#equals(JsonItem, JsonItem)] and [JsonItemSemantics#hash(JsonItem)].
 @JsonSerialize(using = JsonValueSerializer.class)
 @JsonDeserialize(using = JsonValueDeserializer.class)
 public sealed interface JsonValue
