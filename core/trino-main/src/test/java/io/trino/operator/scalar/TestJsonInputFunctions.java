@@ -211,13 +211,12 @@ public class TestJsonInputFunctions
     @Test
     public void testDuplicateObjectKeys()
     {
-        // A duplicate key does not cause error. The resulting object has one member with that key, chosen arbitrarily from the input entries.
-        // According to the SQL standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
+        // A duplicate key does not cause error. The resulting object preserves all members with that key.
         assertThat(assertions.expression("\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)"))
                 .hasType(JSON_2016)
-                .isIn(
-                        new JsonObject(ImmutableList.of(new JsonObjectMember("key", new TypedValue(INTEGER, 1L)))),
-                        new JsonObject(ImmutableList.of(new JsonObjectMember("key", new TypedValue(INTEGER, 2L)))));
+                .isEqualTo(new JsonObject(ImmutableList.of(
+                        new JsonObjectMember("key", new TypedValue(INTEGER, 1L)),
+                        new JsonObjectMember("key", new TypedValue(INTEGER, 2L)))));
     }
 
     private static JsonValue parseJsonValue(String json)

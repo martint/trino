@@ -107,19 +107,14 @@ public class TestJsonObjectFunction
     @Test
     public void testDuplicateKey()
     {
-        // we don't support it because it requires creating a JSON object with duplicate key
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITHOUT UNIQUE KEYS)"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("cannot construct a JSON object with duplicate key");
+                .matches("VALUES VARCHAR '{\"key\":1,\"key\":2}'");
 
         // WITHOUT UNIQUE KEYS is the default option
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2)"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("cannot construct a JSON object with duplicate key");
+                .matches("VALUES VARCHAR '{\"key\":1,\"key\":2}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITH UNIQUE KEYS)"))
@@ -149,14 +144,14 @@ public class TestJsonObjectFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
-        // duplicate key inside the formatted value: only one entry is retained
+        // duplicate key inside the formatted value is preserved
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON)"))
-                .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+                .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITHOUT UNIQUE KEYS)"))
-                .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+                .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
 
         // in presence of input value with FORMAT, the option WITH UNIQUE KEYS is not supported, because the input function does not support this semantics
         assertThat(assertions.query(
