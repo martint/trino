@@ -13,16 +13,35 @@
  */
 package io.trino.json;
 
+import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrJsonPath;
+import io.trino.json.ir.IrMemberAccessor;
+import io.trino.json.ir.IrPathNode;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.json.PathEvaluationException.itemTypeError;
+import static io.trino.json.PathEvaluationException.structuralError;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,6 +58,7 @@ public class JsonPathEvaluator
     private final IrJsonPath path;
     private final Invoker invoker;
     private final CachingResolver resolver;
+    private final Optional<List<String>> memberAccessorChain;
 
     public JsonPathEvaluator(IrJsonPath path, ConnectorSession session, Metadata metadata, TypeManager typeManager, FunctionManager functionManager)
     {
@@ -51,12 +71,116 @@ public class JsonPathEvaluator
         this.path = path;
         this.invoker = new Invoker(session, functionManager);
         this.resolver = new CachingResolver(metadata);
+        this.memberAccessorChain = getMemberAccessorChain(path.getRoot());
     }
 
     public List<JsonItem> evaluate(JsonItem input, JsonItem[] parameters)
     {
-        return new PathEvaluationVisitor(path.isLax(), input, parameters, invoker, resolver)
+        if (parameters.length == 0 && memberAccessorChain.isPresent()) {
+            return evaluateMemberAccessorChain(input, memberAccessorChain.get(), path.isLax());
+        }
+
+        return new PathEvaluationVisitor(
+                path.isLax(),
+                input,
+                parameters,
+                invoker,
+                resolver)
                 .process(path.getRoot(), new PathEvaluationContext());
+    }
+
+    private static Optional<List<String>> getMemberAccessorChain(IrPathNode root)
+    {
+        List<String> keys = new ArrayList<>();
+        IrPathNode current = root;
+        while (current instanceof IrMemberAccessor accessor) {
+            if (accessor.key().isEmpty()) {
+                return Optional.empty();
+            }
+            keys.add(accessor.key().orElseThrow());
+            current = accessor.base();
+        }
+        if (!(current instanceof IrContextVariable)) {
+            return Optional.empty();
+        }
+        Collections.reverse(keys);
+        return Optional.of(keys);
+    }
+
+    private static List<JsonItem> evaluateMemberAccessorChain(JsonItem input, List<String> keys, boolean lax)
+    {
+        List<JsonItem> current = List.of(input);
+        for (String key : keys) {
+            if (current.isEmpty()) {
+                return List.of();
+            }
+            if (current.size() == 1) {
+                current = selectMemberValues(current.get(0), key, lax);
+                continue;
+            }
+            List<JsonItem> nextSequence = new ArrayList<>();
+            for (JsonItem object : current) {
+                nextSequence.addAll(selectMemberValues(object, key, lax));
+            }
+            current = nextSequence;
+        }
+        return current;
+    }
+
+    /**
+     * Returns every JsonItem matching {@code key} within {@code object}. An empty result means MISSING
+     * (an absent member, possibly after lax-mode unwrapping). In strict mode, structural mismatches throw
+     * a PathEvaluationException.
+     */
+    private static List<JsonItem> selectMemberValues(JsonItem object, String key, boolean lax)
+    {
+        if (lax && object instanceof JsonArray arrayItem) {
+            List<JsonItem> outputSequence = new ArrayList<>();
+            for (JsonValue element : arrayItem.elements()) {
+                outputSequence.addAll(selectMemberValues((JsonItem) element, key, lax));
+            }
+            return outputSequence;
+        }
+
+        if (!(object instanceof JsonObject jsonObject)) {
+            if (!lax) {
+                throw itemTypeError("OBJECT", itemTypeName(object));
+            }
+            return List.of();
+        }
+
+        List<JsonItem> outputSequence = new ArrayList<>();
+        for (JsonObjectMember member : jsonObject.members()) {
+            if (member.key().equals(key)) {
+                outputSequence.add(member.value());
+            }
+        }
+        if (outputSequence.isEmpty() && !lax) {
+            throw structuralError("missing member '%s' in JSON object", key);
+        }
+        return outputSequence;
+    }
+
+    private static String itemTypeName(JsonItem object)
+    {
+        return switch (object) {
+            case JsonNull _ -> "NULL";
+            case JsonArray _ -> "ARRAY";
+            case JsonObject _ -> "OBJECT";
+            case TypedValue typedValue -> itemTypeName(typedValue);
+            default -> object.getClass().getSimpleName();
+        };
+    }
+
+    private static String itemTypeName(TypedValue typedValue)
+    {
+        Type type = typedValue.getType();
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _, DoubleType _, RealType _, DecimalType _ -> "NUMBER";
+            case VarcharType _, CharType _ -> "STRING";
+            case BooleanType _ -> "BOOLEAN";
+            default -> type.getDisplayName();
+        };
     }
 
     public static class Invoker
