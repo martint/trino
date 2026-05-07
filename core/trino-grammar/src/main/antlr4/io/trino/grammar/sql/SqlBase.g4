@@ -601,9 +601,15 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
-    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
+    // JSON is currently non-reserved, so plain function-call syntax can also start with JSON.
+    // The semantic predicates prevent JSON(...) from falling through to a generic function call
+    // These predicates can be removed if and when JSON becomes a reserved identifier.
+    | {_input.LT(1).getType() != JSON}?
+        processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
-    | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
+    | {_input.LT(1).getType() != JSON}?
+        processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
@@ -652,6 +658,10 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_SERIALIZE '('
+        jsonValueExpression
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+      ')'                                                                                 #jsonSerialize
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -1204,6 +1214,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_SERIALIZE: 'JSON_SERIALIZE';
 JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';

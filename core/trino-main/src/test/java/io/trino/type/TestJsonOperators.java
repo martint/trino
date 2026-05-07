@@ -879,17 +879,17 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.000000000000000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0.000000000000000");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e1000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e-1000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("0");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1'"))
@@ -899,12 +899,12 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '100000000000000000000000000000000000000000000000000000000000000000000e-68'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.0E0");
+                .isEqualTo("1");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.100000000000000'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.0E-1");
+                .isEqualTo("0.100000000000000");
 
         // overflow if parsed as long, no loss of precision
         assertThat(assertions.expression("cast(a as VARCHAR)")
@@ -915,25 +915,26 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '128.9'"))
                 .hasType(VARCHAR)
-                .isEqualTo("1.289E2");
+                .isEqualTo("128.9");
 
-        // smaller than minimum subnormal positive
+        // Subnormal double territory: typed NUMBER fallback preserves the arbitrary-precision value
+        // rather than underflowing to 0.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e-324'"))
                 .hasType(VARCHAR)
-                .isEqualTo("0E0");
+                .isEqualTo("1E-324");
 
-        // overflow
+        // Double-overflow territory: typed NUMBER fallback preserves the arbitrary-precision value
+        // rather than overflowing to Infinity.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("Infinity");
+                .isEqualTo("1E+309");
 
-        // underflow
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '-1e309'"))
                 .hasType(VARCHAR)
-                .isEqualTo("-Infinity");
+                .isEqualTo("-1E+309");
 
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON 'true'"))
@@ -987,6 +988,76 @@ public class TestJsonOperators
     }
 
     @Test
+    public void testCastToDate()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS DATE)"))
+                .matches("VALUES CAST(NULL AS DATE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02\"' AS DATE)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-date\"' AS DATE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTime()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIME(3))"))
+                .matches("VALUES CAST(NULL AS TIME(3))");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"03:04:05.123\"' AS TIME(3))"))
+                .matches("VALUES TIME '03:04:05.123'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-time\"' AS TIME(3))"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimeWithTimeZone()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIME(3) WITH TIME ZONE)"))
+                .matches("VALUES CAST(NULL AS TIME(3) WITH TIME ZONE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"03:04:05.123+08:00\"' AS TIME(3) WITH TIME ZONE)"))
+                .matches("VALUES TIME '03:04:05.123 +08:00'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-time\"' AS TIME(3) WITH TIME ZONE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimestamp()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIMESTAMP(3))"))
+                .matches("VALUES CAST(NULL AS TIMESTAMP(3))");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02 03:04:05.123\"' AS TIMESTAMP(3))"))
+                .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.123'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-timestamp\"' AS TIMESTAMP(3))"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTimestampWithTimeZone()
+    {
+        assertThat(assertions.query("SELECT CAST(JSON 'null' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .matches("VALUES CAST(NULL AS TIMESTAMP(3) WITH TIME ZONE)");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"2024-01-02 03:04:05.123 UTC\"' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 03:04:05.123 UTC'");
+
+        assertThat(assertions.query("SELECT CAST(JSON '\"not-a-timestamp\"' AS TIMESTAMP(3) WITH TIME ZONE)"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
     public void testEquals()
     {
         assertThat(assertions.operator(EQUAL, "JSON '{\"a\": \"1.1\", \"b\": \"2.3\", \"c\": {\"d\": \"314E-2\" }}'", "JSON '{\"a\": \"1.1\", \"b\": \"2.3\", \"c\": {\"d\": \"314E-2\" }}'"))
@@ -1015,6 +1086,72 @@ public class TestJsonOperators
 
         assertThat(assertions.operator(EQUAL, "JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}'", "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'"))
                 .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "JSON '1'", "JSON '1.0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "JSON '1'", "JSON '1e0'"))
+                .isEqualTo(true);
+
+        // Integers that overflow DECIMAL(38) precision are stored as NUMBER items; they
+        // compare equal to same-magnitude decimals regardless of the textual trailing-zero
+        // form (SQL:2023 §8.2 GR 10).
+        assertThat(assertions.operator(EQUAL,
+                "JSON '99999999999999999999999999999999999999999'",
+                "JSON '99999999999999999999999999999999999999999.0'"))
+                .isEqualTo(true);
+
+        // PAD SPACE string equality: JSON-stored character-string items with equal
+        // non-trailing content compare equal regardless of trailing spaces
+        // (SQL:2023 §8.2 GR 10 with PAD SPACE collation).
+        assertThat(assertions.operator(EQUAL, "JSON '\"ab   \"'", "JSON '\"ab\"'"))
+                .isEqualTo(true);
+
+        // CHAR and VARCHAR items carry distinct typed tags but compare PAD-SPACE-equal
+        // when their non-trailing content matches.
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(CAST('ab' AS CHAR(5)))",
+                "json_scalar(CAST('ab' AS VARCHAR))"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(CAST('ab' AS CHAR(3)))",
+                "json_scalar(CAST('ab' AS CHAR(5)))"))
+                .isEqualTo(true);
+
+        // Cross-type non-finite numeric equality: +Infinity and -Infinity compare equal
+        // across REAL and DOUBLE; NaN compares equal to NaN (Trino's general DOUBLE/REAL
+        // convention for hashing and bucketing; see the release notes).
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL 'Infinity')",
+                "json_scalar(DOUBLE 'Infinity')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL '-Infinity')",
+                "json_scalar(DOUBLE '-Infinity')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(REAL 'NaN')",
+                "json_scalar(DOUBLE 'NaN')"))
+                .isEqualTo(true);
+        assertThat(assertions.operator(EQUAL,
+                "json_scalar(DOUBLE 'Infinity')",
+                "json_scalar(DOUBLE '-Infinity')"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "JSON '{\"a\":1,\"a\":2}'", "JSON '{\"a\":2}'"))
+                .isEqualTo(false);
+    }
+
+    @Test
+    public void testSemanticEqualityAndDistinct()
+    {
+        // Typed-item storage preserves duplicate object keys in canonical text form.
+        assertThat(assertions.execute("SELECT json_format(JSON '{\"a\":1,\"a\":2}')").getOnlyValue())
+                .isEqualTo("{\"a\":1,\"a\":2}");
+
+        // DISTINCT uses SQL/JSON semantic equality: JSON '1' and JSON '1.0' are one value.
+        assertThat(assertions.query("SELECT count(DISTINCT x) FROM (VALUES JSON '1', JSON '1.0') t(x)"))
+                .matches("VALUES BIGINT '1'");
     }
 
     @Test
@@ -1119,6 +1256,61 @@ public class TestJsonOperators
                 .binding("a", "TIMESTAMP '1970-01-01 00:00:01'"))
                 .hasType(JSON)
                 .isEqualTo(format("\"%s\"", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
+    }
+
+    @Test
+    public void testCastFromTime()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as time)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+    }
+
+    @Test
+    public void testCastFromTimeWithTimeZone()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as time with time zone)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIME '03:04:05.123 +08:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123+08:00\"");
+    }
+
+    @Test
+    public void testCastFromTimestampWithTimeZone()
+    {
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "cast(null as timestamp with time zone)"))
+                .isNull(JSON);
+
+        assertThat(assertions.expression("cast(a as JSON)")
+                .binding("a", "TIMESTAMP '2024-01-02 03:04:05.123 UTC'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123 UTC\"");
+    }
+
+    @Test
+    public void testCastContainersWithDatetimeScalars()
+    {
+        assertThat(assertions.expression("CAST(ARRAY[TIME '03:04:05.123', NULL] AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo("[\"03:04:05.123\",null]");
+
+        assertThat(assertions.expression("CAST(MAP(ARRAY['time'], ARRAY[TIME '03:04:05.123 +08:00']) AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo("{\"time\":\"03:04:05.123+08:00\"}");
+
+        assertThat(assertions.expression("CAST(CAST(ROW(TIMESTAMP '2024-01-02 03:04:05.123 UTC') AS ROW(ts TIMESTAMP(3) WITH TIME ZONE)) AS JSON)"))
+                .hasType(JSON)
+                .isEqualTo("{\"ts\":\"2024-01-02 03:04:05.123 UTC\"}");
     }
 
     @Test

@@ -89,6 +89,7 @@ public final class JsonDecodingUtils
     private static final RealDecoder REAL_DECODER = new RealDecoder();
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
+    private static final JsonTypeDecoder JSON_TYPE_DECODER = new JsonTypeDecoder();
     private static final VariantJsonDecoder VARIANT_JSON_DECODER = new VariantJsonDecoder();
     private static final VariantBinaryDecoder VARIANT_BINARY_DECODER = new VariantBinaryDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
@@ -127,6 +128,8 @@ public final class JsonDecodingUtils
                 return REAL_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
+            case JSON:
+                return JSON_TYPE_DECODER;
             case VARIANT:
                 return supportsVariantBinary ? VARIANT_BINARY_DECODER : VARIANT_JSON_DECODER;
             case ARRAY:
@@ -136,7 +139,6 @@ public final class JsonDecodingUtils
             case ROW:
                 return new RowDecoder(signature, supportsVariantBinary);
             case VARCHAR:
-            case JSON:
             case TIME:
             case TIME_WITH_TIME_ZONE:
             case TIMESTAMP:
@@ -351,6 +353,62 @@ public final class JsonDecodingUtils
                 throw illegalToken(parser);
             }
             return EncodedVariant.fromBytes(metadataBytes, valueBytes);
+        }
+    }
+
+    private static class JsonTypeDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+                // Legacy wire form: JSON text only, no typed-item envelope. Normalize to a
+                // JsonColumnValue so every path returns the same user-visible type regardless
+                // of whether the server negotiated JSON_PARSED_ITEM_ENCODING.
+                return JsonColumnValue.fromJsonText(parser.getValueAsString());
+            }
+            if (parser.currentToken() != START_OBJECT) {
+                throw illegalToken(parser);
+            }
+
+            String jsonText = null;
+            byte[] typedItemEncoding = null;
+            while (true) {
+                switch (parser.nextToken()) {
+                    case FIELD_NAME:
+                        String fieldName = parser.getValueAsString();
+                        JsonToken valueToken = requireNonNull(parser.nextToken(), "valueToken is null");
+                        switch (fieldName) {
+                            case "text":
+                                if (valueToken != JsonToken.VALUE_STRING) {
+                                    throw illegalToken(parser);
+                                }
+                                jsonText = parser.getValueAsString();
+                                break;
+                            case "item":
+                                if (valueToken == JsonToken.VALUE_NULL) {
+                                    typedItemEncoding = null;
+                                    break;
+                                }
+                                if (valueToken != JsonToken.VALUE_STRING) {
+                                    throw illegalToken(parser);
+                                }
+                                typedItemEncoding = parser.getBinaryValue();
+                                break;
+                            default:
+                                parser.skipChildren();
+                                break;
+                        }
+                        break;
+                    case END_OBJECT:
+                        checkArgument(jsonText != null, "Missing text field for JSON value");
+                        return typedItemEncoding == null ? JsonColumnValue.fromJsonText(jsonText) : JsonColumnValue.fromJsonText(jsonText, typedItemEncoding);
+                    default:
+                        throw illegalToken(parser);
+                }
+            }
         }
     }
 

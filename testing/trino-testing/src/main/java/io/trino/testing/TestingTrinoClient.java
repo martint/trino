@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.client.EncodedVariant;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
+import io.trino.client.JsonColumnValue;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.ResultRows;
 import io.trino.client.Row;
@@ -334,6 +335,9 @@ public class TestingTrinoClient
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
         if (type == JSON) {
+            if (value instanceof JsonColumnValue jsonValue) {
+                return jsonValue.jsonText();
+            }
             //noinspection RedundantCast
             return (String) value;
         }

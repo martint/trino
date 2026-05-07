@@ -16,6 +16,8 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.json.JsonDateTimeTemplate;
+import io.trino.json.XQueryRegex;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.TrinoException;
@@ -69,7 +71,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -82,7 +83,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPathAnalyzer
@@ -254,8 +255,19 @@ public class JsonPathAnalyzer
             if (sourceType != null && !isCharacterStringType(sourceType)) {
                 throw semanticException(INVALID_PATH, pathNode, "JSON path datetime() method requires character string argument (found %s)", sourceType.getDisplayName());
             }
-            // TODO process the format template, record the processed format, and deduce the returned type
-            throw semanticException(NOT_SUPPORTED, pathNode, "datetime method in JSON path is not yet supported");
+            if (node.getFormat().isPresent()) {
+                JsonDateTimeTemplate template;
+                try {
+                    template = JsonDateTimeTemplate.parse(node.getFormat().get());
+                }
+                catch (IllegalArgumentException e) {
+                    throw semanticException(INVALID_PATH, pathNode, e, "invalid datetime() format template in JSON path: %s", e.getMessage());
+                }
+                types.put(PathNodeRef.of(node), template.getType());
+                return template.getType();
+            }
+
+            return null;
         }
 
         @Override
@@ -377,7 +389,7 @@ public class JsonPathAnalyzer
                 throw semanticException(INVALID_PATH, pathNode, "no value passed for parameter %s", node.getName());
             }
 
-            if (parameterType.equals(JSON_2016)) {
+            if (parameterType.equals(JSON)) {
                 jsonParameters.add(PathNodeRef.of(node));
                 return null;
             }
@@ -471,11 +483,22 @@ public class JsonPathAnalyzer
         @Override
         protected Type visitLikeRegexPredicate(LikeRegexPredicate node, Void context)
         {
-            throw semanticException(NOT_SUPPORTED, pathNode, "like_regex predicate in JSON path is not yet supported");
-            // TODO when like_regex is supported, this method should do the following:
-            // process(node.getPath());
-            // types.put(PathNodeRef.of(node), BOOLEAN);
-            // return BOOLEAN;
+            process(node.getPath());
+            String flags = node.getFlag().orElse("");
+            try {
+                XQueryRegex.validateFlags(flags);
+            }
+            catch (IllegalArgumentException e) {
+                throw semanticException(INVALID_PATH, pathNode, e, "invalid like_regex flags in JSON path: %s", e.getMessage());
+            }
+            try {
+                XQueryRegex.patternWithFlags(node.getPattern(), flags);
+            }
+            catch (IllegalArgumentException e) {
+                throw semanticException(INVALID_PATH, pathNode, e, "invalid like_regex pattern in JSON path: %s", e.getMessage());
+            }
+            types.put(PathNodeRef.of(node), BOOLEAN);
+            return BOOLEAN;
         }
 
         @Override

@@ -13,7 +13,7 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.json.JsonItem;
 import io.trino.spi.Page;
 
 public interface JsonTableProcessingFragment
@@ -27,7 +27,7 @@ public interface JsonTableProcessingFragment
      * @param input the input Page currently processed by json_table function
      * @param position the currently processed position in the input page
      */
-    void reset(JsonNode item, Page input, int position);
+    void reset(JsonItem item, Page input, int position);
 
     /**
      * Prepares the root Fragment to produce rows for the new JSON item and new set of path parameters.
@@ -38,7 +38,7 @@ public interface JsonTableProcessingFragment
      * @param position the currently processed position in the input page
      * @param pathParameters JSON path parameters for the top-level JSON path
      */
-    default void resetRoot(JsonNode item, Page input, int position, Object[] pathParameters)
+    default void resetRoot(JsonItem item, Page input, int position, JsonItem[] pathParameters)
     {
         throw new IllegalStateException("not the root fragment");
     }

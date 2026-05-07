@@ -27,6 +27,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
@@ -52,7 +53,7 @@ public class JsonToArrayCast
         extends SqlScalarFunction
 {
     public static final JsonToArrayCast JSON_TO_ARRAY = new JsonToArrayCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToArrayCast.class, "toArray", ArrayType.class, BlockBuilderAppender.class, JsonPayload.class);
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
@@ -85,9 +86,15 @@ public class JsonToArrayCast
     }
 
     @UsedByGeneratedCode
-    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, Slice json)
+    public static Block toArray(ArrayType arrayType, BlockBuilderAppender arrayAppender, JsonPayload json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
+        return toArrayFromText(arrayType, arrayAppender, json.payload());
+    }
+
+    @UsedByGeneratedCode
+    public static Block toArrayFromText(ArrayType arrayType, BlockBuilderAppender arrayAppender, Slice payload)
+    {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, payload)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 if (jsonParser.nextToken() != null) {
@@ -105,10 +112,10 @@ public class JsonToArrayCast
             return arrayType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(payload)), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", arrayType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", arrayType, truncateIfNecessaryForErrorMessage(payload)), e);
         }
     }
 }

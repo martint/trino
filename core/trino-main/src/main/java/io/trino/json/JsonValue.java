@@ -1,0 +1,32 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.json;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+/// A materialized SQL/JSON value. Unlike execution-only sentinels and storage wrappers, this
+/// represents an actual SQL/JSON value.
+///
+/// Equality and hashing across the [JsonItem] hierarchy follow the default Java contract —
+/// structural equality on records. For SQL/JSON equivalence (cross-type numeric, PAD SPACE
+/// strings, multiset object members, non-finite-by-kind), use
+/// [JsonItemSemantics#equals(JsonItem, JsonItem)] and [JsonItemSemantics#hash(JsonItem)].
+@JsonSerialize(using = JsonValueSerializer.class)
+@JsonDeserialize(using = JsonValueDeserializer.class)
+public sealed interface JsonValue
+        extends JsonItem
+        permits JsonArray, JsonNull, JsonObject, TypedValue
+{
+}

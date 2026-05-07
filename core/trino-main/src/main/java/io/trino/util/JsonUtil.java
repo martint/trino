@@ -34,6 +34,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -48,7 +49,10 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -147,16 +151,18 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
+        Slice jsonText = JsonType.jsonText(json);
+
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass java.io.Reader or an InputStreamReader instead.
         // Despite the https://github.com/FasterXML/jackson-core/pull/1081, the below performance optimization
         // is still valid for small inputs.
-        if (json.length() < STRING_READER_LENGTH_LIMIT) {
+        if (jsonText.length() < STRING_READER_LENGTH_LIMIT) {
             // java.io.Reader is more performant than InputStreamReader for small inputs
-            return mapper.createParser(Reader.of(json.toStringUtf8()));
+            return mapper.createParser(Reader.of(jsonText.toStringUtf8()));
         }
 
-        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(jsonText.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonMapper mapper, SliceOutput output)
@@ -167,10 +173,11 @@ public final class JsonUtil
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
     {
-        if (json.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
-            return json.toStringUtf8();
+        Slice jsonText = JsonType.jsonText(json);
+        if (jsonText.length() <= MAX_JSON_LENGTH_IN_ERROR_MESSAGE) {
+            return jsonText.toStringUtf8();
         }
-        return json.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
+        return jsonText.slice(0, MAX_JSON_LENGTH_IN_ERROR_MESSAGE).toStringUtf8() + "...(truncated)";
     }
 
     public static boolean canCastToJson(Type type)
@@ -187,7 +194,10 @@ public final class JsonUtil
                 type instanceof NumberType ||
                 type instanceof VarcharType ||
                 type instanceof JsonType ||
+                type instanceof TimeType ||
+                type instanceof TimeWithTimeZoneType ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 type instanceof DateType) {
             return true;
         }
@@ -242,7 +252,8 @@ public final class JsonUtil
                 type instanceof RealType ||
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
-                type instanceof VarcharType;
+                type instanceof VarcharType ||
+                type instanceof CharType;
     }
 
     // transform the map key into string for use as JSON object key
@@ -553,7 +564,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Slice value = JSON.getSlice(block, position);
+                Slice value = JsonType.jsonText(JSON.getSlice(block, position));
                 jsonGenerator.writeRawValue(value.toStringUtf8());
             }
         }
@@ -721,14 +732,37 @@ public final class JsonUtil
     }
 
     // utility classes and functions for cast from JSON
+    /**
+     * Renders a parsed JSON number as VARCHAR, matching how the typed-item JSON→VARCHAR
+     * cast paths render values: values that fit DECIMAL(38) use plain decimal notation
+     * (preserving trailing zeros); values outside that range fall back to NumberType
+     * rendering (stripped + scientific notation via {@link BigDecimal#toString()}).
+     */
+    private static String renderBigDecimalAsVarchar(BigDecimal value)
+    {
+        if (value.scale() < 0) {
+            value = value.setScale(0);
+        }
+        int precision = Math.max(value.precision(), value.scale());
+        if (precision > Decimals.MAX_PRECISION) {
+            // NUMBER fallback: mirror TrinoNumber.toString → BigDecimal.toString (scientific for extreme magnitudes)
+            return value.stripTrailingZeros().toString();
+        }
+        return value.toPlainString();
+    }
+
     public static Slice currentTokenAsVarchar(JsonParser parser)
             throws IOException
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
             case VALUE_STRING, FIELD_NAME -> utf8Slice(parser.getText());
-            // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
+            // NaN and Infinity can't be represented as BigDecimal, fall back to DOUBLE rendering there.
+            // Otherwise, render via BigDecimal so precision and trailing zeros survive - matching how the typed JSON
+            // path renders numbers.
+            case VALUE_NUMBER_FLOAT -> parser.isNaN()
+                    ? DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue())
+                    : utf8Slice(renderBigDecimalAsVarchar(parser.getDecimalValue()));
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
             case VALUE_NUMBER_INT -> utf8Slice(parser.getText());

@@ -27,6 +27,7 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
@@ -55,7 +56,7 @@ public class JsonToMapCast
         extends SqlScalarFunction
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, JsonPayload.class);
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
@@ -89,9 +90,15 @@ public class JsonToMapCast
     }
 
     @UsedByGeneratedCode
-    public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, Slice json)
+    public static SqlMap toMap(MapType mapType, BlockBuilderAppender mapAppender, JsonPayload json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
+        return toMapFromText(mapType, mapAppender, json.payload());
+    }
+
+    @UsedByGeneratedCode
+    public static SqlMap toMapFromText(MapType mapType, BlockBuilderAppender mapAppender, Slice payload)
+    {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, payload)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 if (jsonParser.nextToken() != null) {
@@ -109,10 +116,10 @@ public class JsonToMapCast
             return mapType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(payload)), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(payload)), e);
         }
     }
 }

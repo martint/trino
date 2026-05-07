@@ -14,15 +14,18 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.EncodedVariant;
+import io.trino.client.JsonColumnValue;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.Row;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.encoding.JsonQueryDataDecoder;
+import io.trino.json.JsonItemEncoding;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import io.trino.spi.Page;
@@ -38,6 +41,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
+import io.trino.type.JsonType;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -483,8 +487,10 @@ public class TestJsonEncodingUtils
         Block block = blockBuilder.build();
 
         Page page = page(block);
+        // VARIANT degraded to JSON in the protocol type signature (sessionWithoutVariantCapabilities),
+        // so the client decoder is JsonTypeDecoder and surfaces JsonColumnValue instances.
         assertThat(roundTrip(sessionWithoutVariantCapabilities(), columns, false, page, "[[null],[\"{\\\"a\\\":1,\\\"b\\\":[true,null]}\"],[\"null\"]]"))
-                .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", "null"));
+                .isEqualTo(column(null, JsonColumnValue.fromJsonText("{\"a\":1,\"b\":[true,null]}"), JsonColumnValue.fromJsonText("null")));
     }
 
     @Test
@@ -583,7 +589,7 @@ public class TestJsonEncodingUtils
         assertThat(roundTrip(sessionWithoutVariantCapabilities(), columns, false, page, "[[[1,\"{\\\"a\\\":1,\\\"nested\\\":[true,null]}\"]]]"))
                 .containsExactly(List.of(Row.builderWithExpectedSize(2)
                         .addField("id", 1L)
-                        .addField("payload", "{\"a\":1,\"nested\":[true,null]}")
+                        .addField("payload", JsonColumnValue.fromJsonText("{\"a\":1,\"nested\":[true,null]}"))
                         .build()));
     }
 
@@ -615,9 +621,31 @@ public class TestJsonEncodingUtils
                 page,
                 "[[{\"first\":\"{\\\"a\\\":1}\",\"second\":\"null\",\"third\":null}]]").getFirst())
                 .containsExactly(map(
-                        entry("first", "{\"a\":1}"),
-                        entry("second", "null"),
+                        entry("first", JsonColumnValue.fromJsonText("{\"a\":1}")),
+                        entry("second", JsonColumnValue.fromJsonText("null")),
                         entry("third", null)));
+    }
+
+    @Test
+    public void testTypedJsonSerialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", JsonType.JSON));
+        Slice arrayValue = JsonType.jsonValue(utf8Slice("[1,2,3]"));
+        Page page = page(jsonBlock(arrayValue, null));
+
+        QueryDataEncoder encoder = newEncoder(TEST_SESSION, columns);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        encoder.encodeTo(output, List.of(page));
+
+        String payload = output.toString(UTF_8);
+        assertThat(payload).contains("\"text\":\"[1,2,3]\"");
+        assertThat(payload).contains("\"item\":");
+
+        assertThat(ImmutableList.copyOf(parseJson(columns, output.toByteArray())))
+                .containsExactly(
+                        List.of(JsonColumnValue.fromJsonText("[1,2,3]", JsonItemEncoding.encode(JsonType.jsonItem(arrayValue)).getBytes())),
+                        column((Object) null).getFirst());
     }
 
     @Test
@@ -864,6 +892,20 @@ public class TestJsonEncodingUtils
     private static Page page(Block... blocks)
     {
         return new Page(blocks);
+    }
+
+    private static Block jsonBlock(Slice... values)
+    {
+        var blockBuilder = JsonType.JSON.createBlockBuilder(null, values.length);
+        for (Slice value : values) {
+            if (value == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                JsonType.JSON.writeSlice(blockBuilder, value);
+            }
+        }
+        return blockBuilder.build();
     }
 
     private static <T> List<List<T>> column(T... values)

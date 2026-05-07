@@ -900,6 +900,45 @@ public class TestJsonTable
                         COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[42]' NULL ON EMPTY))
                 """))
                 .matches("VALUES CAST(null AS VARBINARY)");
+
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        JSON '[{"a" : true}]',
+                        'lax $'
+                        COLUMNS(a json FORMAT JSON PATH 'lax $[0]'))
+                """))
+                .matches("VALUES JSON '{\"a\":true}'");
+
+        // SQL:2023 §6.35 SR 3 forbids OMIT QUOTES on a JSON-typed return; the analyzer rejects
+        // this combination at the QueryColumn site too, since QueryColumn shares the
+        // analyzeJsonQueryExpression rule with the standalone JSON_QUERY function. The
+        // queryColumn grammar puts OMIT QUOTES after PATH and any wrapper behavior.
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        '[\"hello\"]',
+                        'lax $'
+                        COLUMNS(a json FORMAT JSON PATH 'lax $[0]' OMIT QUOTES))
+                """))
+                .failure()
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+    }
+
+    @Test
+    public void testPublicJsonInput()
+    {
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        JSON '[1, 2, 3]',
+                        'lax $[$index]' PASSING JSON '0' AS "index"
+                        COLUMNS(a integer PATH 'lax $'))
+                """))
+                .matches("VALUES 1");
     }
 
     @Test

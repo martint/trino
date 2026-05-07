@@ -40,6 +40,7 @@ public class TestVariant
     private static final Class<?> SPI_VARIANT_CLASS = loadClass("io.trino.spi.variant.Variant");
     private static final Class<?> SPI_METADATA_CLASS = loadClass("io.trino.spi.variant.Metadata");
     private static final Class<?> SPI_VARIANT_UTIL_CLASS = loadClass("io.trino.util.variant.VariantUtil");
+    private static final Class<?> SPI_JSON_TYPE_CLASS = loadClass("io.trino.type.JsonType");
 
     @Test
     public void testPrimitiveCompatibilityWithSpiVariant()
@@ -315,8 +316,11 @@ public class TestVariant
     {
         try {
             Object spiVariant = newSpiVariant(memberName, arguments);
-            Slice json = (Slice) SPI_VARIANT_UTIL_CLASS.getMethod("asJson", SPI_VARIANT_CLASS).invoke(null, spiVariant);
-            return json.toStringUtf8();
+            // VariantUtil.asJson returns the typed JSON-item binary encoding; render to canonical
+            // text via JsonType.jsonText to match the JDBC client's Variant.toJson() output.
+            Slice payload = (Slice) SPI_VARIANT_UTIL_CLASS.getMethod("asJson", SPI_VARIANT_CLASS).invoke(null, spiVariant);
+            Slice text = (Slice) SPI_JSON_TYPE_CLASS.getMethod("jsonText", Slice.class).invoke(null, payload);
+            return text.toStringUtf8();
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException("Failed to serialize SPI Variant " + memberName + " as JSON", e);

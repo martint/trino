@@ -162,6 +162,19 @@ public class TestJdbcResultSetCompatibilityOldServer
     }
 
     @Override
+    public void testJson()
+            throws Exception
+    {
+        // Trino servers prior to 481 do not negotiate the JSON_PARSED_ITEM_ENCODING capability:
+        // they emit JSON columns as legacy text (no typed-item envelope), so the JsonColumnValue
+        // surfaced by the modern decoder has no typedItemEncoding payload.
+        if (parseInt(getTestedTrinoVersion()) < 481) {
+            return;
+        }
+        super.testJson();
+    }
+
+    @Override
     protected Connection createConnection()
             throws SQLException
     {

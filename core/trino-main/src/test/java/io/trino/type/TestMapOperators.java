@@ -22,6 +22,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -97,9 +98,11 @@ public class TestMapOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static JsonPayload uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        // Pass-through: rely on lazy parsing at first read so deliberately malformed text used
+        // by these tests is rejected by the downstream cast (with TrinoException), not here.
+        return JsonPayload.of(slice);
     }
 
     @Test
@@ -332,7 +335,7 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
+                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1E+308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null])"))
@@ -388,6 +391,14 @@ public class TestMapOperators
                 .binding("a", "MAP(ARRAY[1.0], ARRAY[2.2])"))
                 .hasType(JSON)
                 .isEqualTo("{\"1.0\":2.2}");
+
+        // CHAR(n) keys: trailing PAD-SPACE storage padding is trimmed from the JSON key, so
+        // CHAR(5) 'ab' becomes the JSON key "ab" (matching what a VARCHAR 'ab' key would
+        // produce) — not "ab   " with three trailing spaces.
+        assertThat(assertions.expression("cast(a AS JSON)")
+                .binding("a", "MAP(ARRAY[CAST('ab' AS CHAR(5))], ARRAY[1])"))
+                .hasType(JSON)
+                .isEqualTo("{\"ab\":1}");
     }
 
     @Test
@@ -570,7 +581,7 @@ public class TestMapOperators
                 .hasType(mapType(BIGINT, VARCHAR))
                 .isEqualTo(asMap(
                         ImmutableList.of(1L, 2L, 3L, 5L, 8L, 13L, 21L, 34L, 55L),
-                        asList("true", "false", "12", "1.23E1", "puppies", "kittens", "null", "", null)));
+                        asList("true", "false", "12", "12.3", "puppies", "kittens", "null", "", null)));
 
         assertThat(assertions.expression("cast(a as MAP(VARCHAR, JSON))")
                 .binding("a", "JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}'"))
@@ -694,14 +705,15 @@ public class TestMapOperators
                 .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
+        // JSON object member order is preserved (typed-item model) rather than sorted.
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"1\":1,\"01\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"1\":1,\"01\":2}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations

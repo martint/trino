@@ -112,12 +112,14 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTablePlan;
 import io.trino.sql.tree.JsonValue;
@@ -7487,6 +7489,42 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonConstructor()
+    {
+        assertThat(expression("JSON(json_column)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "json_column", false),
+                        JSON));
+
+        assertThat(expression("JSON(binary_column FORMAT JSON ENCODING UTF16)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "binary_column", false),
+                        UTF16));
+    }
+
+    @Test
+    public void testJsonSerialize()
+    {
+        assertThat(expression("JSON_SERIALIZE(json_column)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(expression("JSON_SERIALIZE(binary_column FORMAT JSON ENCODING UTF16 RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "binary_column", false),
+                        UTF16,
+                        Optional.of(new GenericDataType(location(1, 67), new Identifier(location(1, 67), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32)));
     }
 
     @Test

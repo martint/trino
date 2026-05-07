@@ -191,6 +191,21 @@ public class TrinoNumber
     }
 
     @Override
+    public boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+        return other instanceof TrinoNumber that && bytes.equals(that.bytes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return bytes.hashCode();
+    }
+
+    @Override
     public String toString()
     {
         return toBigDecimal().toString();

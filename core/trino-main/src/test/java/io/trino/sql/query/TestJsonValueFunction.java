@@ -142,6 +142,14 @@ public class TestJsonValueFunction
                 .matches("VALUES VARCHAR 'b'");
 
         assertThat(assertions.query(
+                "SELECT json_value(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES VARCHAR 'b'");
+
+        assertThat(assertions.query(
+                "SELECT json_value(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES VARCHAR 'b'");
+
+        assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
                 .failure()
                 .hasErrorCode(TYPE_MISMATCH)
@@ -210,6 +218,13 @@ public class TestJsonValueFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        // Post-migration: json_array_get returns the element in canonical JSON form
+        // (string elements are quoted), so feeding it back into json_value is a valid JSON
+        // input and the path matches the string scalar.
+        assertThat(assertions.query(
+                "SELECT json_value(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .matches("VALUES VARCHAR 'jhfa'");
     }
 
     @Test
@@ -229,6 +244,14 @@ public class TestJsonValueFunction
         // JSON parameter
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
                 .matches("VALUES VARCHAR '1'");
 
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause
@@ -278,6 +301,26 @@ public class TestJsonValueFunction
                 "SELECT json_value('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('b' AS char(10))");
 
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime()' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 UTC\"', 'lax $.datetime()' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 UTC'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYY-MM-DD\")' RETURNING date)"))
+                .matches("VALUES DATE '2024-01-02'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02 12:34:56.789 +05:30\"', 'lax $.datetime(\"YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM\")' RETURNING timestamp(3) with time zone)"))
+                .matches("VALUES TIMESTAMP '2024-01-02 12:34:56.789 +05:30'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"12:34:56.789+05:30\"', 'lax $.datetime(\"HH24:MI:SS.FF3TZH:TZM\")' RETURNING time(3) with time zone)"))
+                .matches("VALUES TIME '12:34:56.789+05:30'");
+
         // the actual value does not fit in the expected returned type. the error is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000' RETURNING tinyint)"))
@@ -299,6 +342,12 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000000000000 * 1000000000000' RETURNING bigint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES BIGINT '-1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('\"2024-01-02\"', 'lax $.datetime(\"YYYYRR\")')"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:35: invalid datetime() format template in JSON path: datetime() format template cannot contain both year and rounded year fields");
     }
 
     @Test
