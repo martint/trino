@@ -70,10 +70,9 @@ public class TestJsonObjectFunction
     @Test
     public void testMultipleMembers()
     {
-        // the order of members in the result JSON object is arbitrary
         assertThat(assertions.query(
                 "SELECT json_object('key_1' : 1, 'key_2' : 2)"))
-                .matches("VALUES VARCHAR '{\"key_2\":2,\"key_1\":1}'");
+                .matches("VALUES VARCHAR '{\"key_1\":1,\"key_2\":2}'");
     }
 
     @Test
@@ -108,19 +107,14 @@ public class TestJsonObjectFunction
     @Test
     public void testDuplicateKey()
     {
-        // we don't support it because it requires creating a JSON object with duplicate key
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITHOUT UNIQUE KEYS)"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("cannot construct a JSON object with duplicate key");
+                .matches("VALUES VARCHAR '{\"key\":1,\"key\":2}'");
 
         // WITHOUT UNIQUE KEYS is the default option
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2)"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("cannot construct a JSON object with duplicate key");
+                .matches("VALUES VARCHAR '{\"key\":1,\"key\":2}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITH UNIQUE KEYS)"))
@@ -137,6 +131,14 @@ public class TestJsonObjectFunction
                 "SELECT json_object('key' : '[ 1, true, \"a\", null ]' FORMAT JSON)"))
                 .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
 
+        assertThat(assertions.query(
+                "SELECT json_object('key' : JSON '[ 1, true, \"a\", null ]' FORMAT JSON)"))
+                .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : JSON '[ 1, true, \"a\", null ]')"))
+                .matches("VALUES VARCHAR '{\"key\":[1,true,\"a\",null]}'");
+
         // binary string to be read as JSON
         byte[] bytes = "{\"a\" : 1}".getBytes(UTF_16LE);
         String varbinaryLiteral = "X'" + base16().encode(bytes) + "'";
@@ -150,21 +152,38 @@ public class TestJsonObjectFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
-        // duplicate key inside the formatted value: only one entry is retained
+        // duplicate key inside the formatted value is preserved
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON)"))
-                .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+                .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITHOUT UNIQUE KEYS)"))
-                .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+                .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
 
-        // in presence of input value with FORMAT, the option WITH UNIQUE KEYS is not supported, because the input function does not support this semantics
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITH UNIQUE KEYS)"))
                 .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : '[{\"a\" : 1, \"a\" : 1}]' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        // depth-3 nested object with a duplicated key at the inner-most level
+        assertThat(assertions.query(
+                "SELECT json_object('outer' : '{\"middle\" : {\"inner\" : {\"a\" : 1, \"a\" : 2}}}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+
+        // depth-3 nested object without duplicates passes
+        assertThat(assertions.query(
+                "SELECT json_object('outer' : '{\"middle\" : {\"inner\" : {\"a\" : 1, \"b\" : 2}}}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .matches("VALUES VARCHAR '{\"outer\":{\"middle\":{\"inner\":{\"a\":1,\"b\":2}}}}'");
     }
 
     @Test
@@ -197,6 +216,12 @@ public class TestJsonObjectFunction
         assertThat(assertions.query(
                 "SELECT json_object('key' : json_object('a' : 1))"))
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : json_object('a' : 1, 'a' : 2) WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
     }
 
     @Test
@@ -225,8 +250,17 @@ public class TestJsonObjectFunction
                 .matches("VALUES VARCHAR '{\"key\":1}'");
 
         assertThat(assertions.query(
+                "SELECT json_object('key' : 1 RETURNING json)"))
+                .matches("VALUES JSON '{\"key\":1}'");
+
+        assertThat(assertions.query(
                 "SELECT json_object('key' : 1 RETURNING varchar(100))"))
                 .matches("VALUES CAST('{\"key\":1}' AS varchar(100))");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : 1 RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // varbinary output
         String output = "{\"key\":1}";

@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_QUERY_RESULT_ERROR;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
@@ -129,8 +130,8 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $[0 to 2]' ERROR ON ERROR)"))
                 .failure()
-                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
-                .hasMessage("conversion from JSON failed: JSON path found multiple items");
+                .hasErrorCode(JSON_QUERY_RESULT_ERROR)
+                .hasMessage("JSON_QUERY result error: path produced multiple items without a wrapper");
     }
 
     @Test
@@ -144,6 +145,14 @@ public class TestJsonQueryFunction
         // FORMAT JSON is the only supported format for character string input
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $[1]')"))
+                .matches("VALUES VARCHAR '\"b\"'");
+
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
                 .matches("VALUES VARCHAR '\"b\"'");
 
         assertThat(assertions.query(
@@ -215,6 +224,13 @@ public class TestJsonQueryFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
+
+        // Post-migration: json_array_get returns the element in canonical JSON form, so
+        // feeding it back into json_query is a valid JSON input and the path matches the
+        // string scalar (returned as a quoted JSON string).
+        assertThat(assertions.query(
+                "SELECT json_query(json_array_get('[\"jhfa\"]', 0), 'lax $' ERROR ON ERROR)"))
+                .matches("VALUES VARCHAR '\"jhfa\"'");
     }
 
     @Test
@@ -234,6 +250,14 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[1, 2, 3]' FORMAT JSON AS \"array\")"))
                 .matches("VALUES VARCHAR '1'");
 
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' FORMAT JSON AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING JSON '[1, 2, 3]' AS \"array\")"))
+                .matches("VALUES VARCHAR '1'");
+
         // input conversion error of JSON parameter is handled accordingly to the ON ERROR clause
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
@@ -250,10 +274,10 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        // parameter cannot be converted to JSON -- returns null, because NULL ON ERROR is implicit
+        // non-JSON-native scalar parameter is rendered as a JSON string of its canonical SQL text
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
+                .matches("VALUES cast('\"2001-01-31\"' AS varchar)");
 
         // parameter cast to varchar
         assertThat(assertions.query(
@@ -273,6 +297,11 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax 1')"))
                 .matches("VALUES VARCHAR '1'");
 
+        // datetime scalars render as JSON strings using the type's canonical SQL form
+        assertThat(assertions.query(
+                "SELECT json_query('\"2024-01-02\"', 'lax $.datetime()')"))
+                .matches("VALUES cast('\"2024-01-02\"' AS varchar)");
+
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax true' RETURNING varchar FORMAT JSON)"))
                 .matches("VALUES VARCHAR 'true'");
@@ -286,6 +315,16 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('\"b\"' AS char(10))");
 
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $' RETURNING json)"))
+                .matches("VALUES JSON '[\"a\",\"b\",\"c\"]'");
+
+        // SQL:2023 §6.35 SR 3: OMIT QUOTES is not permitted when the returned type is JSON.
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' RETURNING json OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasMessage("line 1:8: OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON (SQL:2023 §6.35 SR 3)");
+
         // truncating cast from varchar to expected returned type
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax \"text too long\"' RETURNING char(10))"))
@@ -295,6 +334,11 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax 1' RETURNING tinyint)"))
                 .failure().hasMessage("line 1:8: Cannot output JSON value as tinyint using formatting JSON");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $' RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // returned type varbinary
 

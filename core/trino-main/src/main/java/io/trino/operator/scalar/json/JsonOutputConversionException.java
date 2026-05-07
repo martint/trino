@@ -27,6 +27,6 @@ public class JsonOutputConversionException
 
     public JsonOutputConversionException(Throwable cause)
     {
-        super(JSON_OUTPUT_CONVERSION_ERROR, "conversion from JSON failed: ", cause);
+        super(JSON_OUTPUT_CONVERSION_ERROR, "conversion from JSON failed: " + cause.getMessage(), cause);
     }
 }

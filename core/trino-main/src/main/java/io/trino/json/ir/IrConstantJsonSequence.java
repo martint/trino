@@ -13,8 +13,8 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonValue;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -22,20 +22,20 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
+public record IrConstantJsonSequence(List<JsonValue> sequence, Optional<Type> type)
         implements IrPathNode
 {
     public static final IrConstantJsonSequence EMPTY_SEQUENCE = new IrConstantJsonSequence(ImmutableList.of(), Optional.empty());
 
-    public static IrConstantJsonSequence singletonSequence(JsonNode jsonNode, Optional<Type> type)
+    public static IrConstantJsonSequence singletonSequence(JsonValue item, Optional<Type> type)
     {
-        return new IrConstantJsonSequence(ImmutableList.of(jsonNode), type);
+        return new IrConstantJsonSequence(ImmutableList.of(item), type);
     }
 
-    public IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
+    public IrConstantJsonSequence
     {
-        this.type = requireNonNull(type, "type is null");
-        this.sequence = ImmutableList.copyOf(sequence);
+        sequence = ImmutableList.copyOf(requireNonNull(sequence, "sequence is null"));
+        requireNonNull(type, "type is null");
     }
 
     @Override

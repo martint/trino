@@ -91,6 +91,14 @@ public class TestJsonArrayFunction
                 "SELECT json_array('{\"a\" : 1}' FORMAT JSON)"))
                 .matches("VALUES VARCHAR '[{\"a\":1}]'");
 
+        assertThat(assertions.query(
+                "SELECT json_array(JSON '{\"a\" : 1}' FORMAT JSON)"))
+                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+
+        assertThat(assertions.query(
+                "SELECT json_array(JSON '{\"a\" : 1}')"))
+                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+
         // binary string to be read as JSON
         byte[] bytes = "{\"a\" : 1}".getBytes(UTF_16LE);
         String varbinaryLiteral = "X'" + base16().encode(bytes) + "'";
@@ -104,10 +112,10 @@ public class TestJsonArrayFunction
                 .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
-        // duplicate key inside the formatted element: only one entry is retained
+        // duplicate keys inside the formatted element are preserved
         assertThat(assertions.query(
                 "SELECT json_array('{\"a\" : 1, \"a\" : 1}' FORMAT JSON)"))
-                .matches("VALUES VARCHAR '[{\"a\":1}]'");
+                .matches("VALUES VARCHAR '[{\"a\":1,\"a\":1}]'");
     }
 
     @Test
@@ -168,8 +176,17 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[true]'");
 
         assertThat(assertions.query(
+                "SELECT json_array(true RETURNING json)"))
+                .matches("VALUES JSON '[true]'");
+
+        assertThat(assertions.query(
                 "SELECT json_array(true RETURNING varchar(100))"))
                 .matches("VALUES CAST('[true]' AS varchar(100))");
+
+        assertThat(assertions.query(
+                "SELECT json_array(true RETURNING json FORMAT JSON ENCODING UTF8)"))
+                .failure()
+                .hasMessage("line 1:8: Cannot output JSON value as json using formatting JSON ENCODING UTF8");
 
         // varbinary output
         String output = "[true]";

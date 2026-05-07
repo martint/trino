@@ -13,15 +13,7 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
@@ -51,19 +43,27 @@ import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
-import io.trino.json.ir.JsonLiteralConversionException;
-import io.trino.json.ir.SqlJsonLiteralConverter;
-import io.trino.json.ir.TypedValue;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -76,19 +76,23 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
-import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.json.PathEvaluationException.itemTypeError;
 import static io.trino.json.PathEvaluationException.structuralError;
+import static io.trino.json.PathEvaluationUtil.normalize;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
-import static io.trino.json.ir.SqlJsonLiteralConverter.getTextTypedValue;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingLong;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingLongShort;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingShort;
@@ -102,67 +106,75 @@ import static io.trino.operator.scalar.MathFunctions.absTinyint;
 import static io.trino.operator.scalar.MathFunctions.ceilingReal;
 import static io.trino.operator.scalar.MathFunctions.floorReal;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.DateTimes.extractTimePrecision;
+import static io.trino.type.DateTimes.extractTimestampPrecision;
+import static io.trino.type.DateTimes.parseTime;
+import static io.trino.type.DateTimes.parseTimeWithTimeZone;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.DateTimes.timeHasTimeZone;
+import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.DecimalCasts.longDecimalToDouble;
 import static io.trino.type.DecimalCasts.shortDecimalToDouble;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class PathEvaluationVisitor
-        extends IrJsonPathVisitor<List<Object>, PathEvaluationContext>
+        extends IrJsonPathVisitor<List<JsonItem>, PathEvaluationContext>
 {
     private final boolean lax;
-    private final JsonNode input;
-    private final Object[] parameters;
+    private final JsonItem input;
+    private final JsonItem[] parameters;
     private final PathPredicateEvaluationVisitor predicateVisitor;
     private final Invoker invoker;
     private final CachingResolver resolver;
     private int objectId;
 
-    public PathEvaluationVisitor(boolean lax, JsonNode input, Object[] parameters, Invoker invoker, CachingResolver resolver)
+    public PathEvaluationVisitor(boolean lax, JsonItem input, JsonItem[] parameters, ConnectorSession session, Invoker invoker, CachingResolver resolver)
     {
         this.lax = lax;
         this.input = requireNonNull(input, "input is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
+        requireNonNull(session, "session is null");
         this.invoker = requireNonNull(invoker, "invoker is null");
         this.resolver = requireNonNull(resolver, "resolver is null");
         this.predicateVisitor = new PathPredicateEvaluationVisitor(lax, this, invoker, resolver);
     }
 
     @Override
-    protected List<Object> visitIrPathNode(IrPathNode node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrPathNode(IrPathNode node, PathEvaluationContext context)
     {
         throw new UnsupportedOperationException("JSON path evaluating visitor not implemented for " + node.getClass().getSimpleName());
     }
 
     @Override
-    protected List<Object> visitIrAbsMethod(IrAbsMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrAbsMethod(IrAbsMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            TypedValue value;
-            if (object instanceof JsonNode jsonNode) {
-                value = getNumericTypedValue(jsonNode)
-                        .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-            }
-            else {
-                value = (TypedValue) object;
-            }
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = getNumericTypedValue(object);
             outputSequence.add(getAbsoluteValue(value));
         }
 
@@ -264,15 +276,25 @@ class PathEvaluationVisitor
             }
             return typedValue;
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.abs());
+                case TrinoNumber.Infinity _ ->
+                        TrinoNumber.from(new TrinoNumber.Infinity(false));
+                case TrinoNumber.NotANumber _ -> number;
+            });
+        }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
     }
 
     @Override
-    protected List<Object> visitIrArithmeticBinary(IrArithmeticBinary node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrArithmeticBinary(IrArithmeticBinary node, PathEvaluationContext context)
     {
-        List<Object> leftSequence = process(node.left(), context);
-        List<Object> rightSequence = process(node.right(), context);
+        List<JsonItem> leftSequence = process(node.left(), context);
+        List<JsonItem> rightSequence = process(node.right(), context);
 
         if (lax) {
             leftSequence = unwrapArrays(leftSequence);
@@ -283,32 +305,15 @@ class PathEvaluationVisitor
             throw new PathEvaluationException("arithmetic binary expression requires singleton operands");
         }
 
-        TypedValue left;
-        Object leftObject = getOnlyElement(leftSequence);
-        if (leftObject instanceof JsonNode jsonNode) {
-            left = getNumericTypedValue(jsonNode)
-                    .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-        }
-        else {
-            left = (TypedValue) leftObject;
-        }
-
-        TypedValue right;
-        Object rightObject = getOnlyElement(rightSequence);
-        if (rightObject instanceof JsonNode jsonNode) {
-            right = getNumericTypedValue(jsonNode)
-                    .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-        }
-        else {
-            right = (TypedValue) rightObject;
-        }
+        TypedValue left = requireScalar(getOnlyElement(leftSequence));
+        TypedValue right = requireScalar(getOnlyElement(rightSequence));
 
         ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(node.operator().name()), left.getType(), right.getType());
         if (operators == RESOLUTION_ERROR) {
             throw new PathEvaluationException(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
         }
 
-        Object leftInput = left.getValueAsObject();
+        Object leftInput = left.value();
         if (operators.getLeftCoercion().isPresent()) {
             try {
                 leftInput = invoker.invoke(operators.getLeftCoercion().get(), ImmutableList.of(leftInput));
@@ -318,7 +323,7 @@ class PathEvaluationVisitor
             }
         }
 
-        Object rightInput = right.getValueAsObject();
+        Object rightInput = right.value();
         if (operators.getRightCoercion().isPresent()) {
             try {
                 rightInput = invoker.invoke(operators.getRightCoercion().get(), ImmutableList.of(rightInput));
@@ -340,28 +345,17 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrArithmeticUnary(IrArithmeticUnary node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrArithmeticUnary(IrArithmeticUnary node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            TypedValue value;
-            if (object instanceof JsonNode jsonNode) {
-                value = getNumericTypedValue(jsonNode)
-                        .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-            }
-            else {
-                value = (TypedValue) object;
-                Type type = value.getType();
-                if (!type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT) && !type.equals(DOUBLE) && !type.equals(REAL) && !(type instanceof DecimalType)) {
-                    throw itemTypeError("NUMBER", type.getDisplayName());
-                }
-            }
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = getNumericTypedValue(object);
             if (node.sign() == PLUS) {
                 outputSequence.add(value);
             }
@@ -441,38 +435,55 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrArrayAccessor(IrArrayAccessor node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrArrayAccessor(IrArrayAccessor node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            List<Object> elements;
-            if (object instanceof JsonNode jsonNode) {
-                if (jsonNode.isArray()) {
-                    elements = ImmutableList.copyOf(jsonNode.elements());
-                }
-                else if (lax) {
-                    elements = ImmutableList.of(object);
-                }
-                else {
-                    throw itemTypeError("ARRAY", ((JsonNode) object).getNodeType().name());
-                }
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem item : sequence) {
+            JsonItem normalized = normalize(item);
+
+            // Determine the array source: typed-encoding view, materialized item, or
+            // lax-mode wrap. Each supplies a size and an int-indexed element accessor
+            // so subscript evaluation can fetch only the indices it needs.
+            int size;
+            IntFunction<JsonItem> elementAt;
+            Optional<JsonValueView> view = JsonValueView.fromObject(normalized);
+            if (view.isPresent() && view.orElseThrow().isArray()) {
+                JsonValueView arrayView = view.orElseThrow();
+                size = arrayView.arraySize();
+                elementAt = arrayView::arrayElement;
+            }
+            else if (normalized instanceof JsonArray array) {
+                List<JsonValue> elements = array.elements();
+                size = elements.size();
+                elementAt = i -> (JsonItem) elements.get(i);
             }
             else if (lax) {
-                elements = ImmutableList.of(object);
+                JsonItem fixed = normalized;
+                size = 1;
+                elementAt = _ -> fixed;
             }
             else {
-                throw itemTypeError("ARRAY", ((TypedValue) object).getType().getDisplayName());
+                throw itemTypeError("ARRAY", itemTypeName(normalized));
             }
 
-            // handle wildcard accessor
+            // Wildcard accessor: emit every element. For typed-encoding views,
+            // forEachArrayElement is the cache-friendly walk; for materialized sources, the
+            // by-index fetch is fine since they are list-backed.
             if (node.subscripts().isEmpty()) {
-                outputSequence.addAll(elements);
+                if (view.isPresent() && view.orElseThrow().isArray()) {
+                    view.orElseThrow().forEachArrayElement(outputSequence::add);
+                }
+                else {
+                    for (int i = 0; i < size; i++) {
+                        outputSequence.add(elementAt.apply(i));
+                    }
+                }
                 continue;
             }
 
-            if (elements.isEmpty()) {
+            if (size == 0) {
                 if (!lax) {
                     throw structuralError("invalid array subscript for empty array");
                 }
@@ -480,10 +491,10 @@ class PathEvaluationVisitor
                 continue;
             }
 
-            PathEvaluationContext arrayContext = context.withLast(elements.size() - 1);
+            PathEvaluationContext arrayContext = context.withLast(size - 1);
             for (IrArrayAccessor.Subscript subscript : node.subscripts()) {
-                List<Object> from = process(subscript.from(), arrayContext);
-                Optional<List<Object>> to = subscript.to().map(path -> process(path, arrayContext));
+                List<JsonItem> from = process(subscript.from(), arrayContext);
+                Optional<List<JsonItem>> to = subscript.to().map(path -> process(path, arrayContext));
                 if (from.size() != 1) {
                     throw new PathEvaluationException("array subscript 'from' value must be singleton numeric");
                 }
@@ -496,18 +507,18 @@ class PathEvaluationVisitor
                         .map(PathEvaluationVisitor::asArrayIndex)
                         .orElse(fromIndex);
 
-                if (!lax && (fromIndex < 0 || fromIndex >= elements.size() || toIndex < 0 || toIndex >= elements.size() || fromIndex > toIndex)) {
-                    throw structuralError("invalid array subscript: [%s, %s] for array of size %s", fromIndex, toIndex, elements.size());
+                if (!lax && (fromIndex < 0 || fromIndex >= size || toIndex < 0 || toIndex >= size || fromIndex > toIndex)) {
+                    throw structuralError("invalid array subscript: [%s, %s] for array of size %s", fromIndex, toIndex, size);
                 }
 
                 if (fromIndex <= toIndex) {
-                    Range<Long> allElementsRange = Range.closed(0L, (long) elements.size() - 1);
+                    Range<Long> allElementsRange = Range.closed(0L, (long) size - 1);
                     Range<Long> subscriptRange = Range.closed(fromIndex, toIndex);
                     if (subscriptRange.isConnected(allElementsRange)) { // cannot intersect ranges which are not connected...
                         Range<Long> resultRange = subscriptRange.intersection(allElementsRange);
                         if (!resultRange.isEmpty()) {
                             for (long i = resultRange.lowerEndpoint(); i <= resultRange.upperEndpoint(); i++) {
-                                outputSequence.add(elements.get((int) i));
+                                outputSequence.add(elementAt.apply((int) i));
                             }
                         }
                     }
@@ -518,18 +529,9 @@ class PathEvaluationVisitor
         return outputSequence.build();
     }
 
-    private static long asArrayIndex(Object object)
+    private static long asArrayIndex(JsonItem object)
     {
-        if (object instanceof JsonNode jsonNode) {
-            if (jsonNode.getNodeType() != JsonNodeType.NUMBER) {
-                throw itemTypeError("NUMBER", jsonNode.getNodeType().name());
-            }
-            if (!jsonNode.canConvertToLong()) {
-                throw new PathEvaluationException(format("cannot convert value %s to long", jsonNode));
-            }
-            return jsonNode.longValue();
-        }
-        TypedValue value = (TypedValue) object;
+        TypedValue value = getNumericTypedValue(object);
         Type type = value.getType();
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
             return value.getLongValue();
@@ -570,24 +572,17 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrCeilingMethod(IrCeilingMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrCeilingMethod(IrCeilingMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            TypedValue value;
-            if (object instanceof JsonNode jsonNode) {
-                value = getNumericTypedValue(jsonNode)
-                        .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-            }
-            else {
-                value = (TypedValue) object;
-            }
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = getNumericTypedValue(object);
             outputSequence.add(getCeiling(value));
         }
 
@@ -628,78 +623,174 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.CEILING));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
+            });
+        }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
     }
 
     @Override
-    protected List<Object> visitIrConstantJsonSequence(IrConstantJsonSequence node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrConstantJsonSequence(IrConstantJsonSequence node, PathEvaluationContext context)
     {
-        return ImmutableList.copyOf(node.sequence());
+        return node.sequence().stream()
+                .map(JsonItem.class::cast)
+                .collect(toImmutableList());
     }
 
     @Override
-    protected List<Object> visitIrContextVariable(IrContextVariable node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrContextVariable(IrContextVariable node, PathEvaluationContext context)
     {
         return ImmutableList.of(input);
     }
 
     @Override
-    protected List<Object> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context) // TODO
+    protected List<JsonItem> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context)
     {
-        throw new UnsupportedOperationException("date method is not yet supported");
-    }
-
-    @Override
-    protected List<Object> visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, PathEvaluationContext context)
-    {
-        List<Object> sequence = process(node.base(), context);
-
-        ImmutableList.Builder<Object> builder = ImmutableList.builder();
-        sequence.stream()
-                .forEach(object -> descendants(object, node.key(), builder));
-
-        return builder.build();
-    }
-
-    private void descendants(Object object, String key, ImmutableList.Builder<Object> builder)
-    {
-        if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
-            // prefix order: visit the enclosing object first
-            JsonNode boundValue = jsonNode.get(key);
-            if (boundValue != null) {
-                builder.add(boundValue);
-            }
-            // recurse into child nodes
-            jsonNode.properties().forEach(field -> descendants(field.getValue(), key, builder));
-        }
-        if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
-            for (int index = 0; index < jsonNode.size(); index++) {
-                descendants(jsonNode.get(index), key, builder);
-            }
-        }
-    }
-
-    @Override
-    protected List<Object> visitIrDoubleMethod(IrDoubleMethod node, PathEvaluationContext context)
-    {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            TypedValue value;
-            if (object instanceof JsonNode jsonNode) {
-                value = getNumericTypedValue(jsonNode)
-                        .orElseGet(() -> getTextTypedValue(jsonNode)
-                                .orElseThrow(() -> itemTypeError("NUMBER or TEXT", jsonNode.getNodeType().name())));
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = getTextTypedValue(object)
+                    .orElseThrow(() -> itemTypeError("TEXT", itemTypeName(object)));
+            try {
+                outputSequence.add(node.format()
+                        .map(template -> template.parseValue(getText(value)))
+                        .orElseGet(() -> getDatetime(value)));
             }
-            else {
-                value = (TypedValue) object;
+            catch (PathEvaluationException e) {
+                throw e;
             }
+            catch (RuntimeException e) {
+                throw new PathEvaluationException(e);
+            }
+        }
+
+        return outputSequence.build();
+    }
+
+    private static TypedValue getDatetime(TypedValue typedValue)
+    {
+        String value = getText(typedValue);
+
+        try {
+            return new TypedValue(DATE, (long) parseDate(value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        try {
+            int precision = extractTimePrecision(value);
+            if (timeHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimeWithTimeZoneType(precision), parseTimeWithTimeZone(precision, value));
+            }
+            return new TypedValue(createTimeType(precision), parseTime(value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        try {
+            int precision = extractTimestampPrecision(value);
+            if (timestampHasTimeZone(value)) {
+                return TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(precision), parseTimestampWithTimeZone(precision, value));
+            }
+            return TypedValue.fromValueAsObject(createTimestampType(precision), parseTimestamp(precision, value));
+        }
+        catch (RuntimeException ignored) {
+        }
+
+        throw new PathEvaluationException("invalid datetime item");
+    }
+
+    private static String getText(TypedValue typedValue)
+    {
+        return switch (typedValue.getType()) {
+            case CharType charType -> padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8();
+            case VarcharType _ -> ((Slice) typedValue.getObjectValue()).toStringUtf8();
+            default -> throw itemTypeError("TEXT", typedValue.getType().getDisplayName());
+        };
+    }
+
+    @Override
+    protected List<JsonItem> visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, PathEvaluationContext context)
+    {
+        List<JsonItem> sequence = process(node.base(), context);
+
+        ImmutableList.Builder<JsonItem> builder = ImmutableList.builder();
+        sequence.stream()
+                .forEach(item -> descendants(item, node.key(), builder, 0));
+
+        return builder.build();
+    }
+
+    // Cap recursion against a deeply nested input so $..key can't overflow the call stack.
+    private static final int MAX_DESCENDANTS_DEPTH = 1000;
+
+    private void descendants(JsonItem item, String key, ImmutableList.Builder<JsonItem> builder, int depth)
+    {
+        if (depth >= MAX_DESCENDANTS_DEPTH) {
+            throw new PathEvaluationException("JSON nesting exceeds maximum depth of " + MAX_DESCENDANTS_DEPTH);
+        }
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            JsonValueView jsonView = view.orElseThrow();
+            if (jsonView.isObject()) {
+                jsonView.forEachObjectMember((memberKey, memberValue) -> {
+                    if (memberKey.equals(key)) {
+                        builder.add(memberValue);
+                    }
+                });
+                jsonView.forEachObjectMember((_, memberValue) -> descendants(memberValue, key, builder, depth + 1));
+            }
+            if (jsonView.isArray()) {
+                jsonView.forEachArrayElement(element -> descendants(element, key, builder, depth + 1));
+            }
+            return;
+        }
+
+        JsonItem normalized = normalize(item);
+        if (normalized instanceof JsonObject object) {
+            // prefix order: visit the enclosing object first
+            for (JsonObjectMember member : object.members()) {
+                if (member.key().equals(key)) {
+                    builder.add(member.value());
+                }
+            }
+            // recurse into child nodes
+            for (JsonObjectMember member : object.members()) {
+                descendants(member.value(), key, builder, depth + 1);
+            }
+        }
+        if (normalized instanceof JsonArray array) {
+            for (JsonValue element : array.elements()) {
+                descendants(element, key, builder, depth + 1);
+            }
+        }
+    }
+
+    @Override
+    protected List<JsonItem> visitIrDoubleMethod(IrDoubleMethod node, PathEvaluationContext context)
+    {
+        List<JsonItem> sequence = process(node.base(), context);
+
+        if (lax) {
+            sequence = unwrapArrays(sequence);
+        }
+
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = tryGetNumericTypedValue(object)
+                    .orElseGet(() -> getTextTypedValue(object)
+                            .orElseThrow(() -> itemTypeError("NUMBER or TEXT", itemTypeName(object))));
             outputSequence.add(getDouble(value));
         }
 
@@ -737,21 +828,29 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(DOUBLE, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) -> value.doubleValue();
+                case TrinoNumber.Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                case TrinoNumber.NotANumber _ -> Double.NaN;
+            });
+        }
 
         throw itemTypeError("NUMBER or TEXT", type.getDisplayName());
     }
 
     @Override
-    protected List<Object> visitIrFilter(IrFilter node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrFilter(IrFilter node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
             PathEvaluationContext currentItemContext = context.withCurrentItem(object);
             Boolean result = predicateVisitor.process(node.predicate(), currentItemContext);
             if (Boolean.TRUE.equals(result)) {
@@ -763,24 +862,17 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrFloorMethod(IrFloorMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrFloorMethod(IrFloorMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            TypedValue value;
-            if (object instanceof JsonNode jsonNode) {
-                value = getNumericTypedValue(jsonNode)
-                        .orElseThrow(() -> itemTypeError("NUMBER", jsonNode.getNodeType().name()));
-            }
-            else {
-                value = (TypedValue) object;
-            }
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            TypedValue value = getNumericTypedValue(object);
             outputSequence.add(getFloor(value));
         }
 
@@ -821,43 +913,56 @@ class PathEvaluationVisitor
                 throw new PathEvaluationException(e);
             }
         }
+        if (type instanceof NumberType) {
+            TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+            return new TypedValue(type, switch (number.toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal value) ->
+                        TrinoNumber.from(value.setScale(0, RoundingMode.FLOOR));
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> number;
+            });
+        }
 
         throw itemTypeError("NUMBER", type.getDisplayName());
     }
 
     @Override
-    protected List<Object> visitIrJsonNull(IrJsonNull node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrJsonNull(IrJsonNull node, PathEvaluationContext context)
     {
-        return ImmutableList.of(NullNode.getInstance());
+        return ImmutableList.of(JsonNull.JSON_NULL);
     }
 
     @Override
-    protected List<Object> visitIrKeyValueMethod(IrKeyValueMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrKeyValueMethod(IrKeyValueMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            if (!(object instanceof JsonNode jsonNode)) {
-                throw itemTypeError("OBJECT", ((TypedValue) object).getType().getDisplayName());
-            }
-            if (!jsonNode.isObject()) {
-                throw itemTypeError("OBJECT", jsonNode.getNodeType().name());
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem object : sequence) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(object);
+            if (view.isPresent() && view.orElseThrow().isObject()) {
+                JsonValueView jsonView = view.orElseThrow();
+                jsonView.forEachObjectMember((memberKey, memberValue) -> outputSequence.add(new JsonObject(ImmutableList.of(
+                        new JsonObjectMember("name", new TypedValue(VARCHAR, utf8Slice(memberKey))),
+                        new JsonObjectMember("value", memberValue.materializeValue()),
+                        new JsonObjectMember("id", new TypedValue(INTEGER, (long) objectId))))));
+                objectId++;
+                continue;
             }
 
-            // non-unique keys are not supported. if they were, we should follow the spec here on handling them.
-            // see the comment in `visitIrMemberAccessor` method.
-            jsonNode.properties().forEach(
-                    field -> outputSequence.add(new ObjectNode(
-                            JsonNodeFactory.instance,
-                            ImmutableMap.of(
-                                    "name", TextNode.valueOf(field.getKey()),
-                                    "value", field.getValue(),
-                                    "id", IntNode.valueOf(objectId)))));
+            JsonItem normalized = normalize(object);
+            if (!(normalized instanceof JsonObject jsonObject)) {
+                throw itemTypeError("OBJECT", itemTypeName(normalized));
+            }
+
+            jsonObject.members().forEach(
+                    member -> outputSequence.add(new JsonObject(ImmutableList.of(
+                            new JsonObjectMember("name", new TypedValue(VARCHAR, utf8Slice(member.key()))),
+                            new JsonObjectMember("value", member.value()),
+                            new JsonObjectMember("id", new TypedValue(INTEGER, (long) objectId))))));
             objectId++;
         }
 
@@ -865,56 +970,83 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrLastIndexVariable(IrLastIndexVariable node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrLastIndexVariable(IrLastIndexVariable node, PathEvaluationContext context)
     {
         return ImmutableList.of(context.getLast());
     }
 
     @Override
-    protected List<Object> visitIrLiteral(IrLiteral node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrLiteral(IrLiteral node, PathEvaluationContext context)
     {
         return ImmutableList.of(TypedValue.fromValueAsObject(node.type().orElseThrow(), node.value()));
     }
 
     @Override
-    protected List<Object> visitIrMemberAccessor(IrMemberAccessor node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrMemberAccessor(IrMemberAccessor node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
         }
 
-        // due to the choice of JsonNode as JSON representation, there cannot be duplicate keys in a JSON object.
-        // according to the spec, it is implementation-dependent whether non-unique keys are allowed.
-        // in case when there are duplicate keys, the spec describes the way of handling them both
-        // by the wildcard member accessor and by the 'by-key' member accessor.
-        // this method needs to be revisited when switching to another JSON representation.
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            if (!lax) {
-                if (!(object instanceof JsonNode jsonNode)) {
-                    throw itemTypeError("OBJECT", ((TypedValue) object).getType().getDisplayName());
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem item : sequence) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent()) {
+                JsonValueView jsonView = view.orElseThrow();
+                if (!lax && !jsonView.isObject()) {
+                    throw itemTypeError("OBJECT", itemTypeName(item));
                 }
-                if (!jsonNode.isObject()) {
-                    throw itemTypeError("OBJECT", jsonNode.getNodeType().name());
+                if (jsonView.isObject()) {
+                    if (node.key().isEmpty()) {
+                        jsonView.forEachObjectMember((_, memberValue) -> outputSequence.add(memberValue));
+                    }
+                    else {
+                        String key = node.key().orElseThrow();
+                        // Use objectMembers(key, consumer) instead of forEachObjectMember+filter:
+                        // single source of truth for keyed lookup, and indexed encodings can take
+                        // a sorting probe rather than a linear scan. Collect into a local list
+                        // first so we can detect "no match" for strict-mode structural-error
+                        // reporting without re-scanning the outer outputSequence builder.
+                        List<JsonItem> matches = new ArrayList<>();
+                        jsonView.objectMembers(key, matches::add);
+                        if (matches.isEmpty() && !lax) {
+                            throw structuralError("missing member '%s' in JSON object", key);
+                        }
+                        outputSequence.addAll(matches);
+                    }
+                }
+                continue;
+            }
+
+            JsonItem normalized = normalize(item);
+            if (!lax) {
+                if (!(normalized instanceof JsonObject)) {
+                    throw itemTypeError("OBJECT", itemTypeName(normalized));
                 }
             }
 
-            if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
+            if (normalized instanceof JsonObject object) {
                 // handle wildcard member accessor
                 if (node.key().isEmpty()) {
-                    outputSequence.addAll(jsonNode.elements());
+                    for (JsonObjectMember member : object.members()) {
+                        outputSequence.add(member.value());
+                    }
                 }
                 else {
-                    JsonNode boundValue = jsonNode.get(node.key().get());
-                    if (boundValue == null) {
-                        if (!lax) {
-                            throw structuralError("missing member '%s' in JSON object", node.key().get());
+                    boolean found = false;
+                    String key = node.key().get();
+                    for (JsonObjectMember member : object.members()) {
+                        if (member.key().equals(key)) {
+                            outputSequence.add(member.value());
+                            found = true;
                         }
                     }
-                    else {
-                        outputSequence.add(boundValue);
+                    if (!found) {
+                        if (!lax) {
+                            throw structuralError("missing member '%s' in JSON object", key);
+                        }
                     }
                 }
             }
@@ -924,58 +1056,54 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrNamedJsonVariable(IrNamedJsonVariable node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrNamedJsonVariable(IrNamedJsonVariable node, PathEvaluationContext context)
     {
-        Object value = parameters[node.index()];
+        JsonItem value = parameters[node.index()];
         checkState(value != null, "missing value for parameter");
-        checkState(value instanceof JsonNode, "expected JSON, got SQL value");
 
-        if (value.equals(EMPTY_SEQUENCE)) {
-            return ImmutableList.of();
-        }
+        return switch (value) {
+            case JsonEmptySequence _ -> ImmutableList.of();
+            case JsonNull _ -> ImmutableList.of(value);
+            case JsonPathParameter parameter -> ImmutableList.of(parameter.item());
+            default -> throw new IllegalStateException("expected JSON, got SQL value");
+        };
+    }
+
+    @Override
+    protected List<JsonItem> visitIrNamedValueVariable(IrNamedValueVariable node, PathEvaluationContext context)
+    {
+        JsonItem value = parameters[node.index()];
+        checkState(value != null, "missing value for parameter");
+        checkState(value instanceof TypedValue || value == JsonNull.JSON_NULL, "expected SQL value or JSON null, got non-null JSON");
+
         return ImmutableList.of(value);
     }
 
     @Override
-    protected List<Object> visitIrNamedValueVariable(IrNamedValueVariable node, PathEvaluationContext context)
-    {
-        Object value = parameters[node.index()];
-        checkState(value != null, "missing value for parameter");
-        checkState(value instanceof TypedValue || value instanceof NullNode, "expected SQL value or JSON null, got non-null JSON");
-
-        return ImmutableList.of(value);
-    }
-
-    @Override
-    protected List<Object> visitIrPredicateCurrentItemVariable(IrPredicateCurrentItemVariable node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrPredicateCurrentItemVariable(IrPredicateCurrentItemVariable node, PathEvaluationContext context)
     {
         return ImmutableList.of(context.getCurrentItem());
     }
 
     @Override
-    protected List<Object> visitIrSizeMethod(IrSizeMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrSizeMethod(IrSizeMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
-        for (Object object : sequence) {
-            if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
-                outputSequence.add(new TypedValue(INTEGER, jsonNode.size()));
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
+        for (JsonItem item : sequence) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent() && view.orElseThrow().isArray()) {
+                outputSequence.add(new TypedValue(INTEGER, (long) view.orElseThrow().arraySize()));
+            }
+            else if (item instanceof JsonArray array) {
+                outputSequence.add(new TypedValue(INTEGER, (long) array.elements().size()));
+            }
+            else if (lax) {
+                outputSequence.add(new TypedValue(INTEGER, 1));
             }
             else {
-                if (lax) {
-                    outputSequence.add(new TypedValue(INTEGER, 1));
-                }
-                else {
-                    String type;
-                    if (object instanceof JsonNode jsonNode) {
-                        type = jsonNode.getNodeType().name();
-                    }
-                    else {
-                        type = ((TypedValue) object).getType().getDisplayName();
-                    }
-                    throw itemTypeError("ARRAY", type);
-                }
+                throw itemTypeError("ARRAY", itemTypeName(item));
             }
         }
 
@@ -983,67 +1111,164 @@ class PathEvaluationVisitor
     }
 
     @Override
-    protected List<Object> visitIrTypeMethod(IrTypeMethod node, PathEvaluationContext context)
+    protected List<JsonItem> visitIrTypeMethod(IrTypeMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.base(), context);
+        List<JsonItem> sequence = process(node.base(), context);
 
         Type resultType = node.type().orElseThrow();
-        ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
+        ImmutableList.Builder<JsonItem> outputSequence = ImmutableList.builder();
 
         // In case when a new type is supported in JSON path, it might be necessary to update the
         // constant JsonPathAnalyzer.TYPE_METHOD_RESULT_TYPE, which determines the resultType.
         // Today it is only enough to fit the longest of the result strings below.
-        for (Object object : sequence) {
-            if (object instanceof JsonNode jsonNode) {
-                switch (jsonNode.getNodeType()) {
-                    case NUMBER -> outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
-                    case STRING -> outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
-                    case BOOLEAN -> outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
-                    case ARRAY -> outputSequence.add(new TypedValue(resultType, utf8Slice("array")));
-                    case OBJECT -> outputSequence.add(new TypedValue(resultType, utf8Slice("object")));
-                    case NULL -> outputSequence.add(new TypedValue(resultType, utf8Slice("null")));
-                    default -> throw new IllegalArgumentException("unexpected Json node type: " + jsonNode.getNodeType());
-                }
+        for (JsonItem item : sequence) {
+            Optional<JsonValueView> view = JsonValueView.fromObject(item);
+            if (view.isPresent()) {
+                JsonValueView jsonView = view.orElseThrow();
+                outputSequence.add(new TypedValue(resultType, switch (jsonView.kind()) {
+                    case NULL -> utf8Slice("null");
+                    case ARRAY -> utf8Slice("array");
+                    case OBJECT -> utf8Slice("object");
+                    case TYPED_VALUE -> typeNameSlice(jsonView.typedValue().getType());
+                    case JSON_ERROR -> throw new IllegalStateException("JSON error item in path result");
+                }));
             }
             else {
-                Type type = ((TypedValue) object).getType();
-                if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
-                }
-                else if (type instanceof VarcharType || type instanceof CharType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("string")));
-                }
-                else if (type.equals(BOOLEAN)) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("boolean")));
-                }
-                else if (type.equals(DATE)) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("date")));
-                }
-                else if (type instanceof TimeType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("time without time zone")));
-                }
-                else if (type instanceof TimeWithTimeZoneType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("time with time zone")));
-                }
-                else if (type instanceof TimestampType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("timestamp without time zone")));
-                }
-                else if (type instanceof TimestampWithTimeZoneType) {
-                    outputSequence.add(new TypedValue(resultType, utf8Slice("timestamp with time zone")));
-                }
+                outputSequence.add(new TypedValue(resultType, switch (normalize(item)) {
+                    case JsonNull _ -> utf8Slice("null");
+                    case JsonArray _ -> utf8Slice("array");
+                    case JsonObject _ -> utf8Slice("object");
+                    case TypedValue typedValue -> typeNameSlice(typedValue.getType());
+                    default -> throw new IllegalStateException("Unsupported SQL/JSON item: " + item.getClass().getSimpleName());
+                }));
             }
         }
 
         return outputSequence.build();
     }
 
-    private static Optional<TypedValue> getNumericTypedValue(JsonNode jsonNode)
+    private static Optional<TypedValue> tryGetNumericTypedValue(JsonItem object)
     {
-        try {
-            return SqlJsonLiteralConverter.getNumericTypedValue(jsonNode);
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            TypedValue typedValue = view.orElseThrow().typedValue();
+            if (isNumericType(typedValue.getType())) {
+                return Optional.of(typedValue);
+            }
+            return Optional.empty();
         }
-        catch (JsonLiteralConversionException e) {
-            throw new PathEvaluationException(e);
+
+        object = normalize(object);
+        if (!(object instanceof TypedValue typedValue)) {
+            return Optional.empty();
         }
+        if (isNumericType(typedValue.getType())) {
+            return Optional.of(typedValue);
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isNumericType(Type type)
+    {
+        return type.equals(BIGINT)
+                || type.equals(INTEGER)
+                || type.equals(SMALLINT)
+                || type.equals(TINYINT)
+                || type.equals(DOUBLE)
+                || type.equals(REAL)
+                || type instanceof DecimalType
+                || type instanceof NumberType;
+    }
+
+    private static TypedValue getNumericTypedValue(JsonItem object)
+    {
+        return tryGetNumericTypedValue(object)
+                .orElseThrow(() -> itemTypeError("NUMBER", itemTypeName(object)));
+    }
+
+    private static Optional<TypedValue> getTextTypedValue(JsonItem object)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromItem(object);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            TypedValue typedValue = view.orElseThrow().typedValue();
+            Type type = typedValue.getType();
+            if (type instanceof VarcharType || type instanceof CharType) {
+                return Optional.of(typedValue);
+            }
+            return Optional.empty();
+        }
+
+        object = normalize(object);
+        if (!(object instanceof TypedValue typedValue)) {
+            return Optional.empty();
+        }
+        Type type = typedValue.getType();
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return Optional.of(typedValue);
+        }
+        return Optional.empty();
+    }
+
+    private static TypedValue requireScalar(JsonItem item)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent() && view.orElseThrow().isTypedValue()) {
+            return view.orElseThrow().typedValue();
+        }
+        if (normalize(item) instanceof TypedValue value) {
+            return value;
+        }
+        throw itemTypeError("scalar value", itemTypeName(item));
+    }
+
+    private static String itemTypeName(JsonItem item)
+    {
+        Optional<JsonValueView> view = JsonValueView.fromItem(item);
+        if (view.isPresent()) {
+            return switch (view.orElseThrow().kind()) {
+                case NULL -> "NULL";
+                case ARRAY -> "ARRAY";
+                case OBJECT -> "OBJECT";
+                case TYPED_VALUE -> typeName(view.orElseThrow().typedValue().getType());
+                case JSON_ERROR -> "ERROR";
+            };
+        }
+        return switch (normalize(item)) {
+            case JsonNull _ -> "NULL";
+            case JsonArray _ -> "ARRAY";
+            case JsonObject _ -> "OBJECT";
+            case TypedValue(Type type, _) -> typeName(type);
+            default -> item.getClass().getSimpleName();
+        };
+    }
+
+    private static String typeName(Type type)
+    {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _, DoubleType _, RealType _, DecimalType _, NumberType _ -> "NUMBER";
+            case VarcharType _, CharType _ -> "STRING";
+            case BooleanType _ -> "BOOLEAN";
+            case DateType _ -> "DATE";
+            case TimeType _ -> "TIME";
+            case TimeWithTimeZoneType _ -> "TIME WITH TIME ZONE";
+            case TimestampType _ -> "TIMESTAMP";
+            case TimestampWithTimeZoneType _ -> "TIMESTAMP WITH TIME ZONE";
+            default -> type.getDisplayName();
+        };
+    }
+
+    private static Slice typeNameSlice(Type type)
+    {
+        return switch (type) {
+            case BigintType _, IntegerType _, SmallintType _, TinyintType _, DoubleType _, RealType _, DecimalType _, NumberType _ -> utf8Slice("number");
+            case VarcharType _, CharType _ -> utf8Slice("string");
+            case BooleanType _ -> utf8Slice("boolean");
+            case DateType _ -> utf8Slice("date");
+            case TimeType _ -> utf8Slice("time without time zone");
+            case TimeWithTimeZoneType _ -> utf8Slice("time with time zone");
+            case TimestampType _ -> utf8Slice("timestamp without time zone");
+            case TimestampWithTimeZoneType _ -> utf8Slice("timestamp with time zone");
+            default -> utf8Slice(type.getDisplayName());
+        };
     }
 }

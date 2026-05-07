@@ -31,6 +31,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.JsonPayload;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -56,6 +57,7 @@ import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonText;
 import static io.trino.plugin.functions.python.TimeZoneOffset.zoneOffsetMinutes;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -266,8 +268,10 @@ final class TrinoTypes
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes((Slice) value);
             case StandardTypes.VARCHAR,
-                 StandardTypes.VARBINARY,
-                 StandardTypes.JSON -> writeVariableSlice((Slice) value, output);
+                 StandardTypes.VARBINARY -> writeVariableSlice((Slice) value, output);
+            // jsonText preserves insertion order; re-canonicalize via jsonParse so the
+            // text Python sees has sorted keys (matching the on-disk canonical form).
+            case StandardTypes.JSON -> writeVariableSlice(jsonParse(utf8Slice(jsonText(type, ((JsonPayload) value).payload()))), output);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         }
     }
@@ -349,8 +353,8 @@ final class TrinoTypes
             case StandardTypes.UUID,
                  StandardTypes.IPADDRESS -> output.writeBytes(type.getSlice(block, position));
             case StandardTypes.VARCHAR,
-                 StandardTypes.VARBINARY,
-                 StandardTypes.JSON -> writeVariableSlice(type.getSlice(block, position), output);
+                 StandardTypes.VARBINARY -> writeVariableSlice(type.getSlice(block, position), output);
+            case StandardTypes.JSON -> writeVariableSlice(jsonParse(utf8Slice(jsonText(type, type.getSlice(block, position)))), output);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         }
     }
@@ -544,10 +548,10 @@ final class TrinoTypes
         return micros;
     }
 
-    private static Slice toJson(Slice value)
+    private static JsonPayload toJson(Slice value)
     {
         try {
-            return jsonParse(value);
+            return JsonPayload.of(jsonParse(value));
         }
         catch (TrinoException e) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Python function returned invalid JSON value", e);

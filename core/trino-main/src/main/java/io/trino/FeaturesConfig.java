@@ -47,6 +47,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.group-by-uses-equal",
         "deprecated.legacy-char-to-varchar-coercion",
         "deprecated.legacy-join-using",
+        "deprecated.legacy-json-semantics-enabled",
         "deprecated.legacy-map-subscript",
         "deprecated.legacy-order-by",
         "deprecated.legacy-row-field-ordinal-access",
