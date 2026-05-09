@@ -38,6 +38,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotOutputColumn;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
@@ -51,6 +53,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
@@ -98,6 +101,9 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
@@ -481,6 +487,157 @@ class QueryPlanner
                 analysis.getScope(node),
                 computeOutputs(builder, outputs),
                 outerContext);
+    }
+
+    public RelationPlan planPivot(Pivot node, RelationPlan inputPlan)
+    {
+        PivotAnalysis pivotAnalysis = analysis.getPivotAnalysis(node);
+        GroupingSetAnalysis groupingSetAnalysis = pivotAnalysis.groupingSetAnalysis();
+        List<FunctionCall> aggregateCalls = pivotAnalysis.aggregates();
+
+        PlanBuilder subPlan = newPlanBuilder(inputPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+
+        // Project everything the aggregation predicate and arguments need: aggregate
+        // arguments, complex grouping expressions, pivot column references, and pivot
+        // value expressions.
+        ImmutableList.Builder<io.trino.sql.tree.Expression> inputBuilder = ImmutableList.builder();
+        for (FunctionCall aggregate : aggregateCalls) {
+            aggregate.getArguments().stream()
+                    .filter(argument -> !(argument instanceof LambdaExpression))
+                    .forEach(inputBuilder::add);
+        }
+        inputBuilder.addAll(groupingSetAnalysis.getComplexExpressions());
+        inputBuilder.addAll(node.getPivotColumns());
+        for (PivotValueGroup valueGroup : node.getValueGroups()) {
+            inputBuilder.addAll(valueGroup.getValues());
+        }
+        List<io.trino.sql.tree.Expression> inputs = inputBuilder.build();
+
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, inputs, analysis.getSubqueries(node));
+        subPlan = subPlan.appendProjections(inputs, symbolAllocator, idAllocator);
+
+        PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
+        subPlan = coercions.getSubPlan();
+
+        // Build a boolean predicate symbol per value group: pivot_col_1 = value_1 AND ...
+        // Cast each value to the corresponding pivot column's type so comparison types align,
+        // including the unknown-typed NULL literal.
+        Map<NodeRef<PivotValueGroup>, Symbol> predicateSymbols = new LinkedHashMap<>();
+        Assignments.Builder predicateAssignments = Assignments.builder();
+        predicateAssignments.putIdentities(subPlan.getRoot().getOutputSymbols());
+        for (PivotValueGroup valueGroup : node.getValueGroups()) {
+            Expression predicate = null;
+            for (int i = 0; i < node.getPivotColumns().size(); i++) {
+                Symbol columnSymbol = coercions.get(node.getPivotColumns().get(i));
+                Symbol valueSymbol = coercions.get(valueGroup.getValues().get(i));
+                Expression valueExpression = valueSymbol.toSymbolReference();
+                if (!valueSymbol.type().equals(columnSymbol.type())) {
+                    valueExpression = new Cast(valueExpression, columnSymbol.type());
+                }
+                Expression equality = new Comparison(Comparison.Operator.EQUAL, columnSymbol.toSymbolReference(), valueExpression);
+                predicate = (predicate == null) ? equality : Logical.and(predicate, equality);
+            }
+            Symbol predicateSymbol = symbolAllocator.newSymbol("pivot_match", BOOLEAN);
+            predicateAssignments.put(predicateSymbol, predicate);
+            predicateSymbols.put(NodeRef.of(valueGroup), predicateSymbol);
+        }
+        subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), predicateAssignments.build()));
+
+        GroupingSetsPlan groupingSets = planGroupingSets(subPlan, pivotAnalysis.distinctGroupingSets(), groupingSetAnalysis);
+        subPlan = groupingSets.getSubPlan();
+
+        // Build one Aggregation per (value group, aggregate call) with FILTER set to the
+        // matching value group's predicate symbol. Each (value group, call) pair gets its
+        // own output Symbol so the slot expressions can be projected per group.
+        Map<PivotValueGroup, Map<NodeRef<FunctionCall>, Symbol>> aggregateSymbolsByGroup = new LinkedHashMap<>();
+        ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
+        PlanBuilder finalSubPlan = subPlan;
+        for (PivotValueGroup valueGroup : node.getValueGroups()) {
+            Map<NodeRef<FunctionCall>, Symbol> perGroup = new LinkedHashMap<>();
+            Symbol filterSymbol = predicateSymbols.get(NodeRef.of(valueGroup));
+            for (FunctionCall function : aggregateCalls) {
+                Symbol output = symbolAllocator.newSymbol(function.getName().toString(), analysis.getType(function));
+                Aggregation aggregation = new Aggregation(
+                        analysis.getResolvedFunction(function).orElseThrow(),
+                        function.getArguments().stream()
+                                .map(argument -> {
+                                    if (argument instanceof LambdaExpression) {
+                                        return finalSubPlan.rewrite(argument);
+                                    }
+                                    return coercions.get(argument).toSymbolReference();
+                                })
+                                .collect(toImmutableList()),
+                        function.isDistinct(),
+                        Optional.of(filterSymbol),
+                        function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions::get)),
+                        Optional.empty());
+                aggregations.put(output, aggregation);
+                perGroup.put(NodeRef.of(function), output);
+            }
+            aggregateSymbolsByGroup.put(valueGroup, perGroup);
+        }
+
+        ImmutableSet.Builder<Integer> globalGroupingSets = ImmutableSet.builder();
+        for (int i = 0; i < groupingSets.getGroupingSets().size(); i++) {
+            if (groupingSets.getGroupingSets().get(i).isEmpty()) {
+                globalGroupingSets.add(i);
+            }
+        }
+        ImmutableSet.Builder<Symbol> groupingKeys = ImmutableSet.builder();
+        groupingSets.getGroupingSets().stream()
+                .flatMap(List::stream)
+                .distinct()
+                .forEach(groupingKeys::add);
+        groupingSets.getGroupIdSymbol().ifPresent(groupingKeys::add);
+
+        AggregationNode aggregationNode = new AggregationNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                aggregations.buildKeepingLast(),
+                groupingSets(
+                        groupingKeys.build(),
+                        groupingSets.getGroupingSets().size(),
+                        globalGroupingSets.build()),
+                ImmutableList.of(),
+                AggregationNode.Step.SINGLE,
+                groupingSets.getGroupIdSymbol());
+        subPlan = new PlanBuilder(subPlan.getTranslations(), aggregationNode);
+
+        // Final projection: grouping expressions identity-projected, then for each
+        // (value group, slot) translate the user's slot expression with a per-group
+        // aggregate-call -> aggregation-symbol mapping, producing the synthesized output
+        // column.
+        Assignments.Builder outputAssignments = Assignments.builder();
+        ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
+
+        for (io.trino.sql.tree.Expression groupingExpression : groupingSetAnalysis.getOriginalExpressions()) {
+            Symbol symbol = subPlan.translate(groupingExpression);
+            outputAssignments.putIdentity(symbol);
+            outputSymbols.add(symbol);
+        }
+
+        int outputColumnIndex = 0;
+        List<PivotOutputColumn> outputColumnMetadata = pivotAnalysis.outputColumns();
+        for (PivotValueGroup valueGroup : node.getValueGroups()) {
+            Map<NodeRef<FunctionCall>, Symbol> perGroupSymbols = aggregateSymbolsByGroup.get(valueGroup);
+            ImmutableMap.Builder<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings = ImmutableMap.builder();
+            for (FunctionCall function : aggregateCalls) {
+                mappings.put(scopeAwareKey(function, analysis, subPlan.getScope()), perGroupSymbols.get(NodeRef.of(function)));
+            }
+            TranslationMap groupTranslations = subPlan.getTranslations().withAdditionalMappings(mappings.buildKeepingLast());
+
+            for (PivotAggregation aggregation : node.getAggregations()) {
+                Expression slotIr = groupTranslations.rewrite(aggregation.getExpression());
+                PivotOutputColumn column = outputColumnMetadata.get(outputColumnIndex++);
+                Symbol output = symbolAllocator.newSymbol(column.name(), column.type());
+                outputAssignments.put(output, slotIr);
+                outputSymbols.add(output);
+            }
+        }
+
+        ProjectNode outputProject = new ProjectNode(idAllocator.getNextId(), aggregationNode, outputAssignments.build());
+
+        return new RelationPlan(outputProject, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
 
     private static boolean hasExpressionsToUnfold(List<SelectExpression> selectExpressions)
