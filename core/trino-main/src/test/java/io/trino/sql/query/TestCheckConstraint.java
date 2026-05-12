@@ -234,7 +234,7 @@ public class TestCheckConstraint
     @Test
     public void testInsertAllowUnknown()
     {
-        // Predicate evaluates to UNKNOWN (e.g. NULL > 100) should not violate check constraint
+        // Predicated evaluates to UNKNOWN (e.g. NULL > 100) should not violate check constraint
         assertThat(assertions.query("INSERT INTO mock.tiny.nation(nationkey) VALUES (null)"))
                 .matches("SELECT BIGINT '1'");
         assertThat(assertions.query("INSERT INTO mock.tiny.nation(regionkey) VALUES (0)"))
@@ -425,7 +425,7 @@ public class TestCheckConstraint
     @Test
     public void testUpdateAllowUnknown()
     {
-        // Predicate evaluates to UNKNOWN (e.g. NULL > 100) should not violate check constraint
+        // Predicated evaluates to UNKNOWN (e.g. NULL > 100) should not violate check constraint
         assertThat(assertions.query("UPDATE mock.tiny.nation SET regionkey = NULL"))
                 .matches("SELECT BIGINT '25'");
     }

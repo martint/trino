@@ -64,12 +64,12 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitComparisonPredicate(ComparisonPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitConjunctionPredicate(ConjunctionPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitContextVariable(ContextVariable node, C context)
@@ -89,7 +89,7 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitDisjunctionPredicate(DisjunctionPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitDoubleMethod(DoubleMethod node, C context)
@@ -99,7 +99,7 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitExistsPredicate(ExistsPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitFilter(Filter node, C context)
@@ -114,7 +114,7 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitIsUnknownPredicate(IsUnknownPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitJsonNullLiteral(JsonNullLiteral node, C context)
@@ -139,7 +139,7 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitLikeRegexPredicate(LikeRegexPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitLiteral(Literal node, C context)
@@ -164,10 +164,10 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitNegationPredicate(NegationPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
-    protected R visitPredicate(Predicate node, C context)
+    protected R visitPredicated(Predicate node, C context)
     {
         return visitPathNode(node, context);
     }
@@ -189,7 +189,7 @@ public abstract class JsonPathTreeVisitor<R, C>
 
     protected R visitStartsWithPredicate(StartsWithPredicate node, C context)
     {
-        return visitPredicate(node, context);
+        return visitPredicated(node, context);
     }
 
     protected R visitTypeMethod(TypeMethod node, C context)

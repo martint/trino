@@ -223,7 +223,7 @@ public class TestInformationSchemaMetadata
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
-        // Predicate pushdown shouldn't work for catalog-wise tables because the table prefixes for them are always
+        // Predicated pushdown shouldn't work for catalog-wise tables because the table prefixes for them are always
         // ImmutableSet.of(new QualifiedTablePrefix(catalogName));
         Constraint constraint = new Constraint(TupleDomain.all());
         ConnectorSession session = createNewSession(transactionId);

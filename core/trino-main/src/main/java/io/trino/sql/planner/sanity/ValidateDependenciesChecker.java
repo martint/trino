@@ -433,7 +433,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), node.getSource().getOutputSymbols());
 
             Set<Symbol> dependencies = extractUnique(node.getPredicate());
-            checkDependencies(inputs, dependencies, "Invalid node. Predicate dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
+            checkDependencies(inputs, dependencies, "Invalid node. Predicated dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
 
             return null;
         }

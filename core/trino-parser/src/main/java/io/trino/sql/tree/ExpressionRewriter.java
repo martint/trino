@@ -35,16 +35,6 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteComparisonExpression(ComparisonExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteBetweenPredicate(BetweenPredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
     public Expression rewriteLogicalExpression(LogicalExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
@@ -55,12 +45,7 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteIsNullPredicate(IsNullPredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteIsNotNullPredicate(IsNotNullPredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewritePredicated(Predicated node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }
@@ -111,16 +96,6 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteLambdaExpression(LambdaExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteLikePredicate(LikePredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteInPredicate(InPredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }
@@ -241,11 +216,6 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteParameter(Parameter node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteQuantifiedComparison(QuantifiedComparisonExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

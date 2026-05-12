@@ -19,30 +19,28 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 /**
- * SQL spec {@code <between predicate part 2> ::= [NOT] BETWEEN <row value predicand> AND <row value predicand>}.
- * The {@code negated} flag captures the in-place {@code NOT BETWEEN} form; outer
- * {@code NOT (x BETWEEN ...)} stays as a {@link NotExpression} wrapping a non-negated
- * {@code BetweenPredicate}.
+ * SQL spec {@code <distinct predicate part 2> ::= IS [NOT] DISTINCT FROM <row value predicand>}.
+ * The in-place {@code NOT} (i.e. {@code IS NOT DISTINCT FROM}) is recorded via {@link #isNegated()};
+ * an outer {@code NOT (x IS DISTINCT FROM y)} is a {@link NotExpression} around a non-negated
+ * {@code DistinctFromPredicate}.
  */
-public final class BetweenPredicate
+public final class DistinctFromPredicate
         extends Predicate
 {
     private final boolean negated;
-    private final Expression min;
-    private final Expression max;
+    private final Expression right;
 
-    public BetweenPredicate(NodeLocation location, boolean negated, Expression min, Expression max)
+    public DistinctFromPredicate(NodeLocation location, boolean negated, Expression right)
     {
         super(location);
         this.negated = negated;
-        this.min = requireNonNull(min, "min is null");
-        this.max = requireNonNull(max, "max is null");
+        this.right = requireNonNull(right, "right is null");
     }
 
     @Deprecated
-    public BetweenPredicate(boolean negated, Expression min, Expression max)
+    public DistinctFromPredicate(boolean negated, Expression right)
     {
-        this(null, negated, min, max);
+        this(null, negated, right);
     }
 
     public boolean isNegated()
@@ -50,52 +48,46 @@ public final class BetweenPredicate
         return negated;
     }
 
-    public Expression getMin()
+    public Expression getRight()
     {
-        return min;
-    }
-
-    public Expression getMax()
-    {
-        return max;
+        return right;
     }
 
     @Override
     public List<? extends Node> getChildren()
     {
-        return List.of(min, max);
+        return List.of(right);
     }
 
     @Override
     protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitBetweenPredicate(this, context);
+        return visitor.visitDistinctFromPredicate(this, context);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other) && negated == ((BetweenPredicate) other).negated;
+        return sameClass(this, other) && negated == ((DistinctFromPredicate) other).negated;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof BetweenPredicate that
+        return o instanceof DistinctFromPredicate that
                 && negated == that.negated
-                && min.equals(that.min)
-                && max.equals(that.max);
+                && right.equals(that.right);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(negated, min, max);
+        return Objects.hash(negated, right);
     }
 
     @Override
     public String toString()
     {
-        return (negated ? "NOT BETWEEN " : "BETWEEN ") + min + " AND " + max;
+        return (negated ? "IS NOT DISTINCT FROM " : "IS DISTINCT FROM ") + right;
     }
 }

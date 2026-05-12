@@ -19,6 +19,6 @@ public abstract class Predicate
     @Override
     public <R, C> R accept(JsonPathTreeVisitor<R, C> visitor, C context)
     {
-        return visitor.visitPredicate(this, context);
+        return visitor.visitPredicated(this, context);
     }
 }

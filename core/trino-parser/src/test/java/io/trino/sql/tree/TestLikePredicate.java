@@ -29,7 +29,12 @@ public class TestLikePredicate
         StringLiteral pattern = new StringLiteral("b");
         StringLiteral escape = new StringLiteral("c");
 
-        assertThat(new LikePredicate(value, pattern, escape).getChildren()).isEqualTo(ImmutableList.of(value, pattern, escape));
-        assertThat(new LikePredicate(value, pattern, Optional.empty()).getChildren()).isEqualTo(ImmutableList.of(value, pattern));
+        LikePredicate withEscape = new LikePredicate(false, pattern, Optional.of(escape));
+        assertThat(new Predicated(value, withEscape).getChildren()).isEqualTo(ImmutableList.of(value, withEscape));
+        assertThat(withEscape.getChildren()).isEqualTo(ImmutableList.of(pattern, escape));
+
+        LikePredicate noEscape = new LikePredicate(false, pattern, Optional.empty());
+        assertThat(new Predicated(value, noEscape).getChildren()).isEqualTo(ImmutableList.of(value, noEscape));
+        assertThat(noEscape.getChildren()).isEqualTo(ImmutableList.of(pattern));
     }
 }

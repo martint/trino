@@ -13,27 +13,39 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 
-public class InPredicate
-        extends Expression
+import static java.util.Objects.requireNonNull;
+
+/**
+ * SQL spec {@code <in predicate part 2> ::= [NOT] IN <in predicate value>} where the value is
+ * either an {@link InListExpression} or a {@link SubqueryExpression}. The in-place {@code NOT IN}
+ * is recorded via {@link #isNegated()}; an outer {@code NOT (x IN (...))} stays as a
+ * {@link NotExpression} wrapping a non-negated {@code InPredicate}.
+ */
+public final class InPredicate
+        extends Predicate
 {
-    private final Expression value;
+    private final boolean negated;
     private final Expression valueList;
 
-    public InPredicate(NodeLocation location, Expression value, Expression valueList)
+    public InPredicate(NodeLocation location, boolean negated, Expression valueList)
     {
         super(location);
-        this.value = value;
-        this.valueList = valueList;
+        this.negated = negated;
+        this.valueList = requireNonNull(valueList, "valueList is null");
     }
 
-    public Expression getValue()
+    @Deprecated
+    public InPredicate(boolean negated, Expression valueList)
     {
-        return value;
+        this(null, negated, valueList);
+    }
+
+    public boolean isNegated()
+    {
+        return negated;
     }
 
     public Expression getValueList()
@@ -42,41 +54,38 @@ public class InPredicate
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public List<? extends Node> getChildren()
+    {
+        return List.of(valueList);
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitInPredicate(this, context);
     }
 
     @Override
-    public List<Node> getChildren()
+    public boolean shallowEquals(Node other)
     {
-        return ImmutableList.of(value, valueList);
+        return sameClass(this, other) && negated == ((InPredicate) other).negated;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        InPredicate that = (InPredicate) o;
-        return Objects.equals(value, that.value) &&
-                Objects.equals(valueList, that.valueList);
+        return o instanceof InPredicate that && negated == that.negated && valueList.equals(that.valueList);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, valueList);
+        return Objects.hash(negated, valueList);
     }
 
     @Override
-    public boolean shallowEquals(Node other)
+    public String toString()
     {
-        return sameClass(this, other);
+        return (negated ? "NOT IN " : "IN ") + valueList;
     }
 }

@@ -13,64 +13,69 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
-
-public class IsNullPredicate
-        extends Expression
+/**
+ * SQL spec {@code <null predicate part 2> ::= IS [NOT] NULL}. The {@code negated} flag records
+ * the user's in-place {@code NOT} (i.e. {@code IS NOT NULL}); an outer {@code NOT (x IS NULL)}
+ * remains a separate {@link NotExpression} wrapping a non-negated {@code IsNullPredicate}.
+ */
+public final class IsNullPredicate
+        extends Predicate
 {
-    private final Expression value;
+    private final boolean negated;
 
-    public IsNullPredicate(NodeLocation location, Expression value)
+    public IsNullPredicate(NodeLocation location, boolean negated)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.negated = negated;
     }
 
-    public Expression getValue()
+    @Deprecated
+    public IsNullPredicate(boolean negated)
     {
-        return value;
+        this(null, negated);
+    }
+
+    public boolean isNegated()
+    {
+        return negated;
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public List<? extends Node> getChildren()
+    {
+        return List.of();
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitIsNullPredicate(this, context);
     }
 
     @Override
-    public List<Node> getChildren()
+    public boolean shallowEquals(Node other)
     {
-        return ImmutableList.of(value);
+        return sameClass(this, other) && negated == ((IsNullPredicate) other).negated;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        IsNullPredicate that = (IsNullPredicate) o;
-        return Objects.equals(value, that.value);
+        return o instanceof IsNullPredicate that && that.negated == negated;
     }
 
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return Objects.hash(negated);
     }
 
     @Override
-    public boolean shallowEquals(Node other)
+    public String toString()
     {
-        return sameClass(this, other);
+        return negated ? "IS NOT NULL" : "IS NULL";
     }
 }
