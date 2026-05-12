@@ -52,6 +52,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
@@ -120,6 +121,8 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.WhenClause.Operand;
+import io.trino.sql.tree.WhenClause.Partial;
 import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
@@ -427,7 +430,7 @@ public class TranslationMap
         return new Case(
                 expression.getWhenClauses().stream()
                         .map(clause -> new WhenClause(
-                                translateExpression(clause.getOperand()),
+                                translateExpression(((Operand) clause.getMatch()).expression()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),
                 expression.getDefaultValue()
@@ -438,17 +441,35 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
     {
         io.trino.sql.ir.Expression operand = translateExpression(expression.getOperand());
+        Symbol parameter = new Symbol(operand.type(), "match$operand");
+        Reference parameterReference = new Reference(parameter.type(), parameter.name());
         return new Match(
                 operand,
                 expression.getWhenClauses().stream()
-                        .map(clause -> equalityClause(
-                                operand.type(),
-                                translateExpression(clause.getOperand()),
-                                translateExpression(clause.getResult())))
+                        .map(clause -> translateWhenClause(clause, parameter, parameterReference))
                         .collect(toImmutableList()),
                 expression.getDefaultValue()
                         .map(this::translateExpression)
                         .orElse(new Constant(analysis.getType(expression), null)));
+    }
+
+    /**
+     * Lower a simple-CASE {@link io.trino.sql.tree.WhenClause} into a {@link MatchClause}. Bare-value
+     * WHENs become {@code (p) -> p = value}; F262 extended WHENs become a lambda whose body is
+     * {@code translatePartial(parameter, partial)} — exactly the boolean IR for the surrounding
+     * {@link Predicate} but with the case operand bound once via the lambda parameter rather than
+     * re-evaluated for each clause.
+     */
+    private MatchClause translateWhenClause(io.trino.sql.tree.WhenClause clause, Symbol parameter, Reference parameterReference)
+    {
+        io.trino.sql.ir.Expression result = translateExpression(clause.getResult());
+        return switch (clause.getMatch()) {
+            case Operand operand -> equalityClause(parameter.type(), translateExpression(operand.expression()), result);
+            case Partial partial -> {
+                io.trino.sql.ir.Expression body = translatePartial(parameterReference, partial.predicate());
+                yield new MatchClause(new Lambda(ImmutableList.of(parameter), body), result);
+            }
+        };
     }
 
     private io.trino.sql.ir.Expression translate(IfExpression expression)

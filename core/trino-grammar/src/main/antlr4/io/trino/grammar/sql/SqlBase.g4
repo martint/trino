@@ -807,7 +807,8 @@ typeParameter
     ;
 
 whenClause
-    : WHEN condition=expression THEN result=expression
+    : WHEN partial=predicate[null] THEN result=expression
+    | WHEN condition=expression THEN result=expression
     ;
 
 filter

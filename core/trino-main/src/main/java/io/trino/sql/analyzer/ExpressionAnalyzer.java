@@ -999,7 +999,10 @@ public class ExpressionAnalyzer
         protected Type visitSearchedCaseExpression(SearchedCaseExpression node, Context context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
+                switch (whenClause.getMatch()) {
+                    case WhenClause.Operand operand -> coerceType(context, operand.expression(), BOOLEAN, "CASE WHEN clause");
+                    case WhenClause.Partial _ -> throw semanticException(NOT_SUPPORTED, whenClause, "WHEN with a predicate fragment is only allowed in simple CASE expressions");
+                }
             }
 
             Type type = coerceToSingleType(
@@ -1040,11 +1043,29 @@ public class ExpressionAnalyzer
             Type operandType = process(node.getOperand(), context);
 
             List<WhenClause> whenClauses = node.getWhenClauses();
-            List<Type> whenOperandTypes = new ArrayList<>(whenClauses.size());
-
-            Type commonType = operandType;
+            // F262 extended-CASE WHEN clauses carry a predicate fragment instead of a value; type-check
+            // each by synthesizing a Predicate that places the case operand on the LHS and routing
+            // through the regular predicate analysis path. Coercions applied by that path land on
+            // the original case operand and partial children — both reachable from the source tree.
             for (WhenClause whenClause : whenClauses) {
-                Expression whenOperand = whenClause.getOperand();
+                if (whenClause.getMatch() instanceof WhenClause.Partial partial) {
+                    Predicated synthetic = new Predicated(node.getOperand(), partial.predicate());
+                    process(synthetic, context);
+                }
+            }
+
+            List<Expression> equalityOperands = whenClauses.stream()
+                    .map(WhenClause::getMatch)
+                    .filter(WhenClause.Operand.class::isInstance)
+                    .map(match -> ((WhenClause.Operand) match).expression())
+                    .toList();
+            if (equalityOperands.isEmpty()) {
+                return;
+            }
+
+            List<Type> whenOperandTypes = new ArrayList<>(equalityOperands.size());
+            Type commonType = operandType;
+            for (Expression whenOperand : equalityOperands) {
                 Type whenOperandType = process(whenOperand, context);
                 whenOperandTypes.add(whenOperandType);
 
@@ -1059,8 +1080,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < whenOperandTypes.size(); i++) {
                 Type whenOperandType = whenOperandTypes.get(i);
                 if (!whenOperandType.equals(commonType)) {
-                    Expression whenOperand = whenClauses.get(i).getOperand();
-                    addOrReplaceExpressionCoercion(whenOperand, commonType);
+                    addOrReplaceExpressionCoercion(equalityOperands.get(i), commonType);
                 }
             }
         }

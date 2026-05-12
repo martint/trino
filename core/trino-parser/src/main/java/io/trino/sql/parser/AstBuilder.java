@@ -3001,6 +3001,9 @@ class AstBuilder
     @Override
     public Node visitWhenClause(SqlBaseParser.WhenClauseContext context)
     {
+        if (context.partial != null) {
+            return new WhenClause(getLocation(context), (Predicate) visit(context.partial), (Expression) visit(context.result));
+        }
         return new WhenClause(getLocation(context), (Expression) visit(context.condition), (Expression) visit(context.result));
     }
 
