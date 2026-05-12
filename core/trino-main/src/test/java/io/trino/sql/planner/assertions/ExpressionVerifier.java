@@ -29,12 +29,16 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -66,6 +70,9 @@ public final class ExpressionVerifier
         extends IrVisitor<Boolean, Expression>
 {
     private final SymbolAliases symbolAliases;
+    // Names of lambda parameters currently in scope while descending into nested lambdas; their
+    // references are compared by direct equality rather than looked up in the alias table.
+    private final Set<String> lambdaParameters = new HashSet<>();
 
     public ExpressionVerifier(SymbolAliases symbolAliases)
     {
@@ -109,6 +116,12 @@ public final class ExpressionVerifier
         // TODO: verify types. This is currently hard to do because planner tests
         //       are either missing types, have the wrong types, or they are unable to
         //       provide types due to limitations in the matcher infrastructure
+        // Lambda parameters are scoped to the lambda body and aren't in the alias table; compare
+        // by name directly. Everything else goes through the strict alias path — a missing alias
+        // is a test-writing error, not a name match.
+        if (lambdaParameters.contains(expected.name())) {
+            return actual.name().equals(expected.name());
+        }
         return symbolAliases.get(expected.name()).name().equals(actual.name());
     }
 
@@ -228,8 +241,22 @@ public final class ExpressionVerifier
         }
 
         return process(actual.operand(), expected.operand()) &&
-                processWhenClauses(actual.whenClauses(), expected.whenClauses()) &&
+                processMatchClauses(actual.clauses(), expected.clauses()) &&
                 process(actual.defaultValue(), expected.defaultValue());
+    }
+
+    private boolean processMatchClauses(List<MatchClause> actual, List<MatchClause> expected)
+    {
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (int i = 0; i < actual.size(); i++) {
+            if (!process(actual.get(i).predicate(), expected.get(i).predicate()) ||
+                    !process(actual.get(i).result(), expected.get(i).result())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -288,7 +315,14 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.body(), lambda.body());
+        List<String> parameterNames = lambda.arguments().stream().map(Symbol::name).toList();
+        lambdaParameters.addAll(parameterNames);
+        try {
+            return process(actual.body(), lambda.body());
+        }
+        finally {
+            parameterNames.forEach(lambdaParameters::remove);
+        }
     }
 
     @Override

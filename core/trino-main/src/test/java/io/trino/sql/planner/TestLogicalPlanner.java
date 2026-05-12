@@ -43,7 +43,6 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -118,6 +117,7 @@ import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -1077,7 +1077,7 @@ public class TestLogicalPlanner
                         filter(
                                 new Match(
                                         new Reference(BOOLEAN, "is_distinct"),
-                                        ImmutableList.of(new WhenClause(TRUE, TRUE)),
+                                        ImmutableList.of(equalityClause(BOOLEAN, TRUE, TRUE)),
                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
@@ -1096,7 +1096,7 @@ public class TestLogicalPlanner
                         filter(
                                 new Match(
                                         new Reference(BOOLEAN, "is_distinct"),
-                                        ImmutableList.of(new WhenClause(TRUE, TRUE)),
+                                        ImmutableList.of(equalityClause(BOOLEAN, TRUE, TRUE)),
                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(
                                         markDistinct("is_distinct", ImmutableList.of("unique"),
@@ -1390,7 +1390,7 @@ public class TestLogicalPlanner
                         project(filter(
                                 new Match(
                                         new Reference(BOOLEAN, "is_distinct"),
-                                        ImmutableList.of(new WhenClause(TRUE, TRUE)),
+                                        ImmutableList.of(equalityClause(BOOLEAN, TRUE, TRUE)),
                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN)),
                                 project(markDistinct(
                                         "is_distinct",

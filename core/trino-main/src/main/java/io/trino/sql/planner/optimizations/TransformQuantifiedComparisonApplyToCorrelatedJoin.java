@@ -55,6 +55,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
@@ -189,7 +190,8 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
             return new Match(
                     countAllValue.toSymbolReference(),
-                    ImmutableList.of(new WhenClause(
+                    ImmutableList.of(equalityClause(
+                            BIGINT,
                             new Constant(BIGINT, 0L),
                             emptySetResult)),
                     quantifier.apply(ImmutableList.of(

@@ -58,6 +58,7 @@ import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,7 +91,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new Comparison(EQUAL, call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L)), new Constant(BIGINT, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Between(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L), new Constant(BIGINT, 10L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Reference(BIGINT, "bigint0"))), constantNull(BIGINT))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Match(new Reference(BIGINT, "bigint0"), ImmutableList.of(new WhenClause(new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))), call(NEGATION_BIGINT, new Reference(BIGINT, "bigint0")))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(new Match(new Reference(BIGINT, "bigint0"), ImmutableList.of(equalityClause(new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))), call(NEGATION_BIGINT, new Reference(BIGINT, "bigint0")))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(call(ADD_BIGINT, new Coalesce(new Constant(BIGINT, 0L), new Reference(BIGINT, "bigint0")), new Reference(BIGINT, "bigint0"))), 1);
 
         verifyEagerlyLoadedColumns(builder.buildExpression(call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), call(MULTIPLY_BIGINT, new Constant(BIGINT, 2L), new Reference(BIGINT, "bigint1")))), 2);

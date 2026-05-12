@@ -155,6 +155,7 @@ import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
@@ -436,10 +437,12 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
     {
+        io.trino.sql.ir.Expression operand = translateExpression(expression.getOperand());
         return new Match(
-                translateExpression(expression.getOperand()),
+                operand,
                 expression.getWhenClauses().stream()
-                        .map(clause -> new WhenClause(
+                        .map(clause -> equalityClause(
+                                operand.type(),
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),

@@ -29,6 +29,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.Symbol;
 import io.trino.type.TypeCoercion;
 
 import java.math.BigDecimal;
@@ -44,6 +45,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 
 public final class IrExpressions
 {
@@ -67,6 +69,31 @@ public final class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
+    }
+
+    /**
+     * Build a {@link MatchClause} that matches when the {@link Match} operand equals {@code value}.
+     * The clause's lambda is {@code (p) -> p = value}, lambda-scoped so the parameter name does not
+     * conflict with other clauses or with outer scopes.
+     */
+    public static MatchClause equalityClause(Type operandType, Expression value, Expression result)
+    {
+        Symbol parameter = new Symbol(operandType, "match$operand");
+        return new MatchClause(
+                new Lambda(
+                        ImmutableList.of(parameter),
+                        new Comparison(EQUAL, new Reference(parameter.type(), parameter.name()), value)),
+                result);
+    }
+
+    /**
+     * Convenience overload of {@link #equalityClause(Type, Expression, Expression)} that pulls the
+     * operand type from {@code value}. {@link Match} requires the operand type to equal the value
+     * type (no coercion at the IR level), so this is sound at all current call sites.
+     */
+    public static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return equalityClause(value.type(), value, result);
     }
 
     public static Constant row(List<Constant> fields)
@@ -109,7 +136,7 @@ public final class IrExpressions
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Match e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
+            case Match e -> mayFail(plannerContext, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.lambda().body()) || mayFail(plannerContext, clause.result())) ||
                     mayFail(plannerContext, e.defaultValue());
         };
     }
