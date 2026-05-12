@@ -21,8 +21,8 @@ import io.trino.sql.ir.DefaultTraversalVisitor;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
-import io.trino.sql.ir.Switch;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -88,7 +88,7 @@ public final class NullabilityAnalyzer
         }
 
         @Override
-        protected Void visitSwitch(Switch node, AtomicBoolean result)
+        protected Void visitMatch(Match node, AtomicBoolean result)
         {
             result.set(true);
             return null;
