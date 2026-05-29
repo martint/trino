@@ -48,7 +48,7 @@ public class OptimizerConfig
     private double joinMultiClauseIndependenceFactor = 0.25;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
-    private DecorrelationStrategy decorrelationStrategy = DecorrelationStrategy.LEGACY;
+    private DecorrelationStrategy decorrelationStrategy = DecorrelationStrategy.UNIFIED;
     private int maxReorderedJoins = 8;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 

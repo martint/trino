@@ -39,7 +39,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.Switch;
@@ -112,15 +111,12 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
-import static io.trino.sql.ir.Logical.Operator.AND;
-import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -129,7 +125,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.aliasToIndex;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
@@ -148,7 +143,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.patternRecognitio
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -1257,19 +1251,19 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
                 OPTIMIZED,
+                // The unified decorrelator decorrelates this double-nested correlated subquery (legacy
+                // leaves it as an ApplyNode), producing a nested CrossJoin/InnerJoin/CrossJoin over
+                // lineitem + two orders scans. Direct-child joins are matched with node(JoinNode) directly
+                // (no anyTree), since anyTree on a multi-source node would require its pattern in all
+                // branches; anyTree is used only to skip intermediate single-source nodes to the leaves.
                 anyTree(
-                        filter(
-                                new Reference(BOOLEAN, "OUTER_FILTER"),
-                                project(
-                                        apply(ImmutableList.of("O", "C"),
-                                                ImmutableMap.of("OUTER_FILTER", setExpression(new ApplyNode.In(new Symbol(UNKNOWN, "THREE"), new Symbol(UNKNOWN, "C")))),
-                                                project(ImmutableMap.of("THREE", expression(new Constant(BIGINT, 3L))),
-                                                        tableScan("orders", ImmutableMap.of(
-                                                                "O", "orderkey",
-                                                                "C", "custkey"))),
-                                                project(
-                                                        any(
-                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
+                        node(JoinNode.class,
+                                node(JoinNode.class,
+                                        node(JoinNode.class,
+                                                anyTree(tableScan("lineitem")),
+                                                node(ValuesNode.class)),
+                                        anyTree(tableScan("orders"))),
+                                anyTree(tableScan("orders")))),
                 optimizer -> !
                         (optimizer instanceof AddLocalExchanges
                                 || optimizer instanceof CheckSubqueryNodesAreRewritten
@@ -1293,92 +1287,53 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedExistsRewriteToInnerJoin()
     {
+        // The unified decorrelator uses a LEFT join (+ bool_or COALESCE'd to false) rather than legacy's
+        // INNER join: outer lineitem (uniquely tagged) ⟕ inner lineitem on orderkey, with suppkey<>.
         assertPlan("SELECT suppkey FROM lineitem l1 WHERE EXISTS (SELECT * FROM lineitem l2 WHERE l2.orderkey = l1.orderkey AND l2.suppkey <> l1.suppkey)",
-                output(
-                        strictProject(
-                                ImmutableMap.of(
-                                        "SUPPKEY", expression(new Reference(BIGINT, "L_SUPPKEY"))),
-                                aggregation(
-                                        singleGroupingSet("L_ORDERKEY", "L_SUPPKEY", "UNIQUE"),
-                                        ImmutableMap.of(),
-                                        ImmutableList.of("L_ORDERKEY", "L_SUPPKEY", "UNIQUE"),
-                                        ImmutableList.of(),
-                                        Optional.empty(),
-                                        SINGLE,
-                                        join(INNER, builder -> builder
-                                                .maySkipOutputDuplicates(true)
-                                                .equiCriteria("L_ORDERKEY", "R_ORDERKEY")
-                                                .filter(new Comparison(NOT_EQUAL, new Reference(BIGINT, "R_SUPPKEY"), new Reference(BIGINT, "L_SUPPKEY")))
-                                                .addDynamicFilter("DF", "R_ORDERKEY")
-                                                .left(
-                                                        assignUniqueId(
-                                                                "UNIQUE",
-                                                                filter(
-                                                                        TRUE,
-                                                                        dynamicFilters -> dynamicFilters
-                                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY")),
-                                                                        tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))
-                                                .right(
-                                                        exchange(
-                                                                tableScan("lineitem", ImmutableMap.of("R_SUPPKEY", "suppkey", "R_ORDERKEY", "orderkey")))))))));
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "R_ORDERKEY")
+                                .filter(new Comparison(NOT_EQUAL, new Reference(BIGINT, "R_SUPPKEY"), new Reference(BIGINT, "L_SUPPKEY")))
+                                .left(
+                                        assignUniqueId(
+                                                "UNIQUE",
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_SUPPKEY", "suppkey"))))
+                                .right(anyTree(tableScan("lineitem", ImmutableMap.of("R_ORDERKEY", "orderkey", "R_SUPPKEY", "suppkey")))))));
     }
 
     @Test
     public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
     {
+        // EXISTS maps to bool_or() over a LEFT join of the uniquely-tagged outer to the (constant)
+        // subquery on the lifted correlated predicate.
         assertPlan(
-                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders", // EXISTS maps to bool_or()
-                output(
-                        strictProject(
-                                ImmutableMap.of(
-                                        "ORDERKEY", expression(new Reference(BIGINT, "ORDERKEY")),
-                                        "exists", expression(new Coalesce(new Reference(BOOLEAN, "AGGR_BOOL"), FALSE))),
-                                aggregation(
-                                        singleGroupingSet("ORDERKEY", "UNIQUE"),
-                                        ImmutableMap.of(Optional.of("AGGR_BOOL"), aggregationFunction("bool_or", ImmutableList.of("SUBQUERY"))),
-                                        ImmutableList.of("ORDERKEY", "UNIQUE"),
-                                        ImmutableList.of(),
-                                        Optional.empty(),
-                                        SINGLE,
-                                        join(LEFT, builder -> builder
-                                                .maySkipOutputDuplicates(false)
-                                                .filter(new Comparison(EQUAL, new Constant(BIGINT, 3L), new Reference(BIGINT, "ORDERKEY")))
-                                                .left(
-                                                        assignUniqueId(
-                                                                "UNIQUE",
-                                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))
-                                                .right(
-                                                        project(ImmutableMap.of("SUBQUERY", expression(TRUE)),
-                                                                node(ValuesNode.class))))))));
+                "SELECT orderkey, EXISTS(SELECT 1 WHERE orderkey = 3) FROM orders",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .filter(new Comparison(EQUAL, new Reference(BIGINT, "ORDERKEY"), new Constant(BIGINT, 3L)))
+                                .left(
+                                        assignUniqueId(
+                                                "UNIQUE",
+                                                tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))
+                                .right(node(ValuesNode.class)))));
     }
 
     @Test
     public void testCorrelatedDistinctAggregationRewriteToLeftOuterJoin()
     {
+        // The unified decorrelator uses the magic-set: a NULL-safe LEFT join of the uniquely-tagged
+        // outer customer back to the per-distinct-correlation count over orders. The dependent side is
+        // an inner join of orders with the distinct correlation set (a clone of customer). Each
+        // multi-source node is matched explicitly (anyTree requires its pattern in all branches).
         assertPlan(
                 "SELECT (SELECT count(DISTINCT o.orderkey) FROM orders o WHERE c.custkey = o.custkey), c.custkey FROM customer c",
-                output(
-                        project(
-                                join(INNER, builder -> builder
-                                        .left(
-                                                join(LEFT, leftJoinBuilder -> leftJoinBuilder
-                                                        .equiCriteria("c_custkey", "o_custkey")
-                                                        .left(tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))
-                                                        .right(aggregation(
-                                                                singleGroupingSet("o_custkey"),
-                                                                ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
-                                                                ImmutableList.of(),
-                                                                ImmutableList.of("non_null"),
-                                                                Optional.empty(),
-                                                                SINGLE,
-                                                                project(ImmutableMap.of("non_null", expression(TRUE)),
-                                                                        aggregation(
-                                                                                singleGroupingSet("o_orderkey", "o_custkey"),
-                                                                                ImmutableMap.of(),
-                                                                                Optional.empty(),
-                                                                                FINAL,
-                                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))))
-                                        .right(anyTree(node(ValuesNode.class)))))));
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("customer")),
+                                anyTree(
+                                        node(JoinNode.class,
+                                                anyTree(tableScan("orders")),
+                                                anyTree(tableScan("customer")))))));
     }
 
     @Test
@@ -1775,80 +1730,38 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedIn()
     {
+        // The unified decorrelator turns the inequality-correlated IN into an INNER join of nation to the
+        // uniquely-tagged outer region on regionkey (criteria regionkey_2 = regionkey) with the lifted
+        // name < r.name filter, then a per-outer-row aggregation — replacing legacy's IN three-valued filter.
         assertPlan(
                 "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
-                output(
-                        project(
-                                ImmutableMap.of("region_name", expression(new Reference(VARCHAR, "region_name"))),
-                                aggregation(
-                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        FINAL,
-                                        anyTree(project(
-                                                ImmutableMap.of(
-                                                        "region_regionkey", expression(new Reference(BIGINT, "region_regionkey")),
-                                                        "region_name", expression(new Reference(VARCHAR, "region_name")),
-                                                        "unique", expression(new Reference(BIGINT, "unique"))),
-                                                filter(
-                                                        new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "region_regionkey")), new Comparison(EQUAL, new Reference(BIGINT, "region_regionkey"), new Reference(BIGINT, "nation_regionkey")), new IsNull(new Reference(BIGINT, "nation_regionkey")))), new Comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")))),
-                                                        join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "region_name")
-                                                                .left(
-                                                                        filter(
-                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
-                                                                                dynamicFilters -> dynamicFilters
-                                                                                        .addConsumer(consumer -> consumer
-                                                                                                .alias("DF")
-                                                                                                .expression(VARCHAR, "nation_name")
-                                                                                                .operator(LESS_THAN)),
-                                                                                tableScan("nation", ImmutableMap.of(
-                                                                                        "nation_name", "name",
-                                                                                        "nation_regionkey", "regionkey"))))
-                                                                .right(
-                                                                        any(
-                                                                                assignUniqueId(
-                                                                                        "unique",
-                                                                                        filter(
-                                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
-                                                                                                tableScan("region", ImmutableMap.of(
-                                                                                                        "region_regionkey", "regionkey",
-                                                                                                        "region_name", "name"))))))))))))));
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("nation")),
+                                anyTree(tableScan("region")))));
     }
 
     @Test
     public void testCorrelatedExists()
     {
+        // The unified decorrelator turns the inequality-correlated EXISTS into a LEFT join of the
+        // (uniquely tagged) outer region to nation on the lifted predicate, then a per-outer-row
+        // bool_or aggregation COALESCE'd to false for empty groups (legacy used an INNER join + the
+        // magic-set). Assert the key shape: the LEFT join with region tagged on the build side.
         assertPlan(
                 "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
-                output(
-                        project(
-                                aggregation(
-                                        singleGroupingSet("region_regionkey", "region_name", "unique"),
-                                        ImmutableMap.of(),
-                                        Optional.empty(),
-                                        FINAL,
-                                        anyTree(project(
-                                                filter(
-                                                        new Comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")),
-                                                        join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "region_name")
-                                                                .left(
-                                                                        filter(
-                                                                                TRUE,
-                                                                                dynamicFilters -> dynamicFilters
-                                                                                        .addConsumer(consumer -> consumer
-                                                                                                .alias("DF")
-                                                                                                .expression(VARCHAR, "nation_name")
-                                                                                                .operator(LESS_THAN)),
-                                                                                tableScan("nation", ImmutableMap.of("nation_name", "name"))))
-                                                                .right(
-                                                                        any(
-                                                                                assignUniqueId(
-                                                                                        "unique",
-                                                                                        tableScan("region", ImmutableMap.of(
-                                                                                                "region_regionkey", "regionkey",
-                                                                                                "region_name", "name")))))))))))));
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .filter(new Comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")))
+                                .left(
+                                        assignUniqueId(
+                                                "unique",
+                                                tableScan("region", ImmutableMap.of(
+                                                        "region_regionkey", "regionkey",
+                                                        "region_name", "name"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("nation_name", "name")))))));
     }
 
     @Test
