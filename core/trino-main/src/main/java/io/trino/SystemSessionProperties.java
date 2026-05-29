@@ -29,6 +29,7 @@ import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.DecorrelationStrategy;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -100,6 +101,7 @@ public final class SystemSessionProperties
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
+    public static final String DECORRELATION_STRATEGY = "decorrelation_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
@@ -467,6 +469,12 @@ public final class SystemSessionProperties
                         "Join reordering strategy",
                         JoinReorderingStrategy.class,
                         optimizerConfig.getJoinReorderingStrategy(),
+                        false),
+                enumProperty(
+                        DECORRELATION_STRATEGY,
+                        "Strategy for unnesting correlated subqueries (LEGACY pattern-matched rules or UNIFIED dependent-join framework)",
+                        DecorrelationStrategy.class,
+                        optimizerConfig.getDecorrelationStrategy(),
                         false),
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
@@ -1334,6 +1342,11 @@ public final class SystemSessionProperties
     public static double getTableScanNodePartitioningMinBucketToTaskRatio(Session session)
     {
         return session.getSystemProperty(TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO, Double.class);
+    }
+
+    public static DecorrelationStrategy getDecorrelationStrategy(Session session)
+    {
+        return session.getSystemProperty(DECORRELATION_STRATEGY, DecorrelationStrategy.class);
     }
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)

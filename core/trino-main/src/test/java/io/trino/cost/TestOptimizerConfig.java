@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.DecorrelationStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,7 @@ public class TestOptimizerConfig
                 .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setJoinMultiClauseIndependenceFactor(0.25)
                 .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
+                .setDecorrelationStrategy(DecorrelationStrategy.LEGACY)
                 .setMaxReorderedJoins(8)
                 .setMaxPrefetchedInformationSchemaPrefixes(100)
                 .setColocatedJoinsEnabled(true)
@@ -112,6 +114,7 @@ public class TestOptimizerConfig
                 .put("join-max-broadcast-table-size", "42GB")
                 .put("optimizer.join-multi-clause-independence-factor", "0.75")
                 .put("optimizer.join-reordering-strategy", "NONE")
+                .put("optimizer.decorrelation-strategy", "UNIFIED")
                 .put("optimizer.max-reordered-joins", "5")
                 .put("optimizer.experimental-max-prefetched-information-schema-prefixes", "10")
                 .put("iterative-optimizer-timeout", "10s")
@@ -164,6 +167,7 @@ public class TestOptimizerConfig
                 .setJoinMaxBroadcastTableSize(DataSize.of(42, GIGABYTE))
                 .setJoinMultiClauseIndependenceFactor(0.75)
                 .setJoinReorderingStrategy(NONE)
+                .setDecorrelationStrategy(DecorrelationStrategy.UNIFIED)
                 .setMaxReorderedJoins(5)
                 .setMaxPrefetchedInformationSchemaPrefixes(10)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))

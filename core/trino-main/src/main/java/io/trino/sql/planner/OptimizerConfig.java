@@ -48,6 +48,7 @@ public class OptimizerConfig
     private double joinMultiClauseIndependenceFactor = 0.25;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
+    private DecorrelationStrategy decorrelationStrategy = DecorrelationStrategy.LEGACY;
     private int maxReorderedJoins = 8;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
@@ -131,6 +132,20 @@ public class OptimizerConfig
         NONE,
         ALWAYS,
         AUTOMATIC,
+    }
+
+    /**
+     * Strategy for unnesting correlated subqueries.
+     * <p>
+     * `LEGACY` uses the pattern-matched `TransformCorrelated*` rules and `PlanNodeDecorrelator`.
+     * `UNIFIED` enables the dependent-join framework based on Neumann and Kemper (BTW 2015),
+     * which applies algebraic pushdown rules uniformly and falls back to a magic-set base case.
+     * The unified framework is experimental and runs alongside the legacy rules.
+     */
+    public enum DecorrelationStrategy
+    {
+        LEGACY,
+        UNIFIED,
     }
 
     public enum DistinctAggregationsStrategy
@@ -229,6 +244,19 @@ public class OptimizerConfig
     public OptimizerConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public DecorrelationStrategy getDecorrelationStrategy()
+    {
+        return decorrelationStrategy;
+    }
+
+    @Config("optimizer.decorrelation-strategy")
+    @ConfigDescription("Strategy for unnesting correlated subqueries: LEGACY (pattern-matched rules) or UNIFIED (Neumann-style dependent-join framework)")
+    public OptimizerConfig setDecorrelationStrategy(DecorrelationStrategy decorrelationStrategy)
+    {
+        this.decorrelationStrategy = decorrelationStrategy;
         return this;
     }
 

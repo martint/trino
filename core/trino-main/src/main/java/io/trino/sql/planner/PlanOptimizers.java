@@ -221,6 +221,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
+import io.trino.sql.planner.iterative.rule.RewriteCorrelatedInPredicateToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
@@ -242,6 +243,7 @@ import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
+import io.trino.sql.planner.iterative.rule.UnnestCorrelatedJoinViaDependentJoinFramework;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapRowSubscript;
@@ -565,6 +567,11 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(
+                                // Unified dependent-join framework — gated on `decorrelation_strategy = UNIFIED`.
+                                // Runs first; legacy rules below cover the shapes it doesn't yet handle.
+                                // The IN rule lowers correlated IN to a CorrelatedJoinNode the framework then unnests.
+                                new RewriteCorrelatedInPredicateToCorrelatedJoin(metadata),
+                                new UnnestCorrelatedJoinViaDependentJoinFramework(metadata),
                                 new RemoveRedundantEnforceSingleRowNode(),
                                 new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),
