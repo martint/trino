@@ -18,7 +18,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -42,10 +42,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 
 /**
  * Per-resolution latency of the constraint solver vs Trino's function resolution, over the same
@@ -94,7 +93,7 @@ public class BenchmarkFunctionResolution
     private TestingFunctionResolution cachedResolution;
     private List<String> names;
     private List<List<Expression>> solverArguments;
-    private List<List<TypeSignatureProvider>> trinoArguments;
+    private List<List<TypeDescriptorProvider>> trinoArguments;
     private Map<List<Object>, FunctionResolver.ResolutionOutcome> solverCache;
 
     @Setup
@@ -111,11 +110,11 @@ public class BenchmarkFunctionResolution
         trinoArguments = new ArrayList<>();
         for (Call call : CALLS) {
             List<Type> argumentTypes = call.arguments().stream()
-                    .map(signature -> typeManager.getType(parseTypeSignature(signature, Set.of())))
+                    .map(signature -> typeManager.getType(parseTypeDescriptor(signature)))
                     .toList();
             names.add(call.name());
             solverArguments.add(argumentTypes.stream().map(TypeBridge::toExpression).toList());
-            trinoArguments.add(TypeSignatureProvider.fromTypes(argumentTypes));
+            trinoArguments.add(TypeDescriptorProvider.fromTypes(argumentTypes));
         }
     }
 

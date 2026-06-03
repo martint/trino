@@ -44,7 +44,7 @@ import static org.weakref.solver.Expression.symbol;
  * support; an unsupported type surfaces as an {@link IllegalArgumentException}
  * rather than a silent skip, so coverage gaps are visible.
  */
-final class TypeBridge
+public final class TypeBridge
 {
     private TypeBridge() {}
 
@@ -79,7 +79,7 @@ final class TypeBridge
     {
         // Zero-argument types map by base name; multi-word names (interval / with time zone)
         // use underscores in the solver preset.
-        return type.getTypeSignature().getBase().replace(' ', '_');
+        return type.getTypeDescriptor().getBase().replace(' ', '_');
     }
 
     /**

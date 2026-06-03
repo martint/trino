@@ -30,9 +30,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -129,7 +128,7 @@ class TestTypeSolverParity
     {
         List<Sample> samples = SAMPLE_SIGNATURES.stream()
                 .map(signature -> {
-                    Type trinoType = typeManager.getType(parseTypeSignature(signature, Set.of()));
+                    Type trinoType = typeManager.getType(parseTypeDescriptor(signature));
                     return new Sample(signature, trinoType, TypeBridge.toExpression(trinoType));
                 })
                 .toList();

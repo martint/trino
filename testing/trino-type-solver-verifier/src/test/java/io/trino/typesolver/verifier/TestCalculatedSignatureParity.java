@@ -18,7 +18,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 import org.weakref.solver.Expression;
 import org.weakref.solver.FunctionResolver;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -106,7 +106,7 @@ class TestCalculatedSignatureParity
         int agree = 0;
         for (Call call : calls) {
             List<Type> argumentTypes = call.arguments().stream()
-                    .map(signature -> typeManager.getType(parseTypeSignature(signature, Set.of())))
+                    .map(signature -> typeManager.getType(parseTypeDescriptor(signature)))
                     .toList();
             Optional<String> trino = resolveTrino(call, argumentTypes);
             Optional<String> solved = resolveSolver(call, argumentTypes);
@@ -142,7 +142,7 @@ class TestCalculatedSignatureParity
     private Optional<String> resolveTrino(Call call, List<Type> argumentTypes)
     {
         try {
-            ResolvedFunction resolved = functionResolution.resolveFunction(call.name(), TypeSignatureProvider.fromTypes(argumentTypes));
+            ResolvedFunction resolved = functionResolution.resolveFunction(call.name(), TypeDescriptorProvider.fromTypes(argumentTypes));
             return Optional.of(TypeBridge.render(TypeBridge.toExpression(resolved.signature().getReturnType())));
         }
         catch (RuntimeException e) {

@@ -19,7 +19,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import org.junit.jupiter.api.Test;
 import org.weakref.solver.Expression;
 import org.weakref.solver.FunctionResolver;
@@ -31,9 +31,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -276,7 +275,7 @@ class TestFunctionParity
 
         for (Call call : CALLS) {
             List<Type> argumentTypes = call.argumentSignatures().stream()
-                    .map(signature -> typeManager.getType(parseTypeSignature(signature, Set.of())))
+                    .map(signature -> typeManager.getType(parseTypeDescriptor(signature)))
                     .toList();
 
             Optional<String> trino = resolveTrino(call, argumentTypes);
@@ -311,7 +310,7 @@ class TestFunctionParity
         try {
             ResolvedFunction resolved = switch (call.kind()) {
                 case OPERATOR -> functionResolution.resolveOperator(call.operator(), argumentTypes);
-                case FUNCTION -> functionResolution.resolveFunction(call.name(), TypeSignatureProvider.fromTypes(argumentTypes));
+                case FUNCTION -> functionResolution.resolveFunction(call.name(), TypeDescriptorProvider.fromTypes(argumentTypes));
             };
             return Optional.of(TypeBridge.render(TypeBridge.toExpression(resolved.signature().getReturnType())));
         }
