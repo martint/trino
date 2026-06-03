@@ -20,9 +20,13 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.NumericExpression;
+import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ReservedIdentifiers;
 import io.trino.sql.parser.SqlParser;
@@ -126,6 +130,128 @@ public final class TypeSignatureTranslator
             throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Parses a type template — the open, variable-bearing form used in function signature argument and
+     * return positions. Unlike {@link #parseTypeSignature}, a variable's kind is structural in the result,
+     * so the declared type-variable and numeric-variable names are passed separately (the syntax alone
+     * cannot tell {@code E} in {@code array(E)} from a numeric {@code p} in {@code decimal(p, s)}).
+     */
+    public static TypeTemplate parseTypeTemplate(String signature, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        Set<String> types = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        types.addAll(typeVariables);
+        Set<String> numerics = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        numerics.addAll(numericVariables);
+        Set<String> overlap = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        overlap.addAll(types);
+        overlap.retainAll(numerics);
+        checkArgument(overlap.isEmpty(), "A name cannot be both a type variable and a numeric variable: %s", overlap);
+        try {
+            return toTypeTemplate(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)), types, numerics);
+        }
+        catch (Exception e) {
+            if (e.getCause() != null) {
+                throwIfUnchecked(e.getCause());
+            }
+            throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static TypeTemplate toTypeTemplate(DataType type, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        return switch (type) {
+            case GenericDataType genericDataType -> toTypeTemplate(genericDataType, typeVariables, numericVariables);
+            case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
+            case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
+            // Interval types are always ground; lift the ground signature into a (variable-free) template.
+            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeSignature(toTypeSignature(intervalDataType));
+        };
+    }
+
+    private static TypeTemplate toTypeTemplate(GenericDataType type, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        String name = type.getName().getValue();
+
+        // A bare reference to a declared type variable, e.g. a top-level E or the E in array(E).
+        if (type.getArguments().isEmpty() && typeVariables.contains(name)) {
+            return new TypeTemplate.TypeVariable(name);
+        }
+
+        // A numeric variable belongs in a parameter position (the n in varchar(n)), never as a type itself.
+        checkArgument(!(type.getArguments().isEmpty() && numericVariables.contains(name)),
+                "Numeric variable cannot appear in a type position: %s", name);
+
+        if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
+            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeSignature.
+            return TypeTemplates.fromTypeSignature(VarcharType.VARCHAR.getTypeSignature());
+        }
+
+        List<TemplateParameter> parameters = new ArrayList<>();
+        for (DataTypeParameter parameter : type.getArguments()) {
+            parameters.add(toTemplateParameter(parameter, typeVariables, numericVariables));
+        }
+        return new TypeTemplate.TypeApplication(canonicalize(type.getName()), parameters);
+    }
+
+    private static TemplateParameter toTemplateParameter(DataTypeParameter parameter, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        return switch (parameter) {
+            case NumericParameter numericParameter -> new TemplateParameter.NumericArgument(new NumericExpression.Literal(numericParameter.getParsedValue()));
+            case io.trino.sql.tree.TypeParameter typeParameter -> {
+                DataType value = typeParameter.getValue();
+                if (value instanceof GenericDataType genericDataType && genericDataType.getArguments().isEmpty()) {
+                    String variable = genericDataType.getName().getValue();
+                    if (numericVariables.contains(variable)) {
+                        yield new TemplateParameter.NumericArgument(new NumericExpression.Variable(variable));
+                    }
+                    if (typeVariables.contains(variable)) {
+                        yield new TemplateParameter.TypeArgument(Optional.empty(), new TypeTemplate.TypeVariable(variable));
+                    }
+                }
+                yield new TemplateParameter.TypeArgument(Optional.empty(), toTypeTemplate(value, typeVariables, numericVariables));
+            }
+            default -> throw new UnsupportedOperationException("Unsupported type parameter kind: " + parameter.getClass().getName());
+        };
+    }
+
+    private static TypeTemplate toTypeTemplate(RowDataType type, Set<String> typeVariables, Set<String> numericVariables)
+    {
+        List<TemplateParameter> parameters = type.getFields().stream()
+                .map(field -> (TemplateParameter) new TemplateParameter.TypeArgument(
+                        field.getName().map(TypeSignatureTranslator::canonicalize),
+                        toTypeTemplate(field.getType(), typeVariables, numericVariables)))
+                .collect(toImmutableList());
+        return new TypeTemplate.TypeApplication(ROW, parameters);
+    }
+
+    private static TypeTemplate toTypeTemplate(DateTimeDataType type, Set<String> numericVariables)
+    {
+        boolean withTimeZone = type.isWithTimeZone();
+        String base = switch (type.getType()) {
+            case TIMESTAMP -> withTimeZone ? TIMESTAMP_WITH_TIME_ZONE : TIMESTAMP;
+            case TIME -> withTimeZone ? TIME_WITH_TIME_ZONE : TIME;
+        };
+
+        List<TemplateParameter> parameters = new ArrayList<>();
+        if (type.getPrecision().isPresent()) {
+            DataTypeParameter precision = type.getPrecision().get();
+            if (precision instanceof NumericParameter numericParameter) {
+                parameters.add(new TemplateParameter.NumericArgument(new NumericExpression.Literal(numericParameter.getParsedValue())));
+            }
+            else if (precision instanceof io.trino.sql.tree.TypeParameter typeParameter) {
+                DataType value = typeParameter.getValue();
+                if (!(value instanceof GenericDataType genericDataType) || !genericDataType.getArguments().isEmpty()) {
+                    throw new IllegalArgumentException("Parameter to datetime type must be either a number or a variable");
+                }
+                String variable = genericDataType.getName().getValue();
+                checkArgument(numericVariables.contains(variable), "Parameter to datetime type must be a number or a numeric variable: %s", variable);
+                parameters.add(new TemplateParameter.NumericArgument(new NumericExpression.Variable(variable)));
+            }
+        }
+        return new TypeTemplate.TypeApplication(base, parameters);
     }
 
     private static TypeSignature toTypeSignature(GenericDataType type, Set<String> typeVariables)
