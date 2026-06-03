@@ -81,6 +81,7 @@ class TestTypeSolverParity
             "json",
             "uuid",
             "ipaddress",
+            "variant",
             "unknown",
             "decimal(1,0)",
             "decimal(20,10)",
