@@ -117,11 +117,12 @@ class TestTypeTemplate
     }
 
     @Test
-    void testLiftRejectsVariableParameter()
+    void testLiftMapsVariableToNumericVariable()
     {
-        TypeSignature withVariable = new TypeSignature("decimal", List.of(TypeParameter.typeVariable("p")));
-        assertThatThrownBy(() -> TypeTemplates.fromTypeSignature(withVariable))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Cannot lift a signature with a variable parameter");
+        // A TypeParameter.Variable is a numeric variable by convention (type variables are base-string signatures).
+        TypeSignature withVariable = new TypeSignature("decimal", List.of(TypeParameter.typeVariable("p"), TypeParameter.numericParameter(2)));
+        assertThat(TypeTemplates.fromTypeSignature(withVariable)).isEqualTo(new TypeTemplate.TypeApplication("decimal", List.of(
+                new TemplateParameter.NumericArgument(new NumericExpression.Variable("p")),
+                new TemplateParameter.NumericArgument(new NumericExpression.Literal(2)))));
     }
 }

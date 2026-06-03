@@ -15,28 +15,32 @@ package io.trino.spi.function;
 
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Stream.concat;
 
 public class Signature
 {
-    public record Argument(TypeSignature type, Optional<String> name)
+    public record Argument(TypeTemplate type, Optional<String> name)
     {
-        public static Argument of(TypeSignature type)
+        public static Argument of(TypeTemplate type)
         {
             return new Argument(type, Optional.empty());
         }
 
-        public static Argument of(TypeSignature type, String name)
+        public static Argument of(TypeTemplate type, String name)
         {
             return new Argument(type, Optional.of(name));
         }
@@ -44,14 +48,14 @@ public class Signature
 
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
-    private final TypeSignature returnType;
+    private final TypeTemplate returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
             List<TypeVariableConstraint> typeVariableConstraints,
             List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
+            TypeTemplate returnType,
             List<Argument> arguments,
             boolean variableArity)
     {
@@ -62,7 +66,7 @@ public class Signature
         this.variableArity = variableArity;
     }
 
-    public TypeSignature getReturnType()
+    public TypeTemplate getReturnType()
     {
         return returnType;
     }
@@ -72,7 +76,7 @@ public class Signature
         return arguments;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<TypeTemplate> getArgumentTypes()
     {
         return arguments.stream()
                 .map(Argument::type)
@@ -133,8 +137,8 @@ public class Signature
                 .collect(Collectors.toList());
 
         return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
-                arguments.stream().map(Argument::type).map(Objects::toString).collect(joining(",", "(", ")")) +
-                ":" + returnType;
+                arguments.stream().map(Argument::type).map(TypeTemplates::render).collect(joining(",", "(", ")")) +
+                ":" + TypeTemplates.render(returnType);
     }
 
     public static Builder builder()
@@ -159,7 +163,7 @@ public class Signature
     {
         private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
         private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
-        private TypeSignature returnType;
+        private TypeTemplate returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
 
@@ -223,15 +227,20 @@ public class Signature
             return this;
         }
 
-        public Builder returnType(Type returnType)
+        public Builder returnType(TypeTemplate returnType)
         {
-            return returnType(returnType.getTypeSignature());
+            this.returnType = requireNonNull(returnType, "returnType is null");
+            return this;
         }
 
         public Builder returnType(TypeSignature returnType)
         {
-            this.returnType = requireNonNull(returnType, "returnType is null");
-            return this;
+            return returnType(TypeTemplates.fromTypeSignature(returnType));
+        }
+
+        public Builder returnType(Type returnType)
+        {
+            return returnType(returnType.getTypeSignature());
         }
 
         public Builder longVariable(String name, String expression)
@@ -252,21 +261,31 @@ public class Signature
             return this;
         }
 
-        public Builder argumentType(Type type)
-        {
-            return argumentType(type.getTypeSignature());
-        }
-
-        public Builder argumentType(TypeSignature type)
+        public Builder argumentType(TypeTemplate type)
         {
             arguments.add(Argument.of(type));
             return this;
         }
 
-        public Builder argumentType(TypeSignature type, String name)
+        public Builder argumentType(TypeTemplate type, String name)
         {
             arguments.add(Argument.of(type, name));
             return this;
+        }
+
+        public Builder argumentType(TypeSignature type)
+        {
+            return argumentType(TypeTemplates.fromTypeSignature(type));
+        }
+
+        public Builder argumentType(TypeSignature type, String name)
+        {
+            return argumentType(TypeTemplates.fromTypeSignature(type), name);
+        }
+
+        public Builder argumentType(Type type)
+        {
+            return argumentType(type.getTypeSignature());
         }
 
         public Builder argumentType(Type type, String name)
@@ -297,7 +316,16 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
+            // Normalize base-string type variables (as the TypeSignature-based builder methods produce) into
+            // first-class TypeVariable nodes, so a programmatically-built signature equals the parsed one.
+            Set<String> typeVariableNames = typeVariableConstraints.stream()
+                    .map(TypeVariableConstraint::getName)
+                    .collect(toSet());
+            TypeTemplate canonicalReturnType = TypeTemplates.canonicalizeTypeVariables(returnType, typeVariableNames);
+            List<Argument> canonicalArguments = arguments.stream()
+                    .map(argument -> new Argument(TypeTemplates.canonicalizeTypeVariables(argument.type(), typeVariableNames), argument.name()))
+                    .collect(toUnmodifiableList());
+            return new Signature(typeVariableConstraints, longVariableConstraints, canonicalReturnType, canonicalArguments, variableArity);
         }
     }
 }

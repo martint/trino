@@ -24,6 +24,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.util.Failures.checkCondition;
@@ -127,7 +129,10 @@ public final class ScalarFromAnnotationsParser
         Signature scalarSignature = implementations.getSignature();
 
         scalar.header().getOperatorType().ifPresent(operatorType ->
-                validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
+                validateOperator(
+                        operatorType,
+                        TypeTemplates.toLegacyTypeSignature(scalarSignature.getReturnType()),
+                        scalarSignature.getArgumentTypes().stream().map(TypeTemplates::toLegacyTypeSignature).collect(toImmutableList())));
 
         return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
     }

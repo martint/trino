@@ -14,6 +14,8 @@
 package io.trino.spi.type;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +44,21 @@ public sealed interface TypeTemplate
             requireNonNull(base, "base is null");
             parameters = List.copyOf(parameters);
         }
+
+        // Type names are case-insensitive in Trino, matching the legacy TypeSignature identity.
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof TypeApplication application
+                    && base.equalsIgnoreCase(application.base)
+                    && parameters.equals(application.parameters);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(base.toLowerCase(Locale.ROOT), parameters);
+        }
     }
 
     /**
@@ -53,6 +70,19 @@ public sealed interface TypeTemplate
         public TypeVariable
         {
             requireNonNull(name, "name is null");
+        }
+
+        // Type-variable names are case-insensitive, matching the legacy constraint maps.
+        @Override
+        public boolean equals(Object o)
+        {
+            return o instanceof TypeVariable variable && name.equalsIgnoreCase(variable.name);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return name.toLowerCase(Locale.ROOT).hashCode();
         }
     }
 }

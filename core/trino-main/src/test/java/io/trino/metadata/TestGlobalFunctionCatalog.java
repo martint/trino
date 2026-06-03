@@ -34,6 +34,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -94,10 +95,11 @@ public class TestGlobalFunctionCatalog
             if (function.getSignature().isGeneric()) {
                 continue;
             }
-            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
+            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeTemplates::isCalculated)) {
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
+                    .map(TypeTemplates::toTypeSignature)
                     .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
             BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).signature();

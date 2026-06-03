@@ -44,7 +44,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -90,6 +90,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
@@ -492,7 +493,7 @@ public class ParametricScalarImplementation
 
             SqlType returnType = method.getAnnotation(SqlType.class);
             checkArgument(returnType != null, "Method [%s] is missing @SqlType annotation", method);
-            signatureBuilder.returnType(parseTypeSignature(returnType.value(), literalParameters));
+            signatureBuilder.returnType(parseTypeTemplate(returnType.value(), typeParameterNames, literalParameters));
 
             Class<?> actualReturnType = method.getReturnType();
             this.returnNativeContainerType = Primitives.unwrap(actualReturnType);
@@ -580,20 +581,20 @@ public class ParametricScalarImplementation
                             .map(SqlType.class::cast)
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
-                    TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
+                    TypeTemplate typeTemplate = parseTypeTemplate(type.value(), typeParameterNames, literalParameters);
                     // @Name is not @Repeatable, so the compiler guarantees at most one.
                     Optional<Name> nameAnnotation = Stream.of(annotations)
                             .filter(Name.class::isInstance)
                             .map(Name.class::cast)
                             .findFirst();
                     if (nameAnnotation.isPresent()) {
-                        signatureBuilder.argumentType(typeSignature, nameAnnotation.get().value());
+                        signatureBuilder.argumentType(typeTemplate, nameAnnotation.get().value());
                     }
                     else {
-                        signatureBuilder.argumentType(typeSignature);
+                        signatureBuilder.argumentType(typeTemplate);
                     }
 
-                    if (typeSignature.getBase().equals(FunctionType.NAME)) {
+                    if (typeTemplate instanceof TypeTemplate.TypeApplication application && application.base().equals(FunctionType.NAME)) {
                         // function type
                         checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", parameterIndex, methodHandle);
                         argumentConventions.add(FUNCTION);

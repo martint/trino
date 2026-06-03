@@ -40,6 +40,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessFlag;
@@ -162,8 +163,8 @@ public final class AggregationFromAnnotationsParser
     private static boolean isGenericOrCalculated(Signature signature)
     {
         return !signature.isGeneric()
-                && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                && !signature.getReturnType().isCalculated();
+                && signature.getArgumentTypes().stream().noneMatch(TypeTemplates::isCalculated)
+                && !TypeTemplates.isCalculated(signature.getReturnType());
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition, AnnotatedElement outputFunction)

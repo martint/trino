@@ -46,6 +46,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
@@ -565,9 +566,10 @@ public class LanguageFunctionManager
 
             private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
             {
-                Type returnType = typeManager.getType(functionMetadata.getSignature().getReturnType());
+                Type returnType = typeManager.getType(TypeTemplates.toTypeSignature(functionMetadata.getSignature().getReturnType()));
 
                 List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
+                        .map(TypeTemplates::toTypeSignature)
                         .map(typeManager::getType)
                         .collect(toImmutableList());
 

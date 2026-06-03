@@ -29,6 +29,25 @@ public final class NumericExpressions
     private NumericExpressions() {}
 
     /**
+     * Renders the expression in type-parameter syntax, e.g. {@code min(38, (p + 1))}.
+     */
+    public static String render(NumericExpression expression)
+    {
+        return switch (expression) {
+            case Literal(long value) -> Long.toString(value);
+            case Variable(String name) -> name;
+            case Operation(Operator operator, NumericExpression left, NumericExpression right) -> switch (operator) {
+                case MIN -> "min(" + render(left) + ", " + render(right) + ")";
+                case MAX -> "max(" + render(left) + ", " + render(right) + ")";
+                case ADD -> "(" + render(left) + " + " + render(right) + ")";
+                case SUBTRACT -> "(" + render(left) + " - " + render(right) + ")";
+                case MULTIPLY -> "(" + render(left) + " * " + render(right) + ")";
+                case DIVIDE -> "(" + render(left) + " / " + render(right) + ")";
+            };
+        };
+    }
+
+    /**
      * Evaluates the expression against the given numeric-variable bindings. The result is a
      * {@link BigInteger}: a calculated parameter such as {@code min(2147483647, x + max(x * y / 2, y) * (x + 1))}
      * relies on a large intermediate being clamped back into range, so the intermediate must be computed

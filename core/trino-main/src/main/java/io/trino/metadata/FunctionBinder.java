@@ -25,6 +25,8 @@ import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
 import java.util.ArrayList;
@@ -124,7 +126,15 @@ class FunctionBinder
     private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
     {
         return new SignatureBinder(metadata, typeManager, declaredSignature, false)
-                .canBind(fromTypeSignatures(actualSignature.getArgumentTypes()), actualSignature.getReturnType());
+                .canBind(fromTypeSignatures(groundArgumentTypes(actualSignature)), TypeTemplates.toTypeSignature(actualSignature.getReturnType()));
+    }
+
+    // A fully-bound (ground) Signature's argument types, lowered to TypeSignatures.
+    private static List<TypeSignature> groundArgumentTypes(Signature signature)
+    {
+        return signature.getArgumentTypes().stream()
+                .map(TypeTemplates::toTypeSignature)
+                .collect(toImmutableList());
     }
 
     private static boolean possibleExactCastMatch(Signature signature, Signature declaredSignature)
@@ -132,10 +142,10 @@ class FunctionBinder
         if (declaredSignature.isGeneric()) {
             return false;
         }
-        if (!declaredSignature.getReturnType().getBase().equalsIgnoreCase(signature.getReturnType().getBase())) {
+        if (!TypeTemplates.baseName(declaredSignature.getReturnType()).equalsIgnoreCase(TypeTemplates.baseName(signature.getReturnType()))) {
             return false;
         }
-        return declaredSignature.getArgumentTypes().get(0).getBase().equalsIgnoreCase(signature.getArgumentTypes().get(0).getBase());
+        return TypeTemplates.baseName(declaredSignature.getArgumentTypes().get(0)).equalsIgnoreCase(TypeTemplates.baseName(signature.getArgumentTypes().get(0)));
     }
 
     private Optional<CatalogFunctionBinding> matchFunctionExact(List<CatalogFunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
@@ -271,7 +281,7 @@ class FunctionBinder
 
     private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
     {
-        List<Type> boundTypes = applicableFunction.boundSignature().getArgumentTypes().stream()
+        List<Type> boundTypes = groundArgumentTypes(applicableFunction.boundSignature()).stream()
                 .map(typeManager::getType)
                 .collect(toImmutableList());
         checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
@@ -286,7 +296,7 @@ class FunctionBinder
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.boundSignature().getReturnType()))
+                .map(function -> typeManager.getType(TypeTemplates.toTypeSignature(function.boundSignature().getReturnType())))
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -332,7 +342,7 @@ class FunctionBinder
      */
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.boundSignature().getArgumentTypes());
+        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(groundArgumentTypes(left.boundSignature()));
         return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
                 .canBind(resolvedTypes);
     }
@@ -344,8 +354,8 @@ class FunctionBinder
                         functionMetadata.catalogHandle().getCatalogName().toString(),
                         functionMetadata.schemaName(),
                         functionMetadata.functionMetadata().getCanonicalName()),
-                typeManager.getType(signature.getReturnType()),
-                signature.getArgumentTypes().stream()
+                typeManager.getType(TypeTemplates.toTypeSignature(signature.getReturnType())),
+                groundArgumentTypes(signature).stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList()));
         return new CatalogFunctionBinding(
@@ -411,7 +421,9 @@ class FunctionBinder
 
         Set<String> expectedParameters = new TreeSet<>();
         for (CatalogFunctionMetadata function : candidates) {
-            String arguments = Joiner.on(", ").join(function.functionMetadata().getSignature().getArgumentTypes());
+            String arguments = function.functionMetadata().getSignature().getArgumentTypes().stream()
+                    .map(TypeTemplates::render)
+                    .collect(Collectors.joining(", "));
             String constraints = Joiner.on(", ").join(function.functionMetadata().getSignature().getTypeVariableConstraints());
             expectedParameters.add(format("%s(%s) %s", name, arguments, constraints).stripTrailing());
         }

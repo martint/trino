@@ -31,6 +31,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -154,18 +156,36 @@ public class SignatureBinder
         return iterativeSolve(constraintSolvers.build());
     }
 
+    // TODO: transitional bridge for the 2a shape flip — the binder still matches over the legacy
+    // TypeSignature form. A type variable becomes a bare base-string signature and a numeric variable a
+    // TypeParameter.Variable, matching what this algorithm expects. Removed when the binder is rewritten
+    // to consume TypeTemplate natively (calculated NumericExpression.Operation is inlined only afterwards,
+    // so it must not appear here yet).
+    private static List<TypeSignature> toLegacySignatures(List<TypeTemplate> templates)
+    {
+        return templates.stream()
+                .map(TypeTemplates::toLegacyTypeSignature)
+                .collect(toImmutableList());
+    }
+
+    private static TypeSignature toLegacySignature(TypeTemplate template)
+    {
+        return TypeTemplates.toLegacyTypeSignature(template);
+    }
+
     private static Signature applyBoundVariables(Signature signature, VariableBindings typeVariables, int arity)
     {
+        List<TypeSignature> formalArgumentTypes = toLegacySignatures(signature.getArgumentTypes());
         List<TypeSignature> argumentSignatures;
         if (signature.isVariableArity()) {
-            argumentSignatures = expandVarargFormalTypeSignature(signature.getArgumentTypes(), arity);
+            argumentSignatures = expandVarargFormalTypeSignature(formalArgumentTypes, arity);
         }
         else {
-            checkArgument(signature.getArgumentTypes().size() == arity);
-            argumentSignatures = signature.getArgumentTypes();
+            checkArgument(formalArgumentTypes.size() == arity);
+            argumentSignatures = formalArgumentTypes;
         }
         List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
-        TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
+        TypeSignature boundReturnTypeSignature = applyBoundVariables(toLegacySignature(signature.getReturnType()), typeVariables);
 
         return Signature.builder()
                 .returnType(boundReturnTypeSignature)
@@ -208,7 +228,7 @@ public class SignatureBinder
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
 
         boolean variableArity = declaredSignature.isVariableArity();
-        List<TypeSignature> formalTypeSignatures = declaredSignature.getArgumentTypes();
+        List<TypeSignature> formalTypeSignatures = toLegacySignatures(declaredSignature.getArgumentTypes());
         if (variableArity) {
             verifyBoundSignature(boundSignature.getArgumentTypes().size() >= formalTypeSignatures.size() - 1, boundSignature, declaredSignature);
             formalTypeSignatures = expandVarargFormalTypeSignature(formalTypeSignatures, boundSignature.getArgumentTypes().size());
@@ -220,7 +240,7 @@ public class SignatureBinder
         for (int i = 0; i < formalTypeSignatures.size(); i++) {
             extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getArgumentTypes().get(i), formalTypeSignatures.get(i));
         }
-        extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getReturnType(), declaredSignature.getReturnType());
+        extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getReturnType(), toLegacySignature(declaredSignature.getReturnType()));
 
         verifyBoundSignature(bindings.getTypeVariables().keySet().equals(typeVariableConstraints.keySet()), boundSignature, declaredSignature);
 
@@ -315,7 +335,7 @@ public class SignatureBinder
     private static void checkNoLiteralVariableUsageAcrossTypes(Signature declaredSignature)
     {
         Map<String, TypeSignature> existingUsages = new HashMap<>();
-        for (TypeSignature parameter : declaredSignature.getArgumentTypes()) {
+        for (TypeSignature parameter : toLegacySignatures(declaredSignature.getArgumentTypes())) {
             checkNoLiteralVariableUsageAcrossTypes(parameter, existingUsages);
         }
     }
@@ -339,7 +359,7 @@ public class SignatureBinder
 
     private boolean appendConstraintSolversForReturnValue(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, TypeSignatureProvider actualReturnType)
     {
-        TypeSignature formalReturnTypeSignature = declaredSignature.getReturnType();
+        TypeSignature formalReturnTypeSignature = toLegacySignature(declaredSignature.getReturnType());
         return appendTypeRelationshipConstraintSolver(resultBuilder, formalReturnTypeSignature, actualReturnType, EXACT)
                 && appendConstraintSolvers(resultBuilder, formalReturnTypeSignature, actualReturnType, false);
     }
@@ -347,7 +367,7 @@ public class SignatureBinder
     private boolean appendConstraintSolversForArguments(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, List<? extends TypeSignatureProvider> actualTypes)
     {
         boolean variableArity = declaredSignature.isVariableArity();
-        List<TypeSignature> formalTypeSignatures = declaredSignature.getArgumentTypes();
+        List<TypeSignature> formalTypeSignatures = toLegacySignatures(declaredSignature.getArgumentTypes());
         if (variableArity) {
             if (actualTypes.size() < formalTypeSignatures.size() - 1) {
                 return false;
@@ -656,7 +676,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastFromRow(Type toType, Signature signature)
     {
         // the return type must match toType
-        if (!toType.getTypeSignature().equals(signature.getReturnType())) {
+        if (!toType.getTypeSignature().equals(toLegacySignature(signature.getReturnType()))) {
             return false;
         }
 
@@ -668,7 +688,7 @@ public class SignatureBinder
 
         // The argument type must be a type variable with variadic bound of "row"
         return signature.getArgumentTypes().size() == 1 &&
-                signature.getArgumentTypes().getFirst().getBase().equals(typeVariableConstraint.getName()) &&
+                toLegacySignature(signature.getArgumentTypes().getFirst()).getBase().equals(typeVariableConstraint.getName()) &&
                 typeVariableConstraint.isRowType();
     }
 
@@ -684,7 +704,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastToRow(Type fromType, Signature signature)
     {
         // the argument type must match fromType
-        if (signature.getArgumentTypes().size() != 1 || !fromType.getTypeSignature().equals(signature.getArgumentTypes().getFirst())) {
+        if (signature.getArgumentTypes().size() != 1 || !fromType.getTypeSignature().equals(toLegacySignature(signature.getArgumentTypes().getFirst()))) {
             return false;
         }
 
@@ -695,7 +715,7 @@ public class SignatureBinder
         TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
 
         // The return type must be a type variable with variadic bound of "row"
-        return signature.getReturnType().getBase().equals(typeVariableConstraint.getName()) &&
+        return toLegacySignature(signature.getReturnType()).getBase().equals(typeVariableConstraint.getName()) &&
                 typeVariableConstraint.isRowType();
     }
 
