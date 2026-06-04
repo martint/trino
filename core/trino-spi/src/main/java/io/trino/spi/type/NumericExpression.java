@@ -24,7 +24,8 @@ import static java.util.Objects.requireNonNull;
  * {@link NumericExpressions#evaluate}.
  */
 public sealed interface NumericExpression
-        permits NumericExpression.Literal,
+        permits NumericExpression.Conditional,
+                NumericExpression.Literal,
                 NumericExpression.Operation,
                 NumericExpression.Variable
 {
@@ -58,6 +59,43 @@ public sealed interface NumericExpression
             requireNonNull(left, "left is null");
             requireNonNull(right, "right is null");
         }
+    }
+
+    /**
+     * A conditional, e.g. {@code if(a > b, x, y)} — used by the decimal multiply/divide precision formulas.
+     */
+    record Conditional(Comparison condition, NumericExpression ifTrue, NumericExpression ifFalse)
+            implements NumericExpression
+    {
+        public Conditional
+        {
+            requireNonNull(condition, "condition is null");
+            requireNonNull(ifTrue, "ifTrue is null");
+            requireNonNull(ifFalse, "ifFalse is null");
+        }
+    }
+
+    /**
+     * A comparison between two numeric expressions, used only as the condition of a {@link Conditional}.
+     */
+    record Comparison(ComparisonOperator operator, NumericExpression left, NumericExpression right)
+    {
+        public Comparison
+        {
+            requireNonNull(operator, "operator is null");
+            requireNonNull(left, "left is null");
+            requireNonNull(right, "right is null");
+        }
+    }
+
+    enum ComparisonOperator
+    {
+        GREATER_THAN,
+        LESS_THAN,
+        GREATER_THAN_OR_EQUAL,
+        LESS_THAN_OR_EQUAL,
+        EQUAL,
+        NOT_EQUAL,
     }
 
     enum Operator

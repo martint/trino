@@ -13,6 +13,8 @@
  */
 package io.trino.spi.type;
 
+import io.trino.spi.type.NumericExpression.Comparison;
+import io.trino.spi.type.NumericExpression.Conditional;
 import io.trino.spi.type.NumericExpression.Literal;
 import io.trino.spi.type.NumericExpression.Operation;
 import io.trino.spi.type.NumericExpression.Operator;
@@ -44,7 +46,21 @@ public final class NumericExpressions
                 case MULTIPLY -> "(" + render(left) + " * " + render(right) + ")";
                 case DIVIDE -> "(" + render(left) + " / " + render(right) + ")";
             };
+            case Conditional(Comparison condition, NumericExpression ifTrue, NumericExpression ifFalse) -> "if(" + render(condition) + ", " + render(ifTrue) + ", " + render(ifFalse) + ")";
         };
+    }
+
+    private static String render(Comparison comparison)
+    {
+        String operator = switch (comparison.operator()) {
+            case GREATER_THAN -> ">";
+            case LESS_THAN -> "<";
+            case GREATER_THAN_OR_EQUAL -> ">=";
+            case LESS_THAN_OR_EQUAL -> "<=";
+            case EQUAL -> "=";
+            case NOT_EQUAL -> "!=";
+        };
+        return render(comparison.left()) + " " + operator + " " + render(comparison.right());
     }
 
     /**
@@ -76,6 +92,20 @@ public final class NumericExpressions
                     case MAX -> leftValue.max(rightValue);
                 };
             }
+            case Conditional(Comparison condition, NumericExpression ifTrue, NumericExpression ifFalse) -> evaluate(condition, bindings) ? evaluate(ifTrue, bindings) : evaluate(ifFalse, bindings);
+        };
+    }
+
+    private static boolean evaluate(Comparison comparison, Map<String, Long> bindings)
+    {
+        int order = evaluate(comparison.left(), bindings).compareTo(evaluate(comparison.right(), bindings));
+        return switch (comparison.operator()) {
+            case GREATER_THAN -> order > 0;
+            case LESS_THAN -> order < 0;
+            case GREATER_THAN_OR_EQUAL -> order >= 0;
+            case LESS_THAN_OR_EQUAL -> order <= 0;
+            case EQUAL -> order == 0;
+            case NOT_EQUAL -> order != 0;
         };
     }
 }

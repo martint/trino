@@ -98,7 +98,8 @@ public final class TypeTemplates
             case NumericArgument(NumericExpression value) -> switch (value) {
                 case NumericExpression.Literal(long literal) -> TypeParameter.numericParameter(literal);
                 case NumericExpression.Variable(String name) -> TypeParameter.typeVariable(name);
-                case NumericExpression.Operation operation -> throw new UnsupportedOperationException("Calculated numeric expression must be inlined before this conversion: " + operation);
+                case NumericExpression.Operation operation -> throw new UnsupportedOperationException("Calculated numeric expression cannot be converted to the legacy form: " + operation);
+                case NumericExpression.Conditional conditional -> throw new UnsupportedOperationException("Calculated numeric expression cannot be converted to the legacy form: " + conditional);
             };
         };
     }

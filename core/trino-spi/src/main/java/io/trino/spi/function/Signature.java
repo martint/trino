@@ -13,6 +13,7 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
@@ -47,14 +48,14 @@ public class Signature
     }
 
     private final List<TypeVariableConstraint> typeVariableConstraints;
-    private final List<LongVariableConstraint> longVariableConstraints;
+    private final List<NumericVariableConstraint> longVariableConstraints;
     private final TypeTemplate returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
             List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
+            List<NumericVariableConstraint> longVariableConstraints,
             TypeTemplate returnType,
             List<Argument> arguments,
             boolean variableArity)
@@ -101,7 +102,7 @@ public class Signature
         return typeVariableConstraints;
     }
 
-    public List<LongVariableConstraint> getLongVariableConstraints()
+    public List<NumericVariableConstraint> getLongVariableConstraints()
     {
         return longVariableConstraints;
     }
@@ -133,7 +134,7 @@ public class Signature
     {
         List<String> allConstraints = concat(
                 typeVariableConstraints.stream().map(TypeVariableConstraint::toString),
-                longVariableConstraints.stream().map(LongVariableConstraint::toString))
+                longVariableConstraints.stream().map(NumericVariableConstraint::toString))
                 .collect(Collectors.toList());
 
         return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
@@ -162,7 +163,7 @@ public class Signature
     public static final class Builder
     {
         private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
-        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
+        private final List<NumericVariableConstraint> longVariableConstraints = new ArrayList<>();
         private TypeTemplate returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
@@ -243,19 +244,19 @@ public class Signature
             return returnType(returnType.getTypeSignature());
         }
 
-        public Builder longVariable(String name, String expression)
+        public Builder longVariable(String name, NumericExpression expression)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
+            this.longVariableConstraints.add(new NumericVariableConstraint(name, expression));
             return this;
         }
 
         public Builder longVariable(String name)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, name));
+            this.longVariableConstraints.add(new NumericVariableConstraint(name, new NumericExpression.Variable(name)));
             return this;
         }
 
-        public Builder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
+        public Builder longVariableConstraints(List<NumericVariableConstraint> longVariableConstraints)
         {
             this.longVariableConstraints.addAll(longVariableConstraints);
             return this;

@@ -48,6 +48,7 @@ import static io.trino.spi.type.Int128Math.remainder;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.Integer.max;
 import static java.lang.Long.signum;
 import static java.lang.Math.abs;
@@ -77,8 +78,8 @@ public final class DecimalOperators
         Signature.Builder signature = Signature.builder();
 
         if (legacyTypeCalculation) {
-            signature.longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
-                    .longVariable("r_scale", "max(a_scale, b_scale)");
+            signature.longVariable("r_precision", parseNumericExpression("min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"))
+                    .longVariable("r_scale", parseNumericExpression("max(a_scale, b_scale)"));
         }
         else {
             // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
@@ -87,8 +88,8 @@ public final class DecimalOperators
             //    raw_scale = max(a_scale, b_scale);
             //    r_precision = min(raw_scale + integral + 1, 38);
             //    r_scale = min(raw_scale, precision - integral);
-            signature.longVariable("r_precision", "min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)")
-                    .longVariable("r_scale", "min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))");
+            signature.longVariable("r_precision", parseNumericExpression("min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)"))
+                    .longVariable("r_scale", parseNumericExpression("min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))"));
         }
 
         return new PolymorphicScalarFunctionBuilder(ADD, DecimalOperators.class)
@@ -174,8 +175,8 @@ public final class DecimalOperators
         Signature.Builder signature = Signature.builder();
 
         if (legacyTypeCalculation) {
-            signature.longVariable("r_precision", "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
-                    .longVariable("r_scale", "max(a_scale, b_scale)");
+            signature.longVariable("r_precision", parseNumericExpression("min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)"))
+                    .longVariable("r_scale", parseNumericExpression("max(a_scale, b_scale)"));
         }
         else {
             // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
@@ -184,8 +185,8 @@ public final class DecimalOperators
             //    raw_scale = max(a_scale, b_scale);
             //    r_precision = min(raw_scale + integral + 1, 38);
             //    r_scale = min(raw_scale, precision - integral);
-            signature.longVariable("r_precision", "min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)")
-                    .longVariable("r_scale", "min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))");
+            signature.longVariable("r_precision", parseNumericExpression("min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38)"))
+                    .longVariable("r_scale", parseNumericExpression("min(max(a_scale, b_scale), min(max(a_scale, b_scale) + max(a_precision - a_scale, b_precision - b_scale) + 1, 38) - max(a_precision - a_scale, b_precision - b_scale))"));
         }
 
         return new PolymorphicScalarFunctionBuilder(SUBTRACT, DecimalOperators.class)
@@ -270,8 +271,8 @@ public final class DecimalOperators
 
         if (legacyTypeCalculation) {
             signature
-                    .longVariable("r_precision", "min(38, a_precision + b_precision)")
-                    .longVariable("r_scale", "a_scale + b_scale");
+                    .longVariable("r_precision", parseNumericExpression("min(38, a_precision + b_precision)"))
+                    .longVariable("r_scale", parseNumericExpression("a_scale + b_scale"));
         }
         else {
             // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
@@ -285,8 +286,8 @@ public final class DecimalOperators
             //     precision = min(raw_precision, 38);
             //     scale = min(raw_scale, integral > 32 ? 6 : 38 - integral);
             signature
-                    .longVariable("r_precision", "min(a_precision + b_precision, 38)")
-                    .longVariable("r_scale", "min(a_scale + b_scale, if(a_precision + b_precision - (a_scale + b_scale) > 32, 6, 38 - (a_precision + b_precision - (a_scale + b_scale))))");
+                    .longVariable("r_precision", parseNumericExpression("min(a_precision + b_precision, 38)"))
+                    .longVariable("r_scale", parseNumericExpression("min(a_scale + b_scale, if(a_precision + b_precision - (a_scale + b_scale) > 32, 6, 38 - (a_precision + b_precision - (a_scale + b_scale))))"));
         }
 
         return new PolymorphicScalarFunctionBuilder(MULTIPLY, DecimalOperators.class)
@@ -373,8 +374,8 @@ public final class DecimalOperators
         Signature.Builder signature = Signature.builder();
 
         if (legacyTypeCalculation) {
-            signature.longVariable("r_precision", "min(38, a_precision + b_scale + max(b_scale - a_scale, 0))")
-                    .longVariable("r_scale", "max(a_scale, b_scale)");
+            signature.longVariable("r_precision", parseNumericExpression("min(38, a_precision + b_scale + max(b_scale - a_scale, 0))"))
+                    .longVariable("r_scale", parseNumericExpression("max(a_scale, b_scale)"));
         }
         else {
             // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
@@ -386,8 +387,8 @@ public final class DecimalOperators
             //     integral = raw_precision - raw_scale;
             //     precision = min(raw_precision, 38);
             //     scale = min(raw_scale, integral > 32 ? 6 : 38 - integral);
-            signature.longVariable("r_precision", "min(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1), 38)")
-                    .longVariable("r_scale", "min(max(6, a_scale + b_precision + 1), if(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1) > 32, 6, 38 - (a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1))))");
+            signature.longVariable("r_precision", parseNumericExpression("min(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1), 38)"))
+                    .longVariable("r_scale", parseNumericExpression("min(max(6, a_scale + b_precision + 1), if(a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1) > 32, 6, 38 - (a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1) - max(6, a_scale + b_precision + 1))))"));
         }
 
         return new PolymorphicScalarFunctionBuilder(DIVIDE, DecimalOperators.class)
@@ -557,8 +558,8 @@ public final class DecimalOperators
         TypeSignature decimalResultSignature = new TypeSignature("decimal", typeVariable("r_precision"), typeVariable("r_scale"));
 
         Signature signature = Signature.builder()
-                .longVariable("r_precision", "min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)")
-                .longVariable("r_scale", "max(a_scale, b_scale)")
+                .longVariable("r_precision", parseNumericExpression("min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"))
+                .longVariable("r_scale", parseNumericExpression("max(a_scale, b_scale)"))
                 .argumentType(decimalLeftSignature)
                 .argumentType(decimalRightSignature)
                 .returnType(decimalResultSignature)

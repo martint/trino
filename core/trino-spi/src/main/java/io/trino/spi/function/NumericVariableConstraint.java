@@ -13,33 +13,30 @@
  */
 package io.trino.spi.function;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.errorprone.annotations.DoNotCall;
+import io.trino.spi.type.NumericExpression;
+import io.trino.spi.type.NumericExpressions;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class LongVariableConstraint
+public class NumericVariableConstraint
 {
     private final String name;
-    private final String expression;
+    private final NumericExpression expression;
 
-    LongVariableConstraint(String name, String expression)
+    NumericVariableConstraint(String name, NumericExpression expression)
     {
         this.name = requireNonNull(name, "name is null");
         this.expression = requireNonNull(expression, "expression is null");
     }
 
-    @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @JsonProperty
-    public String getExpression()
+    public NumericExpression getExpression()
     {
         return expression;
     }
@@ -47,7 +44,7 @@ public class LongVariableConstraint
     @Override
     public String toString()
     {
-        return name + ":" + expression;
+        return name + ":" + NumericExpressions.render(expression);
     }
 
     @Override
@@ -59,7 +56,7 @@ public class LongVariableConstraint
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        LongVariableConstraint that = (LongVariableConstraint) o;
+        NumericVariableConstraint that = (NumericVariableConstraint) o;
         return Objects.equals(name, that.name) &&
                 Objects.equals(expression, that.expression);
     }
@@ -68,15 +65,5 @@ public class LongVariableConstraint
     public int hashCode()
     {
         return Objects.hash(name, expression);
-    }
-
-    @JsonCreator
-    @DoNotCall // For JSON deserialization only
-    @Deprecated // Discourage usages in SPI consumers
-    public static LongVariableConstraint fromJson(
-            @JsonProperty("name") String name,
-            @JsonProperty("expression") String expression)
-    {
-        return new LongVariableConstraint(name, expression);
     }
 }

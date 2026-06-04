@@ -373,6 +373,18 @@
                                     <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
                                     <justification>Signature now represents its argument types as TypeTemplates.</justification>
                                 </item>
+                                <!-- LongVariableConstraint is renamed to NumericVariableConstraint and now holds a structured NumericExpression. -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.function.LongVariableConstraint</old>
+                                    <justification>Renamed to NumericVariableConstraint, which carries a structured NumericExpression instead of a string re-parsed at every bind.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, ===java.lang.String===)</old>
+                                    <new>parameter io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, ===io.trino.spi.type.NumericExpression===)</new>
+                                    <justification>A calculated type-parameter expression is now a structured NumericExpression rather than a string re-parsed at every bind.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
