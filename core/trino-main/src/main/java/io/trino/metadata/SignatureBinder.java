@@ -67,7 +67,6 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 /**
  * Determines whether, and how, a callsite matches a generic function signature.
@@ -210,30 +209,6 @@ public class SignatureBinder
             builder.add(variadic);
         }
         return builder.build();
-    }
-
-    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, VariableBindings typeVariables)
-    {
-        ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
-        for (TypeSignature typeSignature : typeSignatures) {
-            builder.add(applyBoundVariables(typeSignature, typeVariables));
-        }
-        return builder.build();
-    }
-
-    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, VariableBindings typeVariables)
-    {
-        String baseType = typeSignature.getBase();
-        if (typeVariables.containsTypeVariable(baseType)) {
-            checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
-            return typeVariables.getTypeVariable(baseType).getTypeSignature();
-        }
-
-        List<TypeParameter> parameters = typeSignature.getParameters().stream()
-                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, typeVariables))
-                .collect(toList());
-
-        return new TypeSignature(baseType, parameters);
     }
 
     /**
@@ -643,22 +618,6 @@ public class SignatureBinder
     {
         return typeVariableConstraints.keySet().stream()
                 .allMatch(typeVariables::containsTypeVariable);
-    }
-
-    private static TypeParameter applyBoundVariables(TypeParameter parameter, VariableBindings typeVariables)
-    {
-        return switch (parameter) {
-            case TypeParameter.Type type -> TypeParameter.typeParameter(type.name(), applyBoundVariables(type.type(), typeVariables));
-            case TypeParameter.Variable(String variable) -> {
-                checkState(
-                        typeVariables.containsLongVariable(variable),
-                        "Variable is not bound: %s",
-                        variable);
-                Long variableValue = typeVariables.getLongVariable(variable);
-                yield TypeParameter.numericParameter(variableValue);
-            }
-            case TypeParameter.Numeric _ -> parameter;
-        };
     }
 
     private boolean satisfiesCoercion(RelationshipType relationshipType, Type actualType, TypeSignature constraintTypeSignature)

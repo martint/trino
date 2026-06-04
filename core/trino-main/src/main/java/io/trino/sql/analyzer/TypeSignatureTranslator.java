@@ -117,21 +117,14 @@ public final class TypeSignatureTranslator
     }
 
     /**
-     * Parses a ground type signature — one that refers to no signature variables. Use this wherever the
-     * parsed type is fully concrete; the variable-bearing {@link #parseTypeSignature(String, Set)} is only
-     * for type signatures that reference a function signature's type or numeric variables.
+     * Parses a ground type signature — one that refers to no signature variables. Function signature
+     * argument and return types, which may reference a function's type or numeric variables, are parsed
+     * with {@link #parseTypeTemplate} instead.
      */
     public static TypeSignature parseTypeSignature(String signature)
     {
-        return parseTypeSignature(signature, Set.of());
-    }
-
-    public static TypeSignature parseTypeSignature(String signature, Set<String> typeVariables)
-    {
-        Set<String> variables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        variables.addAll(typeVariables);
         try {
-            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)), variables);
+            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
         }
         catch (Exception e) {
             if (e.getCause() != null) {

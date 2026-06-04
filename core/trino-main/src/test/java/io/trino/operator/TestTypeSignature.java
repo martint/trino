@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -251,7 +253,6 @@ public class TestTypeSignature
         assertSignatureFail("blah()");
         assertSignatureFail("array()");
         assertSignatureFail("map()");
-        assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
         assertSignature("rowxxx(a)", "rowxxx", ImmutableList.of("a"));
@@ -294,7 +295,7 @@ public class TestTypeSignature
             Set<String> literalParameters,
             TypeSignature expectedSignature)
     {
-        TypeSignature signature = parseTypeSignature(typeName, literalParameters);
+        TypeSignature signature = TypeTemplates.toLegacyTypeSignature(parseTypeTemplate(typeName, Set.of(), literalParameters));
         assertThat(signature).isEqualTo(expectedSignature);
     }
 
@@ -302,7 +303,8 @@ public class TestTypeSignature
             String typeName,
             TypeSignature expectedSignature)
     {
-        assertRowSignature(typeName, ImmutableSet.of(), expectedSignature);
+        TypeSignature signature = parseTypeSignature(typeName);
+        assertThat(signature).isEqualTo(expectedSignature);
     }
 
     private static void assertSignature(String typeName, String base, List<String> parameters)
@@ -330,13 +332,6 @@ public class TestTypeSignature
         assertThatThrownBy(() -> parseTypeSignature(typeName))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line [1-9][0-9]*:[1-9][0-9]*: mismatched input '.*'\\. Expecting: .*");
-    }
-
-    private void assertSignatureFail(String typeName, Set<String> literalCalculationParameters)
-    {
-        assertThatThrownBy(() -> parseTypeSignature(typeName, literalCalculationParameters))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Base type name cannot be a type variable");
     }
 
     record Field(Optional<String> name, TypeSignature type) {}
