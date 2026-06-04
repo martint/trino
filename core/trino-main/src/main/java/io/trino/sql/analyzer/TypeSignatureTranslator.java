@@ -63,7 +63,6 @@ import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.TypeParameter.typeParameter;
-import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -103,16 +102,11 @@ public final class TypeSignatureTranslator
 
     public static TypeSignature toTypeSignature(DataType type)
     {
-        return toTypeSignature(type, Set.of());
-    }
-
-    private static TypeSignature toTypeSignature(DataType type, Set<String> typeVariables)
-    {
         return switch (type) {
-            case DateTimeDataType dateTimeDataType -> toTypeSignature(dateTimeDataType, typeVariables);
+            case DateTimeDataType dateTimeDataType -> toTypeSignature(dateTimeDataType);
             case IntervalDataType intervalDataType -> toTypeSignature(intervalDataType);
-            case RowDataType rowDataType -> toTypeSignature(rowDataType, typeVariables);
-            case GenericDataType genericDataType -> toTypeSignature(genericDataType, typeVariables);
+            case RowDataType rowDataType -> toTypeSignature(rowDataType);
+            case GenericDataType genericDataType -> toTypeSignature(genericDataType);
         };
     }
 
@@ -258,7 +252,7 @@ public final class TypeSignatureTranslator
         return new TypeTemplate.TypeApplication(base, parameters);
     }
 
-    private static TypeSignature toTypeSignature(GenericDataType type, Set<String> typeVariables)
+    private static TypeSignature toTypeSignature(GenericDataType type)
     {
         ImmutableList.Builder<TypeParameter> parameters = ImmutableList.builder();
 
@@ -268,23 +262,13 @@ public final class TypeSignatureTranslator
             return VarcharType.VARCHAR.getTypeSignature();
         }
 
-        checkArgument(!typeVariables.contains(type.getName().getValue()), "Base type name cannot be a type variable");
-
         for (DataTypeParameter parameter : type.getArguments()) {
             switch (parameter) {
                 case NumericParameter numericParameter -> {
                     parameters.add(numericParameter(numericParameter.getParsedValue()));
                 }
                 case io.trino.sql.tree.TypeParameter typeParameter -> {
-                    DataType value = typeParameter.getValue();
-                    if (value instanceof GenericDataType genericDataType &&
-                            genericDataType.getArguments().isEmpty() &&
-                            typeVariables.contains(genericDataType.getName().getValue())) {
-                        parameters.add(typeVariable(genericDataType.getName().getValue()));
-                    }
-                    else {
-                        parameters.add(typeParameter(toTypeSignature(value, typeVariables)));
-                    }
+                    parameters.add(typeParameter(toTypeSignature(typeParameter.getValue())));
                 }
                 default -> throw new UnsupportedOperationException("Unsupported type parameter kind: " + parameter.getClass().getName());
             }
@@ -293,12 +277,12 @@ public final class TypeSignatureTranslator
         return new TypeSignature(canonicalize(type.getName()), parameters.build());
     }
 
-    private static TypeSignature toTypeSignature(RowDataType type, Set<String> typeVariables)
+    private static TypeSignature toTypeSignature(RowDataType type)
     {
         List<TypeParameter> parameters = type.getFields().stream()
                 .map(field -> typeParameter(
                         field.getName().map(TypeSignatureTranslator::canonicalize),
-                        toTypeSignature(field.getType(), typeVariables)))
+                        toTypeSignature(field.getType())))
                 .collect(toImmutableList());
 
         return new TypeSignature(ROW, parameters);
@@ -324,7 +308,7 @@ public final class TypeSignatureTranslator
         throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
     }
 
-    private static TypeSignature toTypeSignature(DateTimeDataType type, Set<String> typeVariables)
+    private static TypeSignature toTypeSignature(DateTimeDataType type)
     {
         boolean withTimeZone = type.isWithTimeZone();
 
@@ -333,10 +317,10 @@ public final class TypeSignatureTranslator
             case TIME -> withTimeZone ? TIME_WITH_TIME_ZONE : TIME;
         };
 
-        return new TypeSignature(base, translateParameters(type, typeVariables));
+        return new TypeSignature(base, translateParameters(type));
     }
 
-    private static List<TypeParameter> translateParameters(DateTimeDataType type, Set<String> typeVariables)
+    private static List<TypeParameter> translateParameters(DateTimeDataType type)
     {
         List<TypeParameter> parameters = new ArrayList<>();
 
@@ -345,14 +329,8 @@ public final class TypeSignatureTranslator
             if (precision instanceof NumericParameter numericParameter) {
                 parameters.add(numericParameter(numericParameter.getParsedValue()));
             }
-            else if (precision instanceof io.trino.sql.tree.TypeParameter typeParameter) {
-                DataType typeVariable = typeParameter.getValue();
-                if (!(typeVariable instanceof GenericDataType genericDataType) || !genericDataType.getArguments().isEmpty()) {
-                    throw new IllegalArgumentException("Parameter to datetime type must be either a number or a type variable");
-                }
-                String variable = genericDataType.getName().getValue();
-                checkArgument(typeVariables.contains(variable), "Parameter to datetime type must be either a number or a type variable: %s", variable);
-                parameters.add(typeVariable(variable));
+            else {
+                throw new IllegalArgumentException("Parameter to datetime type must be a number: " + precision);
             }
         }
         return parameters;
