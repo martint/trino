@@ -131,8 +131,8 @@ public final class ScalarFromAnnotationsParser
         scalar.header().getOperatorType().ifPresent(operatorType ->
                 validateOperator(
                         operatorType,
-                        TypeTemplates.toLegacyTypeSignature(scalarSignature.getReturnType()),
-                        scalarSignature.getArgumentTypes().stream().map(TypeTemplates::toLegacyTypeSignature).collect(toImmutableList())));
+                        scalarSignature.getReturnType(),
+                        scalarSignature.getArgumentTypes()));
 
         return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
     }
