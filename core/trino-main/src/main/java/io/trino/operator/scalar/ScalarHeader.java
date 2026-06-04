@@ -97,7 +97,7 @@ public class ScalarHeader
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             Optional<TypeSignature> receiverType = Optional.empty();
             if (staticMethod != null) {
-                TypeSignature parsed = parseTypeSignature(staticMethod.value(), ImmutableSet.of());
+                TypeSignature parsed = parseTypeSignature(staticMethod.value());
                 checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
                 receiverType = Optional.of(parsed);
             }

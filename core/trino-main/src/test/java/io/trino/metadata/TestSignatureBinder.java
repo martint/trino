@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1166,7 +1165,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(parseTypeSignature("variant", Set.of()))
+                        .castableTo(parseTypeSignature("variant"))
                         .build())
                 .build();
 
@@ -1202,7 +1201,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableFrom(parseTypeSignature("json", Set.of()))
+                        .castableFrom(parseTypeSignature("json"))
                         .build())
                 .build();
 

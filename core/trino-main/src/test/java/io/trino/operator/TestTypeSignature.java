@@ -316,7 +316,7 @@ public class TestTypeSignature
             List<String> parameters,
             String expectedTypeName)
     {
-        TypeSignature signature = parseTypeSignature(typeName, ImmutableSet.of());
+        TypeSignature signature = parseTypeSignature(typeName);
         assertThat(signature.getBase()).isEqualTo(base);
         assertThat(signature.getParameters()).hasSize(parameters.size());
         for (int i = 0; i < signature.getParameters().size(); i++) {
@@ -327,7 +327,7 @@ public class TestTypeSignature
 
     private void assertSignatureFail(String typeName)
     {
-        assertThatThrownBy(() -> parseTypeSignature(typeName, ImmutableSet.of()))
+        assertThatThrownBy(() -> parseTypeSignature(typeName))
                 .isInstanceOf(ParsingException.class)
                 .hasMessageMatching("line [1-9][0-9]*:[1-9][0-9]*: mismatched input '.*'\\. Expecting: .*");
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.annotations;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.FunctionBinding;
 import io.trino.spi.function.CastDependency;
 import io.trino.spi.function.Convention;
@@ -71,7 +70,7 @@ public interface ImplementationDependency
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
         if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
-            checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParametersNames, element);
+            checkTypeParameters(parseTypeSignature(typeParameter.value()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter literalParameter) {
             checkArgument(literalParameters.contains(literalParameter.value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);

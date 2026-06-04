@@ -13,7 +13,6 @@
  */
 package io.trino.operator.window;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
@@ -48,10 +47,10 @@ public final class WindowAnnotationsParser
         }
 
         Stream.of(window.argumentTypes())
-                .map(type -> parseTypeSignature(type, ImmutableSet.of()))
+                .map(type -> parseTypeSignature(type))
                 .forEach(signatureBuilder::argumentType);
 
-        signatureBuilder.returnType(parseTypeSignature(window.returnType(), ImmutableSet.of()));
+        signatureBuilder.returnType(parseTypeSignature(window.returnType()));
 
         Optional<String> description = Optional.ofNullable(clazz.getAnnotation(Description.class)).map(Description::value);
 

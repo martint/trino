@@ -414,7 +414,7 @@ public final class AggregationFromAnnotationsParser
 
         TypeSignature serializedType;
         if (metadata.serializedType().isPresent()) {
-            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.serializedType().get(), ImmutableSet.of()));
+            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.serializedType().get()));
         }
         else {
             // serialized type is not explicit declared, so we must construct it to get the
@@ -457,14 +457,14 @@ public final class AggregationFromAnnotationsParser
 
     private static AccumulatorStateDetails<InOut> getInOutAccumulatorStateDetails(String typeVariable)
     {
-        TypeSignature serializedType = parseTypeSignature(typeVariable, ImmutableSet.of());
+        TypeSignature serializedType = parseTypeSignature(typeVariable);
         return new AccumulatorStateDetails<>(
                 InOut.class,
                 ImmutableList.of(typeVariable),
                 serializedType,
                 (functionBinding, _) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
                 (functionBinding, _) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
-                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable))));
     }
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)

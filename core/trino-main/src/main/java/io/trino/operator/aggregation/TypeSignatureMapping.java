@@ -42,7 +42,7 @@ class TypeSignatureMapping
                 .collect(toImmutableSortedMap(
                         String.CASE_INSENSITIVE_ORDER,
                         Map.Entry::getKey,
-                        entry -> parseTypeSignature(entry.getValue(), ImmutableSet.of())));
+                        entry -> parseTypeSignature(entry.getValue())));
     }
 
     public Set<String> getTypeParameters()
