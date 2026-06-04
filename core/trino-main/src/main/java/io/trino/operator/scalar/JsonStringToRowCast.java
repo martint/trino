@@ -32,7 +32,7 @@ public final class JsonStringToRowCast
     {
         super(FunctionMetadata.scalarBuilder(JSON_STRING_TO_ROW_NAME)
                 .signature(Signature.builder()
-                        .longVariable("N")
+                        .numericVariable("N")
                         .rowTypeParameter("T")
                         .returnType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("varchar", typeVariable("N")))

@@ -287,7 +287,7 @@ public final class FunctionsParserHelper
     public static void parseLongVariableConstraints(Method inputFunction, Builder signatureBuilder)
     {
         Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
-                .forEach(annotation -> signatureBuilder.longVariable(annotation.variable(), parseNumericExpression(annotation.expression())));
+                .forEach(annotation -> signatureBuilder.numericVariable(annotation.variable(), parseNumericExpression(annotation.expression())));
     }
 
     public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<io.trino.spi.function.TypeParameter> typeParameters)

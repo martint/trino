@@ -971,7 +971,7 @@ public class TestAnnotationEngineForAggregates
     public void testLongConstraintAggregateFunctionParse()
     {
         Signature expectedSignature = Signature.builder()
-                .longVariable("z", parseNumericExpression("x + y"))
+                .numericVariable("z", parseNumericExpression("x + y"))
                 .returnType(new TypeSignature("varchar", typeVariable("z")))
                 .argumentType(new TypeSignature("varchar", typeVariable("x")))
                 .argumentType(new TypeSignature("varchar", typeVariable("y")))

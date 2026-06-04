@@ -385,6 +385,17 @@
                                     <new>parameter io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, ===io.trino.spi.type.NumericExpression===)</new>
                                     <justification>A calculated type-parameter expression is now a structured NumericExpression rather than a string re-parsed at every bind.</justification>
                                 </item>
+                                <!-- The longVariable builder methods are renamed to numericVariable. -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String)</old>
+                                    <justification>Renamed to numericVariable.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, java.lang.String)</old>
+                                    <justification>Renamed to numericVariable.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
