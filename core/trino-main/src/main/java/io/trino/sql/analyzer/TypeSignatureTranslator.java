@@ -182,7 +182,8 @@ public final class TypeSignatureTranslator
 
         // A numeric variable belongs in a parameter position (the n in varchar(n)), never as a type itself.
         checkArgument(!(type.getArguments().isEmpty() && numericVariables.contains(name)),
-                "Numeric variable cannot appear in a type position: %s", name);
+                "Numeric variable cannot appear in a type position: %s",
+                name);
 
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
             // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeSignature.
