@@ -17,11 +17,12 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static io.trino.spi.type.TypeParameter.typeVariable;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public final class JsonStringToArrayCast
         extends SqlScalarFunction
@@ -35,8 +36,8 @@ public final class JsonStringToArrayCast
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .numericVariable("N")
-                        .returnType(arrayType(new TypeSignature("T")))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .returnType(arrayType(typeVariable("T")))
+                        .argumentType(numericType("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()

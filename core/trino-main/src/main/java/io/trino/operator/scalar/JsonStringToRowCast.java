@@ -17,10 +17,11 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.trino.spi.type.TypeParameter.typeVariable;
+import static io.trino.spi.type.TypeTemplates.numericType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction
@@ -34,8 +35,8 @@ public final class JsonStringToRowCast
                 .signature(Signature.builder()
                         .numericVariable("N")
                         .rowTypeParameter("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .returnType(typeVariable("T"))
+                        .argumentType(numericType("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()
