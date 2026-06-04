@@ -57,7 +57,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -321,13 +321,14 @@ public class TestGlobalFunctionCatalog
     private static Signature.Builder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
         Set<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
-        List<TypeSignature> argumentSignatures = arguments.stream()
-                .map(signature -> parseTypeSignature(signature, literalParameters))
-                .collect(toImmutableList());
-        return Signature.builder()
-                .returnType(parseTypeSignature(returnType, literalParameters))
-                .argumentTypes(argumentSignatures)
+        Set<String> typeVariables = typeVariableConstraints.stream()
+                .map(TypeVariableConstraint::getName)
+                .collect(toImmutableSet());
+        Signature.Builder builder = Signature.builder()
+                .returnType(parseTypeTemplate(returnType, typeVariables, literalParameters))
                 .typeVariableConstraints(typeVariableConstraints);
+        arguments.forEach(argument -> builder.argumentType(parseTypeTemplate(argument, typeVariables, literalParameters)));
+        return builder;
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()

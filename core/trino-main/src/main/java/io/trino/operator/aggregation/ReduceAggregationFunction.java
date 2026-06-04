@@ -35,6 +35,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -88,7 +89,7 @@ public class ReduceAggregationFunction
                         .description("Reduce input elements into a single value")
                         .build(),
                 AggregationFunctionMetadata.builder()
-                        .intermediateType(new TypeSignature("S"))
+                        .intermediateType(TypeTemplates.typeVariable("S"))
                         .build());
     }
 

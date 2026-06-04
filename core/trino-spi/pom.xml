@@ -416,6 +416,12 @@
                                     <old>.*io\.trino\.spi\.function\.TypeVariableConstraint.*</old>
                                     <justification>A type variable's castable-to and castable-from constraints are now carried as TypeTemplate instead of TypeSignature.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</new>
+                                    <justification>An aggregation's intermediate types are now carried as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

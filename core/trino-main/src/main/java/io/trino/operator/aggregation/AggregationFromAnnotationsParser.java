@@ -40,6 +40,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
 import java.lang.annotation.Annotation;
@@ -72,7 +73,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.parseDescripti
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -412,16 +413,16 @@ public final class AggregationFromAnnotationsParser
             serializerGenerator = (_, _) -> serializer;
         }
 
-        TypeSignature serializedType;
+        TypeTemplate serializedType;
         if (metadata.serializedType().isPresent()) {
-            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.serializedType().get()));
+            serializedType = typeParameterMapping.mapTypeTemplate(parseTypeTemplate(metadata.serializedType().get(), typeParameterMapping.getTypeParameters(), Set.of()));
         }
         else {
             // serialized type is not explicit declared, so we must construct it to get the
             // type, but this will only work if there are no dependencies
             checkArgument(allDependencies.isEmpty(), "serializedType must be set for state %s with dependencies", stateClass);
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
-            serializedType = serializer.getSerializedType().getTypeSignature();
+            serializedType = TypeTemplates.fromTypeSignature(serializer.getSerializedType().getTypeSignature());
             // since there are no dependencies, the same serializer can be used for all
             serializerGenerator = (_, _) -> serializer;
         }
@@ -457,7 +458,7 @@ public final class AggregationFromAnnotationsParser
 
     private static AccumulatorStateDetails<InOut> getInOutAccumulatorStateDetails(String typeVariable)
     {
-        TypeSignature serializedType = parseTypeSignature(typeVariable);
+        TypeTemplate serializedType = TypeTemplates.typeVariable(typeVariable);
         return new AccumulatorStateDetails<>(
                 InOut.class,
                 ImmutableList.of(typeVariable),
@@ -535,7 +536,7 @@ public final class AggregationFromAnnotationsParser
     {
         private final Class<T> stateClass;
         private final List<String> typeParameters;
-        private final TypeSignature serializedType;
+        private final TypeTemplate serializedType;
         private final BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator;
         private final BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
         private final List<ImplementationDependency> dependencies;
@@ -543,7 +544,7 @@ public final class AggregationFromAnnotationsParser
         public AccumulatorStateDetails(
                 Class<T> stateClass,
                 List<String> typeParameters,
-                TypeSignature serializedType,
+                TypeTemplate serializedType,
                 BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator,
                 BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator,
                 List<ImplementationDependency> dependencies)
@@ -561,7 +562,7 @@ public final class AggregationFromAnnotationsParser
             return stateClass;
         }
 
-        public TypeSignature getSerializedType()
+        public TypeTemplate getSerializedType()
         {
             return serializedType;
         }

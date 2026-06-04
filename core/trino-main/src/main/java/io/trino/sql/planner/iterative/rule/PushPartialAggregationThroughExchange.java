@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -199,6 +200,7 @@ public class PushPartialAggregationThroughExchange
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
+                    .map(TypeTemplates::toTypeSignature)
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);
