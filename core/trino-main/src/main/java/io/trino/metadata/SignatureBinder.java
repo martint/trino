@@ -174,24 +174,46 @@ public class SignatureBinder
         return TypeTemplates.toLegacyTypeSignature(template);
     }
 
-    private static Signature applyBoundVariables(Signature signature, VariableBindings typeVariables, int arity)
+    private static Signature applyBoundVariables(Signature signature, VariableBindings bindings, int arity)
     {
-        List<TypeSignature> formalArgumentTypes = toLegacySignatures(signature.getArgumentTypes());
-        List<TypeSignature> argumentSignatures;
+        Map<String, TypeSignature> typeBindings = new HashMap<>();
+        bindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeSignature()));
+        Map<String, Long> numericBindings = bindings.getNumericVariables();
+
+        List<TypeTemplate> argumentTemplates = signature.getArgumentTypes();
         if (signature.isVariableArity()) {
-            argumentSignatures = expandVarargFormalTypeSignature(formalArgumentTypes, arity);
+            argumentTemplates = expandVarargFormalTemplate(argumentTemplates, arity);
         }
         else {
-            checkArgument(formalArgumentTypes.size() == arity);
-            argumentSignatures = formalArgumentTypes;
+            checkArgument(argumentTemplates.size() == arity);
         }
-        List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
-        TypeSignature boundReturnTypeSignature = applyBoundVariables(toLegacySignature(signature.getReturnType()), typeVariables);
 
-        return Signature.builder()
-                .returnType(boundReturnTypeSignature)
-                .argumentTypes(boundArgumentSignatures)
-                .build();
+        Signature.Builder builder = Signature.builder()
+                .returnType(TypeTemplates.bind(signature.getReturnType(), typeBindings, numericBindings));
+        for (TypeTemplate argument : argumentTemplates) {
+            builder.argumentType(TypeTemplates.bind(argument, typeBindings, numericBindings));
+        }
+        return builder.build();
+    }
+
+    private static List<TypeTemplate> expandVarargFormalTemplate(List<TypeTemplate> templates, int arity)
+    {
+        int variableArityArgumentsCount = arity - templates.size() + 1;
+        if (variableArityArgumentsCount == 0) {
+            return templates.subList(0, templates.size() - 1);
+        }
+        if (variableArityArgumentsCount == 1) {
+            return templates;
+        }
+        checkArgument(variableArityArgumentsCount > 1 && !templates.isEmpty());
+
+        ImmutableList.Builder<TypeTemplate> builder = ImmutableList.builder();
+        builder.addAll(templates);
+        TypeTemplate variadic = templates.getLast();
+        for (int i = 1; i < variableArityArgumentsCount; i++) {
+            builder.add(variadic);
+        }
+        return builder.build();
     }
 
     public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, VariableBindings typeVariables)

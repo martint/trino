@@ -37,6 +37,16 @@ public final class VariableBindings
         this.longVariables = ImmutableSortedMap.copyOf(longVariables, CASE_INSENSITIVE_ORDER);
     }
 
+    public Map<String, Type> getTypeVariables()
+    {
+        return typeVariables;
+    }
+
+    public Map<String, Long> getNumericVariables()
+    {
+        return longVariables;
+    }
+
     public Type getTypeVariable(String variableName)
     {
         requireNonNull(variableName, "variableName is null");
