@@ -112,17 +112,6 @@ public class Signature
                 .collect(toUnmodifiableList());
     }
 
-    /**
-     * The numeric-variable (calculated-parameter) constraints, as a view over {@link #getVariables()}.
-     */
-    public List<NumericVariableConstraint> getLongVariableConstraints()
-    {
-        return variables.stream()
-                .filter(VariableDeclaration.NumericVariable.class::isInstance)
-                .map(variable -> ((VariableDeclaration.NumericVariable) variable).constraint())
-                .collect(toUnmodifiableList());
-    }
-
     @Override
     public int hashCode()
     {

@@ -396,6 +396,12 @@
                                     <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::longVariable(java.lang.String, java.lang.String)</old>
                                     <justification>Renamed to numericVariable.</justification>
                                 </item>
+                                <!-- A signature's type and numeric variables are unified into one VariableDecl list; getVariables() replaces the per-kind views. -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt; io.trino.spi.function.Signature::getLongVariableConstraints()</old>
+                                    <justification>Numeric variables are now read through Signature.getVariables(); the unused per-kind view is removed.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

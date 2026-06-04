@@ -25,6 +25,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.NumericVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.function.VariableDeclaration;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.NumericExpressions;
@@ -65,7 +66,6 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -109,8 +109,15 @@ public class SignatureBinder
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 
-        this.typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
-                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
+        this.typeVariableConstraints = typeVariableConstraintsByName(declaredSignature);
+    }
+
+    private static Map<String, TypeVariableConstraint> typeVariableConstraintsByName(Signature signature)
+    {
+        return signature.getVariables().stream()
+                .filter(VariableDeclaration.TypeVariable.class::isInstance)
+                .map(VariableDeclaration.TypeVariable.class::cast)
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, VariableDeclaration::name, VariableDeclaration.TypeVariable::constraint));
     }
 
     public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
@@ -247,8 +254,7 @@ public class SignatureBinder
 
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
 
-        Map<String, TypeVariableConstraint> typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
-                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
+        Map<String, TypeVariableConstraint> typeVariableConstraints = typeVariableConstraintsByName(declaredSignature);
 
         boolean variableArity = declaredSignature.isVariableArity();
         List<TypeSignature> formalTypeSignatures = toLegacySignatures(declaredSignature.getArgumentTypes());
@@ -578,9 +584,12 @@ public class SignatureBinder
 
     private void calculateVariableValuesForLongConstraints(BindingsBuilder variableBinder)
     {
-        for (NumericVariableConstraint longVariableConstraint : declaredSignature.getLongVariableConstraints()) {
-            NumericExpression calculation = longVariableConstraint.getExpression();
-            String variableName = longVariableConstraint.getName();
+        for (VariableDeclaration variable : declaredSignature.getVariables()) {
+            if (!(variable instanceof VariableDeclaration.NumericVariable(NumericVariableConstraint constraint))) {
+                continue;
+            }
+            NumericExpression calculation = constraint.getExpression();
+            String variableName = constraint.getName();
             long calculatedValue = NumericExpressions.evaluate(calculation, variableBinder.getLongVariables()).longValueExact();
             if (variableBinder.containsLongVariable(variableName)) {
                 Long currentValue = variableBinder.getLongVariable(variableName);
@@ -703,11 +712,10 @@ public class SignatureBinder
             return false;
         }
 
-        // there must be exactly one type variable constraint and no long variable constraints
-        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+        // there must be exactly one variable, a type variable
+        if (signature.getVariables().size() != 1 || !(signature.getVariables().getFirst() instanceof VariableDeclaration.TypeVariable(TypeVariableConstraint typeVariableConstraint))) {
             return false;
         }
-        TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
 
         // The argument type must be a type variable with variadic bound of "row"
         return signature.getArgumentTypes().size() == 1 &&
@@ -731,11 +739,10 @@ public class SignatureBinder
             return false;
         }
 
-        // there must be exactly one type variable constraint and no long variable constraints
-        if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+        // there must be exactly one variable, a type variable
+        if (signature.getVariables().size() != 1 || !(signature.getVariables().getFirst() instanceof VariableDeclaration.TypeVariable(TypeVariableConstraint typeVariableConstraint))) {
             return false;
         }
-        TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
 
         // The return type must be a type variable with variadic bound of "row"
         return toLegacySignature(signature.getReturnType()).getBase().equals(typeVariableConstraint.getName()) &&
