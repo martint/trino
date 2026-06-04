@@ -24,6 +24,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 
@@ -82,7 +83,7 @@ public class ArraySubscriptOperator
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(READ_VALUE, ImmutableList.of(new TypeSignature("E")))
+                .addOperatorSignature(READ_VALUE, ImmutableList.of(TypeTemplates.typeVariable("E")))
                 .build();
     }
 

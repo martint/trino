@@ -23,6 +23,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -521,7 +522,7 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
-                        .castableTo(new TypeSignature("variant"))
+                        .castableTo(TypeTemplates.fromTypeSignature(new TypeSignature("variant")))
                         .build())
                 .build();
 
@@ -1165,7 +1166,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(parseTypeSignature("variant"))
+                        .castableTo(TypeTemplates.fromTypeSignature(parseTypeSignature("variant")))
                         .build())
                 .build();
 
@@ -1183,7 +1184,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(TIMESTAMP_MILLIS.getTypeSignature())
+                        .castableTo(TypeTemplates.fromTypeSignature(TIMESTAMP_MILLIS.getTypeSignature()))
                         .build())
                 .build();
 
@@ -1201,7 +1202,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableFrom(parseTypeSignature("json"))
+                        .castableFrom(TypeTemplates.fromTypeSignature(parseTypeSignature("json")))
                         .build())
                 .build();
 

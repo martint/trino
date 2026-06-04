@@ -402,6 +402,20 @@
                                     <old>method java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt; io.trino.spi.function.Signature::getLongVariableConstraints()</old>
                                     <justification>Numeric variables are now read through Signature.getVariables(); the unused per-kind view is removed.</justification>
                                 </item>
+                                <!-- Function dependencies are now carried as TypeTemplate (the open, variable-bearing form) rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.FunctionDependencyDeclaration.*</old>
+                                    <justification>Function dependency declarations now carry their type, argument, and cast types as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
+                                </item>
+                                <!-- A type variable's castable-to/from constraints are now carried as TypeTemplate rather than TypeSignature. -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java\.method\..*</code>
+                                    <old>.*io\.trino\.spi\.function\.TypeVariableConstraint.*</old>
+                                    <justification>A type variable's castable-to and castable-from constraints are now carried as TypeTemplate instead of TypeSignature.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

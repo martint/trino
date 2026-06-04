@@ -28,8 +28,9 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -64,7 +65,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.spi.type.TypeTemplates.baseName;
 import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Comparator.comparing;
@@ -94,30 +95,30 @@ public final class FunctionsParserHelper
 
         Set<String> orderableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
         Set<String> comparableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
-        HashMultimap<String, String> castableTo = HashMultimap.create();
-        HashMultimap<String, String> castableFrom = HashMultimap.create();
+        HashMultimap<String, TypeTemplate> castableTo = HashMultimap.create();
+        HashMultimap<String, TypeTemplate> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
             if (dependency instanceof OperatorImplementationDependency operatorDependency) {
                 OperatorType operator = operatorDependency.getOperator();
-                List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
+                List<TypeTemplate> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
-                    TypeSignature typeSignature = argumentTypes.get(0);
-                    if (typeParameterNames.contains(typeSignature.getBase())) {
-                        comparableRequired.add(typeSignature.toString());
+                    TypeTemplate argumentType = argumentTypes.get(0);
+                    if (typeParameterNames.contains(baseName(argumentType))) {
+                        comparableRequired.add(baseName(argumentType));
                     }
                     else {
-                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                        verifyTemplateDoesNotContainAnyTypeParameters(argumentType, argumentType, typeParameterNames);
                     }
                 }
                 else if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
                     verifyOperatorSignature(operator, argumentTypes);
-                    TypeSignature typeSignature = argumentTypes.get(0);
-                    if (typeParameterNames.contains(typeSignature.getBase())) {
-                        orderableRequired.add(typeSignature.toString());
+                    TypeTemplate argumentType = argumentTypes.get(0);
+                    if (typeParameterNames.contains(baseName(argumentType))) {
+                        orderableRequired.add(baseName(argumentType));
                     }
                     else {
-                        verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
+                        verifyTemplateDoesNotContainAnyTypeParameters(argumentType, argumentType, typeParameterNames);
                     }
                 }
                 else if (operator == READ_VALUE) {
@@ -128,19 +129,19 @@ public final class FunctionsParserHelper
                 }
             }
             else if (dependency instanceof CastImplementationDependency castImplementationDependency) {
-                TypeSignature fromType = castImplementationDependency.getFromType();
-                TypeSignature toType = castImplementationDependency.getToType();
-                if (typeParameterNames.contains(fromType.getBase())) {
+                TypeTemplate fromType = castImplementationDependency.getFromType();
+                TypeTemplate toType = castImplementationDependency.getToType();
+                if (typeParameterNames.contains(baseName(fromType))) {
                     // fromType is a type parameter, so it must be castable to the toType, which might also be a type parameter
-                    castableTo.put(fromType.toString().toLowerCase(Locale.ENGLISH), toType.toString());
+                    castableTo.put(baseName(fromType).toLowerCase(Locale.ENGLISH), toType);
                 }
-                else if (typeParameterNames.contains(toType.getBase())) {
-                    // toType is a type parameter, so it must be castable from the toType, which is not a type parameter
-                    castableFrom.put(toType.toString().toLowerCase(Locale.ENGLISH), fromType.toString());
+                else if (typeParameterNames.contains(baseName(toType))) {
+                    // toType is a type parameter, so it must be castable from the fromType, which is not a type parameter
+                    castableFrom.put(baseName(toType).toLowerCase(Locale.ENGLISH), fromType);
                 }
                 else {
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(toType, toType, typeParameterNames);
+                    verifyTemplateDoesNotContainAnyTypeParameters(fromType, fromType, typeParameterNames);
+                    verifyTemplateDoesNotContainAnyTypeParameters(toType, toType, typeParameterNames);
                 }
             }
         }
@@ -154,18 +155,14 @@ public final class FunctionsParserHelper
             if (orderableRequired.contains(name)) {
                 builder.orderableRequired();
             }
-            castableTo.get(name).stream()
-                    .map(type -> parseTypeSignature(type, typeParameterNames))
-                    .forEach(builder::castableTo);
-            castableFrom.get(name).stream()
-                    .map(type -> parseTypeSignature(type, typeParameterNames))
-                    .forEach(builder::castableFrom);
+            castableTo.get(name).forEach(builder::castableTo);
+            castableFrom.get(name).forEach(builder::castableFrom);
             typeVariableConstraints.add(builder.build());
         }
         return typeVariableConstraints.build();
     }
 
-    private static void verifyOperatorSignature(OperatorType operator, List<TypeSignature> argumentTypes)
+    private static void verifyOperatorSignature(OperatorType operator, List<TypeTemplate> argumentTypes)
     {
         checkArgument(argumentTypes.size() == operator.getArgumentCount() && argumentTypes.stream().distinct().count() == 1,
                 "%s requires %s arguments of the same type",
@@ -173,13 +170,15 @@ public final class FunctionsParserHelper
                 operator.getArgumentCount());
     }
 
-    private static void verifyTypeSignatureDoesNotContainAnyTypeParameters(TypeSignature rootType, TypeSignature typeSignature, Set<String> typeParameterNames)
+    private static void verifyTemplateDoesNotContainAnyTypeParameters(TypeTemplate rootType, TypeTemplate template, Set<String> typeParameterNames)
     {
-        checkArgument(!typeParameterNames.contains(typeSignature.getBase()), "Nested type variables are not allowed: %s", rootType);
+        checkArgument(!typeParameterNames.contains(baseName(template)), "Nested type variables are not allowed: %s", TypeTemplates.render(rootType));
 
-        for (TypeParameter parameter : typeSignature.getParameters()) {
-            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
-                verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, type, typeParameterNames);
+        if (template instanceof TypeTemplate.TypeApplication application) {
+            for (TemplateParameter parameter : application.parameters()) {
+                if (parameter instanceof TemplateParameter.TypeArgument typeArgument) {
+                    verifyTemplateDoesNotContainAnyTypeParameters(rootType, typeArgument.type(), typeParameterNames);
+                }
             }
         }
     }

@@ -275,7 +275,7 @@ public class FunctionResolver
             Function<CatalogFunctionBinding, ResolvedFunction> resolver)
     {
         Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
-                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
+                .map(typeTemplate -> applyBoundVariables(typeTemplate, functionBinding.variables()))
                 .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, _) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
@@ -283,7 +283,9 @@ public class FunctionResolver
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
                 CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                        fromTypeSignatures(applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding.variables())),
+                        fromTypeSignatures(functionDependency.getArgumentTypes().stream()
+                                .map(argumentType -> applyBoundVariables(argumentType, functionBinding.variables()))
+                                .collect(toImmutableList())),
                         candidateLoader.apply(name),
                         name.toString());
                 functions.add(resolver.apply(catalogFunctionBinding));
@@ -296,7 +298,8 @@ public class FunctionResolver
         }
         for (OperatorDependency operatorDependency : dependencies.getOperatorDependencies()) {
             try {
-                List<Type> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding.variables()).stream()
+                List<Type> argumentTypes = operatorDependency.getArgumentTypes().stream()
+                        .map(argumentType -> applyBoundVariables(argumentType, functionBinding.variables()))
                         .map(typeManager::getType)
                         .collect(toImmutableList());
                 functions.add(metadata.resolveOperator(operatorDependency.getOperatorType(), argumentTypes));

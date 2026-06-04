@@ -413,6 +413,9 @@ public class ParametricAggregationImplementation
         public List<ImplementationDependency> parseImplementationDependencies(Method inputFunction)
         {
             ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
+            Set<String> typeParameterNames = typeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSet());
 
             for (Parameter parameter : inputFunction.getParameters()) {
                 Class<?> parameterType = parameter.getType();
@@ -427,11 +430,9 @@ public class ParametricAggregationImplementation
                     validateImplementationDependencyAnnotation(
                             inputFunction,
                             annotation,
-                            typeParameters.stream()
-                                    .map(TypeParameter::value)
-                                    .collect(toImmutableSet()),
+                            typeParameterNames,
                             literalParameters);
-                    builder.add(createDependency(annotation, literalParameters, parameter.getType()));
+                    builder.add(createDependency(annotation, typeParameterNames, literalParameters, parameter.getType()));
                 });
             }
             return builder.build();

@@ -66,6 +66,8 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -1193,8 +1195,8 @@ public class TestAnnotationEngineForAggregates
         FunctionDependencyDeclaration dependencyDeclaration = aggregation.getFunctionDependencies(boundSignature);
 
         ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
-        for (TypeSignature typeSignature : dependencyDeclaration.getTypeDependencies()) {
-            typeSignature = applyBoundVariables(typeSignature, functionBinding.variables());
+        for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
+            TypeSignature typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
             typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
         }
 
@@ -1212,13 +1214,20 @@ public class TestAnnotationEngineForAggregates
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
     {
         QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(toTypeSignatures(dependency.getArgumentTypes())), new AllowAllAccessControl());
     }
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
         QualifiedName name = QualifiedName.of(dependency.getName().catalogName(), dependency.getName().schemaName(), dependency.getName().functionName());
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(toTypeSignatures(dependency.getArgumentTypes())), new AllowAllAccessControl());
+    }
+
+    private static List<TypeSignature> toTypeSignatures(List<TypeTemplate> templates)
+    {
+        return templates.stream()
+                .map(TypeTemplates::toLegacyTypeSignature)
+                .collect(toImmutableList());
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)

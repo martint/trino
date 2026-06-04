@@ -566,7 +566,7 @@ public class ParametricScalarImplementation
 
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
-                    dependencies.add(createDependency(implementationDependency.get(), literalParameters, parameterType));
+                    dependencies.add(createDependency(implementationDependency.get(), typeParameterNames, literalParameters, parameterType));
 
                     parameterIndex++;
                 }
@@ -695,15 +695,21 @@ public class ParametricScalarImplementation
                     .collect(toImmutableSet());
             checkArgument(constructorTypeParameters.containsAll(typeParameters), "Method [%s] is an instance method and requires a public constructor containing all type parameters: %s", method, typeParameters);
 
+            // Constructor dependencies reference the type variables the constructor declares, which include all of
+            // the method's and may add more; parse them against that set so a type variable becomes a TypeVariable.
+            Set<String> constructorTypeParameterNames = constructorTypeParameters.stream()
+                    .map(TypeParameter::value)
+                    .collect(toImmutableSortedSet(CASE_INSENSITIVE_ORDER));
+
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter typeParameter) {
-                    checkTypeParameters(parseTypeSignature(typeParameter.value()), typeParameterNames, method);
+                    checkTypeParameters(parseTypeSignature(typeParameter.value()), constructorTypeParameterNames, method);
                 }
-                constructorDependencies.add(createDependency(annotation, literalParameters, constructor.getParameterTypes()[i]));
+                constructorDependencies.add(createDependency(annotation, constructorTypeParameterNames, literalParameters, constructor.getParameterTypes()[i]));
             }
             MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
             // Change type of return value to Object to make sure callers won't have classloader issues

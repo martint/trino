@@ -33,6 +33,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
@@ -104,8 +105,8 @@ public final class MapToMapCast
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addCastSignature(new TypeSignature("FK"), new TypeSignature("TK"))
-                .addCastSignature(new TypeSignature("FV"), new TypeSignature("TV"))
+                .addCastSignature(TypeTemplates.typeVariable("FK"), TypeTemplates.typeVariable("TK"))
+                .addCastSignature(TypeTemplates.typeVariable("FV"), TypeTemplates.typeVariable("TV"))
                 .build();
     }
 

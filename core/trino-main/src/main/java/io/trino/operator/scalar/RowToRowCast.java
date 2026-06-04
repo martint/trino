@@ -42,6 +42,7 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -117,7 +118,7 @@ public class RowToRowCast
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
                                 TypeVariableConstraint.builder("F")
                                         .rowType()
-                                        .castableTo(new TypeSignature("T"))
+                                        .castableTo(TypeTemplates.typeVariable("T"))
                                         .build())
                         .rowTypeParameter("T")
                         .returnType(new TypeSignature("T"))

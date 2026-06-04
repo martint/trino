@@ -236,6 +236,16 @@ public class SignatureBinder
         return new TypeSignature(baseType, parameters);
     }
 
+    /**
+     * Grounds a type template against the bound variables, evaluating any calculated numeric expressions.
+     */
+    public static TypeSignature applyBoundVariables(TypeTemplate template, VariableBindings bindings)
+    {
+        Map<String, TypeSignature> typeBindings = bindings.getTypeVariables().entrySet().stream()
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> entry.getValue().getTypeSignature()));
+        return TypeTemplates.bind(template, typeBindings, bindings.getNumericVariables());
+    }
+
     public static FunctionBinding bindFunction(FunctionId functionId, Signature declaredSignature, BoundSignature boundSignature)
     {
         requireNonNull(declaredSignature, "declaredSignature is null");
@@ -426,13 +436,13 @@ public class SignatureBinder
     }
 
     /**
-     * Lifts a constraint type signature (a castable-to/from target, which may reference the signature's
-     * own type variables) into a template, canonicalizing those references into {@link TypeTemplate.TypeVariable}
-     * nodes so they resolve against the bindings rather than being treated as concrete types.
+     * Canonicalizes a constraint type template (a castable-to/from target, which may reference the signature's
+     * own type variables) so a base-string variable — as the programmatic builder API produces — becomes a
+     * {@link TypeTemplate.TypeVariable} that resolves against the bindings rather than a concrete type.
      */
-    private TypeTemplate liftConstraintType(TypeSignature typeSignature)
+    private TypeTemplate liftConstraintType(TypeTemplate template)
     {
-        return TypeTemplates.canonicalizeTypeVariables(TypeTemplates.fromTypeSignature(typeSignature), typeVariableConstraints.keySet());
+        return TypeTemplates.canonicalizeTypeVariables(template, typeVariableConstraints.keySet());
     }
 
     private boolean appendConstraintSolvers(
@@ -469,11 +479,11 @@ public class SignatureBinder
                 return true;
             }
             Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
-            for (TypeSignature castToSignature : typeVariableConstraint.getCastableTo()) {
-                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castToSignature), actualTypeSignatureProvider, EXPLICIT_COERCION_TO);
+            for (TypeTemplate castToTemplate : typeVariableConstraint.getCastableTo()) {
+                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castToTemplate), actualTypeSignatureProvider, EXPLICIT_COERCION_TO);
             }
-            for (TypeSignature castFromSignature : typeVariableConstraint.getCastableFrom()) {
-                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castFromSignature), actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
+            for (TypeTemplate castFromTemplate : typeVariableConstraint.getCastableFrom()) {
+                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castFromTemplate), actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
             }
             if (typeVariableConstraint.isRowType() && !(actualType instanceof RowType)) {
                 return actualType == UNKNOWN;

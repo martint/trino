@@ -196,14 +196,14 @@ public class Signature
         public Builder castableToTypeParameter(String name, TypeSignature toType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
-                    .castableTo(toType)
+                    .castableTo(TypeTemplates.fromTypeSignature(toType))
                     .build());
         }
 
         public Builder castableFromTypeParameter(String name, TypeSignature fromType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
-                    .castableFrom(fromType)
+                    .castableFrom(TypeTemplates.fromTypeSignature(fromType))
                     .build());
         }
 

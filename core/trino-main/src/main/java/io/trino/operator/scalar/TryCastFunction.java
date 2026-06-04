@@ -23,6 +23,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 
@@ -59,7 +60,7 @@ public class TryCastFunction
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addCastSignature(new TypeSignature("F"), new TypeSignature("T"))
+                .addCastSignature(TypeTemplates.typeVariable("F"), TypeTemplates.typeVariable("T"))
                 .build();
     }
 

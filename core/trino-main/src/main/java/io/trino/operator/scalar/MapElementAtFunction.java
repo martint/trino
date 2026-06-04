@@ -26,6 +26,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 
@@ -65,7 +66,7 @@ public class MapElementAtFunction
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
+                .addOperatorSignature(EQUAL, ImmutableList.of(TypeTemplates.typeVariable("K"), TypeTemplates.typeVariable("K")))
                 .build();
     }
 

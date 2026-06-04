@@ -32,6 +32,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -94,7 +95,7 @@ public abstract class AbstractGreatestLeast
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return getMinMaxCompareFunctionDependencies(new TypeSignature("E"), min);
+        return getMinMaxCompareFunctionDependencies(TypeTemplates.typeVariable("E"), min);
     }
 
     @Override

@@ -29,6 +29,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -84,9 +85,9 @@ public final class MapConstructor
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(HASH_CODE, ImmutableList.of(new TypeSignature("K")))
-                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
-                .addOperatorSignature(INDETERMINATE, ImmutableList.of(new TypeSignature("K")))
+                .addOperatorSignature(HASH_CODE, ImmutableList.of(TypeTemplates.typeVariable("K")))
+                .addOperatorSignature(EQUAL, ImmutableList.of(TypeTemplates.typeVariable("K"), TypeTemplates.typeVariable("K")))
+                .addOperatorSignature(INDETERMINATE, ImmutableList.of(TypeTemplates.typeVariable("K")))
                 .build();
     }
 

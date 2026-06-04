@@ -30,6 +30,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -70,7 +71,7 @@ public class MapSubscriptOperator
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOptionalCastSignature(new TypeSignature("K"), VARCHAR.getTypeSignature())
+                .addOptionalCastSignature(TypeTemplates.typeVariable("K"), TypeTemplates.fromTypeSignature(VARCHAR.getTypeSignature()))
                 .build();
     }
 

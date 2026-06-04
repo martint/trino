@@ -41,6 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 
 public interface ImplementationDependency
 {
@@ -96,10 +97,10 @@ public interface ImplementationDependency
     {
         private Factory() {}
 
-        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
+        public static ImplementationDependency createDependency(Annotation annotation, Set<String> typeParameters, Set<String> literalParameters, Class<?> type)
         {
             if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
-                return new TypeImplementationDependency(parseTypeSignature(typeParameter.value(), literalParameters));
+                return new TypeImplementationDependency(parseTypeTemplate(typeParameter.value(), typeParameters, literalParameters));
             }
             if (annotation instanceof LiteralParameter literalParameter) {
                 return new LiteralImplementationDependency(literalParameter.value());
@@ -109,7 +110,7 @@ public interface ImplementationDependency
                 return new FunctionImplementationDependency(
                         builtinFunctionName(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
+                                .map(signature -> parseTypeTemplate(signature, typeParameters, literalParameters))
                                 .collect(toImmutableList()),
                         toInvocationConvention(functionDependency.convention()),
                         type);
@@ -120,15 +121,15 @@ public interface ImplementationDependency
                 return new OperatorImplementationDependency(
                         operator,
                         Arrays.stream(operatorDependency.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
+                                .map(signature -> parseTypeTemplate(signature, typeParameters, literalParameters))
                                 .collect(toImmutableList()),
                         toInvocationConvention(operatorDependency.convention()),
                         type);
             }
             if (annotation instanceof CastDependency castDependency) {
                 return new CastImplementationDependency(
-                        parseTypeSignature(castDependency.fromType(), literalParameters),
-                        parseTypeSignature(castDependency.toType(), literalParameters),
+                        parseTypeTemplate(castDependency.fromType(), typeParameters, literalParameters),
+                        parseTypeTemplate(castDependency.toType(), typeParameters, literalParameters),
                         toInvocationConvention(castDependency.convention()),
                         type);
             }
