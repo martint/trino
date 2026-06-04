@@ -28,7 +28,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
 import java.io.IOException;
@@ -64,7 +64,7 @@ public class RowToJsonCast
                                         .rowType()
                                         .build())
                         .returnType(JSON)
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeDescriptor("T"))
                         .build())
                 .build());
     }

@@ -19,8 +19,8 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -39,8 +39,8 @@ public class GenericComparisonUnorderedFirstOperator
                 .signature(Signature.builder()
                         .orderableTypeParameter("T")
                         .returnType(INTEGER)
-                        .argumentType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeDescriptor("T"))
+                        .argumentType(new TypeDescriptor("T"))
                         .build())
                 .neverFails()
                 .build());

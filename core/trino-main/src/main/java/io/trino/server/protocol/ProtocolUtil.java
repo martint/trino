@@ -38,8 +38,8 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.DataType;
@@ -137,7 +137,7 @@ public final class ProtocolUtil
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         if (!supportsParametricDateTime) {
             if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
@@ -168,7 +168,7 @@ public final class ProtocolUtil
     private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
         return switch (parameter) {
-            case TypeParameter.Type(Optional<String> name, TypeSignature type) -> {
+            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
                     yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             name.map(RowFieldName::new),

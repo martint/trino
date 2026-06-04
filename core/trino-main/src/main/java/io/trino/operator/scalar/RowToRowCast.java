@@ -41,7 +41,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -121,8 +121,8 @@ public class RowToRowCast
                                         .castableTo(TypeTemplates.typeVariable("T"))
                                         .build())
                         .rowTypeParameter("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("F"))
+                        .returnType(new TypeDescriptor("T"))
+                        .argumentType(new TypeDescriptor("F"))
                         .build())
                 .build());
     }

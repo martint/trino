@@ -41,8 +41,8 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -120,7 +120,7 @@ public class GlobalFunctionCatalog
         // so we only these exact signatures to be registered.  Since, only a single function with
         // a specific signature can be registered, it prevents others from being registered.
         Signature.Builder expectedSignature = Signature.builder()
-                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")));
+                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeDescriptor("T")));
 
         switch (operatorType) {
             case EQUAL, IDENTICAL, INDETERMINATE -> {

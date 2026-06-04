@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -31,7 +31,7 @@ public class TestRowParametricType
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeSignature typeSignature = new TypeSignature(
+        TypeDescriptor typeSignature = new TypeDescriptor(
                 ROW,
                 TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeSignature()),
                 TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeSignature()));

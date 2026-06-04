@@ -162,9 +162,9 @@ import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
@@ -411,7 +411,7 @@ public class PlanTester
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager),
-                        TypeSignature.class, new TypeSignatureDeserializer(),
+                        TypeDescriptor.class, new TypeSignatureDeserializer(),
                         Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
                 .withJsonSerializers(ImmutableMap.of(
                         Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))

@@ -35,8 +35,8 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
@@ -78,10 +78,10 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.typeParameter;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignature.rowType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -173,7 +173,7 @@ public final class HiveTypeTranslator
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    public static TypeSignature toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
         return switch (typeInfo.getCategory()) {
             case PRIMITIVE -> {
@@ -191,7 +191,7 @@ public final class HiveTypeTranslator
             }
             case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
+                TypeDescriptor elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
                 yield arrayType(typeParameter(elementType));
             }
             case STRUCT -> {

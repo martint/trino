@@ -43,7 +43,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.transforms.Transforms;
@@ -76,7 +76,7 @@ public class IcebergFunctionProvider
                     .signature(Signature.builder()
                             .typeVariable("T")
                             .returnType(INTEGER)
-                            .argumentTypes(ImmutableList.of(new TypeSignature("T"), INTEGER.getTypeSignature()))
+                            .argumentTypes(ImmutableList.of(new TypeDescriptor("T"), INTEGER.getTypeSignature()))
                             .build())
                     .nullable()
                     .build())

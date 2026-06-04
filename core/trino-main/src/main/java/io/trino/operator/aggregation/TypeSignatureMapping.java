@@ -21,8 +21,8 @@ import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.OperatorImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
 import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
 
 import java.util.List;
@@ -128,7 +128,7 @@ class TypeSignatureMapping
         return parameter;
     }
 
-    public TypeSignature mapTypeSignature(TypeSignature typeSignature)
+    public TypeDescriptor mapTypeSignature(TypeDescriptor typeSignature)
     {
         if (mapping.isEmpty()) {
             return typeSignature;
@@ -137,7 +137,7 @@ class TypeSignatureMapping
             checkArgument(typeSignature.getParameters().isEmpty(), "Type variable can not have type parameters: %s", typeSignature);
             return parseTypeSignature(mapping.get(typeSignature.getBase()));
         }
-        return new TypeSignature(
+        return new TypeDescriptor(
                 typeSignature.getBase(),
                 typeSignature.getParameters().stream()
                         .map(this::mapTypeSignatureParameter)
@@ -146,7 +146,7 @@ class TypeSignatureMapping
 
     private TypeParameter mapTypeSignatureParameter(TypeParameter parameter)
     {
-        if (parameter instanceof TypeParameter.Type(Optional<String> name, TypeSignature type)) {
+        if (parameter instanceof TypeParameter.Type(Optional<String> name, TypeDescriptor type)) {
             return TypeParameter.typeParameter(name, mapTypeSignature(type));
         }
         return parameter;

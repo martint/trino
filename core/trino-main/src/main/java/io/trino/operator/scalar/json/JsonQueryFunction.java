@@ -36,8 +36,8 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
 import io.trino.type.JsonPath2016Type;
@@ -77,14 +77,14 @@ public class JsonQueryFunction
         super(FunctionMetadata.scalarBuilder(JSON_QUERY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature(JSON_2016))
+                        .returnType(new TypeDescriptor(JSON_2016))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
-                                new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
-                                new TypeSignature(TINYINT),
-                                new TypeSignature(TINYINT),
-                                new TypeSignature(TINYINT)))
+                                new TypeDescriptor(JSON_2016),
+                                new TypeDescriptor(JsonPath2016Type.NAME),
+                                new TypeDescriptor("T"),
+                                new TypeDescriptor(TINYINT),
+                                new TypeDescriptor(TINYINT),
+                                new TypeDescriptor(TINYINT)))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false, false, false)

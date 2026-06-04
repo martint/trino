@@ -14,7 +14,7 @@
 package io.trino.spi.function;
 
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -83,7 +83,7 @@ public class AggregationFunctionMetadata
             return this;
         }
 
-        public AggregationFunctionMetadataBuilder intermediateType(TypeSignature type)
+        public AggregationFunctionMetadataBuilder intermediateType(TypeDescriptor type)
         {
             this.intermediateTypes.add(TypeTemplates.fromTypeSignature(requireNonNull(type, "type is null")));
             return this;

@@ -16,8 +16,8 @@ package io.trino.hive.formats;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
@@ -42,13 +42,13 @@ public final class UnionToRowCoercionUtils
         return RowType.from(fields.build());
     }
 
-    public static TypeSignature rowTypeSignatureForUnionOfTypes(List<TypeSignature> typeSignatures)
+    public static TypeDescriptor rowTypeSignatureForUnionOfTypes(List<TypeDescriptor> typeSignatures)
     {
         ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
         fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
         for (int i = 0; i < typeSignatures.size(); i++) {
             fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeSignatures.get(i)));
         }
-        return TypeSignature.rowType(fields.build());
+        return TypeDescriptor.rowType(fields.build());
     }
 }

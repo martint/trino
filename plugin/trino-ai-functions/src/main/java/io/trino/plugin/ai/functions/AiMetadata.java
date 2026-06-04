@@ -26,7 +26,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import java.util.Collection;
 import java.util.List;
 
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 

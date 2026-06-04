@@ -60,7 +60,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(NAME), long.class, ShortArrayBlock.class);
+        super(new TypeDescriptor(NAME), long.class, ShortArrayBlock.class);
     }
 
     @Override

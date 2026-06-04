@@ -30,7 +30,7 @@ import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 @Immutable
-public final class TypeSignature
+public final class TypeDescriptor
 {
     private static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
     private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
@@ -41,12 +41,12 @@ public final class TypeSignature
 
     private int hashCode;
 
-    public TypeSignature(String base, TypeParameter... parameters)
+    public TypeDescriptor(String base, TypeParameter... parameters)
     {
         this(base, asList(parameters));
     }
 
-    public TypeSignature(String base, List<TypeParameter> parameters)
+    public TypeDescriptor(String base, List<TypeParameter> parameters)
     {
         checkArgument(base != null, "base is null");
         this.base = base;
@@ -144,7 +144,7 @@ public final class TypeSignature
             return false;
         }
 
-        TypeSignature other = (TypeSignature) o;
+        TypeDescriptor other = (TypeDescriptor) o;
 
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
@@ -167,31 +167,31 @@ public final class TypeSignature
 
     // Type signature constructors for common types
 
-    public static TypeSignature arrayType(TypeSignature elementType)
+    public static TypeDescriptor arrayType(TypeDescriptor elementType)
     {
-        return new TypeSignature(StandardTypes.ARRAY, typeParameter(elementType));
+        return new TypeDescriptor(StandardTypes.ARRAY, typeParameter(elementType));
     }
 
-    public static TypeSignature arrayType(TypeParameter elementType)
+    public static TypeDescriptor arrayType(TypeParameter elementType)
     {
-        return new TypeSignature(StandardTypes.ARRAY, elementType);
+        return new TypeDescriptor(StandardTypes.ARRAY, elementType);
     }
 
-    public static TypeSignature mapType(TypeSignature keyType, TypeSignature valueType)
+    public static TypeDescriptor mapType(TypeDescriptor keyType, TypeDescriptor valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
+        return new TypeDescriptor(StandardTypes.MAP, typeParameter(keyType), typeParameter(valueType));
     }
 
-    public static TypeSignature parametricType(String name, TypeSignature... parameters)
+    public static TypeDescriptor parametricType(String name, TypeDescriptor... parameters)
     {
-        return new TypeSignature(
+        return new TypeDescriptor(
                 name,
                 Arrays.stream(parameters)
                         .map(TypeParameter::typeParameter)
                         .collect(toUnmodifiableList()));
     }
 
-    public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)
+    public static TypeDescriptor functionType(TypeDescriptor first, TypeDescriptor... rest)
     {
         List<TypeParameter> parameters = new ArrayList<>();
         parameters.add(typeParameter(first));
@@ -200,13 +200,13 @@ public final class TypeSignature
                 .map(TypeParameter::typeParameter)
                 .forEach(parameters::add);
 
-        return new TypeSignature("function", parameters);
+        return new TypeDescriptor("function", parameters);
     }
 
-    public static TypeSignature rowType(List<TypeParameter> fields)
+    public static TypeDescriptor rowType(List<TypeParameter> fields)
     {
         checkArgument(fields.stream().allMatch(parameter -> parameter instanceof TypeParameter.Type), "Parameters for ROW type must be TYPE parameters");
 
-        return new TypeSignature(StandardTypes.ROW, fields);
+        return new TypeDescriptor(StandardTypes.ROW, fields);
     }
 }

@@ -311,6 +311,33 @@
                                     <old>field io.trino.spi.function.OperatorType.MODULUS</old>
                                     <justification>Renamed to MODULO</justification>
                                 </item>
+                                <!-- Renamed TypeSignature to TypeDescriptor (it is always a ground type, not a signature) -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignature</old>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>.*io\.trino\.spi\.type\.TypeSignature.*</old>
+                                    <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
+                                    <justification>Renamed TypeSignature to TypeDescriptor</justification>
+                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>

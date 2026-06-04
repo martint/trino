@@ -33,7 +33,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TrinoNumber;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.variant.Variant;
@@ -113,7 +113,7 @@ public final class DecimalCasts
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
-    private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, boolean neverFails, String... methodNames)
+    private static SqlScalarFunction castFunctionFromDecimalTo(TypeDescriptor to, boolean neverFails, String... methodNames)
     {
         Signature signature = Signature.builder()
                 .argumentType(numericType("decimal", numericVariable("precision"), numericVariable("scale")))
@@ -141,7 +141,7 @@ public final class DecimalCasts
                 .build();
     }
 
-    private static SqlScalarFunction castFunctionToDecimalFrom(TypeSignature from, boolean neverFails, String... methodNames)
+    private static SqlScalarFunction castFunctionToDecimalFrom(TypeDescriptor from, boolean neverFails, String... methodNames)
     {
         return castFunctionToDecimalFromBuilder(fromTypeSignature(from), false, neverFails, methodNames);
     }

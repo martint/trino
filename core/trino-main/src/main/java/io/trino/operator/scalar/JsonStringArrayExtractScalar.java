@@ -29,7 +29,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.type.JsonPathType;
 import io.trino.util.JsonCastException;
 
@@ -41,7 +41,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -67,7 +67,7 @@ public final class JsonStringArrayExtractScalar
                 .signature(Signature.builder()
                         .argumentType(numericType("varchar", numericVariable("N")))
                         .numericVariable("N")
-                        .argumentType(new TypeSignature(JsonPathType.NAME))
+                        .argumentType(new TypeDescriptor(JsonPathType.NAME))
                         .returnType(arrayType(VARCHAR.getTypeSignature()))
                         .build())
                 .nullable()

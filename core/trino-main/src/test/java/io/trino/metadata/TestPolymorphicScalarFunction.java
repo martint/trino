@@ -27,7 +27,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import org.junit.jupiter.api.Test;
 
@@ -208,8 +208,8 @@ public class TestPolymorphicScalarFunction
                         .comparableRequired()
                         .rowType()
                         .build())
-                .returnType(new TypeSignature("V"))
-                .argumentType(new TypeSignature("V"))
+                .returnType(new TypeDescriptor("V"))
+                .argumentType(new TypeDescriptor("V"))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)

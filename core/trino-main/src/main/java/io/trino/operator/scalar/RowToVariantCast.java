@@ -22,7 +22,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantWriter;
 
@@ -61,7 +61,7 @@ public class RowToVariantCast
                                         .rowType()
                                         .build())
                         .returnType(VARIANT)
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeDescriptor("T"))
                         .build())
                 .build());
     }

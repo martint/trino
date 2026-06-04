@@ -23,8 +23,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.spi.type.VarcharType;
@@ -100,7 +100,7 @@ public final class TypeSignatureTranslator
         return toDataType(type.getTypeSignature());
     }
 
-    public static TypeSignature toTypeSignature(DataType type)
+    public static TypeDescriptor toTypeSignature(DataType type)
     {
         return switch (type) {
             case DateTimeDataType dateTimeDataType -> toTypeSignature(dateTimeDataType);
@@ -115,7 +115,7 @@ public final class TypeSignatureTranslator
      * argument and return types, which may reference a function's type or numeric variables, are parsed
      * with {@link #parseTypeTemplate} instead.
      */
-    public static TypeSignature parseTypeSignature(String signature)
+    public static TypeDescriptor parseTypeSignature(String signature)
     {
         try {
             return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
@@ -252,7 +252,7 @@ public final class TypeSignatureTranslator
         return new TypeTemplate.TypeApplication(base, parameters);
     }
 
-    private static TypeSignature toTypeSignature(GenericDataType type)
+    private static TypeDescriptor toTypeSignature(GenericDataType type)
     {
         ImmutableList.Builder<TypeParameter> parameters = ImmutableList.builder();
 
@@ -274,10 +274,10 @@ public final class TypeSignatureTranslator
             }
         }
 
-        return new TypeSignature(canonicalize(type.getName()), parameters.build());
+        return new TypeDescriptor(canonicalize(type.getName()), parameters.build());
     }
 
-    private static TypeSignature toTypeSignature(RowDataType type)
+    private static TypeDescriptor toTypeSignature(RowDataType type)
     {
         List<TypeParameter> parameters = type.getFields().stream()
                 .map(field -> typeParameter(
@@ -285,10 +285,10 @@ public final class TypeSignatureTranslator
                         toTypeSignature(field.getType())))
                 .collect(toImmutableList());
 
-        return new TypeSignature(ROW, parameters);
+        return new TypeDescriptor(ROW, parameters);
     }
 
-    private static TypeSignature toTypeSignature(IntervalDataType type)
+    private static TypeDescriptor toTypeSignature(IntervalDataType type)
     {
         if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
                 qualifier.getFrom() instanceof IntervalField.Year() &&
@@ -308,7 +308,7 @@ public final class TypeSignatureTranslator
         throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
     }
 
-    private static TypeSignature toTypeSignature(DateTimeDataType type)
+    private static TypeDescriptor toTypeSignature(DateTimeDataType type)
     {
         boolean withTimeZone = type.isWithTimeZone();
 
@@ -317,7 +317,7 @@ public final class TypeSignatureTranslator
             case TIME -> withTimeZone ? TIME_WITH_TIME_ZONE : TIME;
         };
 
-        return new TypeSignature(base, translateParameters(type));
+        return new TypeDescriptor(base, translateParameters(type));
     }
 
     private static List<TypeParameter> translateParameters(DateTimeDataType type)
@@ -346,7 +346,7 @@ public final class TypeSignatureTranslator
     }
 
     @VisibleForTesting
-    static DataType toDataType(TypeSignature typeSignature)
+    static DataType toDataType(TypeDescriptor typeSignature)
     {
         return switch (typeSignature.getBase()) {
             case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(

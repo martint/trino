@@ -20,7 +20,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
+    private static final TypeDescriptor GEOMETRY_TYPE_SIGNATURE = new TypeDescriptor("Geometry");
     private static final CatalogSchemaFunctionName NAME = builtinFunctionName("spatial_partitioning");
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);

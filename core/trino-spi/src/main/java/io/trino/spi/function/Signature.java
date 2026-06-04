@@ -15,7 +15,7 @@ package io.trino.spi.function;
 
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -193,14 +193,14 @@ public class Signature
                     .build());
         }
 
-        public Builder castableToTypeParameter(String name, TypeSignature toType)
+        public Builder castableToTypeParameter(String name, TypeDescriptor toType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableTo(TypeTemplates.fromTypeSignature(toType))
                     .build());
         }
 
-        public Builder castableFromTypeParameter(String name, TypeSignature fromType)
+        public Builder castableFromTypeParameter(String name, TypeDescriptor fromType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableFrom(TypeTemplates.fromTypeSignature(fromType))
@@ -232,7 +232,7 @@ public class Signature
             return this;
         }
 
-        public Builder returnType(TypeSignature returnType)
+        public Builder returnType(TypeDescriptor returnType)
         {
             return returnType(TypeTemplates.fromTypeSignature(returnType));
         }
@@ -284,12 +284,12 @@ public class Signature
             return this;
         }
 
-        public Builder argumentType(TypeSignature type)
+        public Builder argumentType(TypeDescriptor type)
         {
             return argumentType(TypeTemplates.fromTypeSignature(type));
         }
 
-        public Builder argumentType(TypeSignature type, String name)
+        public Builder argumentType(TypeDescriptor type, String name)
         {
             return argumentType(TypeTemplates.fromTypeSignature(type), name);
         }
@@ -304,9 +304,9 @@ public class Signature
             return argumentType(type.getTypeSignature(), name);
         }
 
-        public Builder argumentTypes(List<TypeSignature> argumentTypes)
+        public Builder argumentTypes(List<TypeDescriptor> argumentTypes)
         {
-            for (TypeSignature argumentType : argumentTypes) {
+            for (TypeDescriptor argumentType : argumentTypes) {
                 argumentType(argumentType);
             }
             return this;

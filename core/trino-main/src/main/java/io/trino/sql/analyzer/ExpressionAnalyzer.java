@@ -55,10 +55,10 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -1788,7 +1788,7 @@ public class ExpressionAnalyzer
             if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
-            TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
+            TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 

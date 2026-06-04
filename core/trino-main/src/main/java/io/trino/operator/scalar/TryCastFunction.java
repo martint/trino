@@ -22,7 +22,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
@@ -44,10 +44,10 @@ public class TryCastFunction
     {
         super(FunctionMetadata.scalarBuilder("$try_cast")
                 .signature(Signature.builder()
-                        .castableToTypeParameter("F", new TypeSignature("T"))
+                        .castableToTypeParameter("F", new TypeDescriptor("T"))
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("F"))
+                        .returnType(new TypeDescriptor("T"))
+                        .argumentType(new TypeDescriptor("F"))
                         .build())
                 .nullable()
                 .hidden()

@@ -34,7 +34,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
@@ -43,7 +43,7 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -80,11 +80,11 @@ public class ReduceAggregationFunction
                         .signature(Signature.builder()
                                 .typeVariable("T")
                                 .typeVariable("S")
-                                .returnType(new TypeSignature("S"))
-                                .argumentType(new TypeSignature("T"))
-                                .argumentType(new TypeSignature("S"))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
-                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S")))
+                                .returnType(new TypeDescriptor("S"))
+                                .argumentType(new TypeDescriptor("T"))
+                                .argumentType(new TypeDescriptor("S"))
+                                .argumentType(functionType(new TypeDescriptor("S"), new TypeDescriptor("T"), new TypeDescriptor("S")))
+                                .argumentType(functionType(new TypeDescriptor("S"), new TypeDescriptor("S"), new TypeDescriptor("S")))
                                 .build())
                         .description("Reduce input elements into a single value")
                         .build(),

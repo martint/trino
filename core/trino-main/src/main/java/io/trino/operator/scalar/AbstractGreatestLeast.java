@@ -31,7 +31,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -80,8 +80,8 @@ public abstract class AbstractGreatestLeast
         super(FunctionMetadata.scalarBuilder(min ? "least" : "greatest")
                 .signature(Signature.builder()
                         .orderableTypeParameter("E")
-                        .returnType(new TypeSignature("E"))
-                        .argumentType(new TypeSignature("E"))
+                        .returnType(new TypeDescriptor("E"))
+                        .argumentType(new TypeDescriptor("E"))
                         .variableArity()
                         .build())
                 .nullable()

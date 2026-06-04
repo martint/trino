@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
  * function {@link io.trino.spi.function.Signature} — e.g. {@code array(E)}, {@code decimal(p, s)},
  * {@code char(x + y)}.
  * <p>
- * It is the counterpart to the ground {@link TypeSignature}: where a {@code TypeSignature} denotes one
+ * It is the counterpart to the ground {@link TypeDescriptor}: where a {@code TypeSignature} denotes one
  * concrete type, a {@code TypeTemplate} denotes a family parameterized by type and numeric variables.
  * Operations live in {@link TypeTemplates} — {@code bind} substitutes variables to produce a ground
- * {@link TypeSignature}, and {@code fromTypeSignature} lifts a variable-free signature back into a template.
+ * {@link TypeDescriptor}, and {@code fromTypeSignature} lifts a variable-free signature back into a template.
  */
 public sealed interface TypeTemplate
         permits TypeTemplate.TypeApplication, TypeTemplate.TypeVariable

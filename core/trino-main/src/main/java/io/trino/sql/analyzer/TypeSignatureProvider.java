@@ -15,7 +15,7 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.List;
 import java.util.function.Function;
@@ -29,16 +29,16 @@ public final class TypeSignatureProvider
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
     private final boolean hasDependency;
-    private final Function<List<Type>, TypeSignature> typeSignatureResolver;
+    private final Function<List<Type>, TypeDescriptor> typeSignatureResolver;
 
-    public TypeSignatureProvider(TypeSignature typeSignature)
+    public TypeSignatureProvider(TypeDescriptor typeSignature)
     {
         this.hasDependency = false;
         requireNonNull(typeSignature, "typeSignature is null");
         this.typeSignatureResolver = _ -> typeSignature;
     }
 
-    public TypeSignatureProvider(Function<List<Type>, TypeSignature> typeSignatureResolver)
+    public TypeSignatureProvider(Function<List<Type>, TypeDescriptor> typeSignatureResolver)
     {
         this.hasDependency = true;
         this.typeSignatureResolver = requireNonNull(typeSignatureResolver, "typeSignatureResolver is null");
@@ -49,13 +49,13 @@ public final class TypeSignatureProvider
         return hasDependency;
     }
 
-    public TypeSignature getTypeSignature()
+    public TypeDescriptor getTypeSignature()
     {
         checkState(!hasDependency);
         return typeSignatureResolver.apply(ImmutableList.of());
     }
 
-    public TypeSignature getTypeSignature(List<Type> boundTypeParameters)
+    public TypeDescriptor getTypeSignature(List<Type> boundTypeParameters)
     {
         checkState(hasDependency);
         return typeSignatureResolver.apply(boundTypeParameters);
@@ -74,12 +74,12 @@ public final class TypeSignatureProvider
                 .collect(toImmutableList());
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(TypeSignature... typeSignatures)
+    public static List<TypeSignatureProvider> fromTypeSignatures(TypeDescriptor... typeSignatures)
     {
         return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeSignature> typeSignatures)
+    public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeDescriptor> typeSignatures)
     {
         return typeSignatures.stream()
                 .map(TypeSignatureProvider::new)

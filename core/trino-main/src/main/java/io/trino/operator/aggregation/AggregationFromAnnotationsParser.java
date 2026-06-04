@@ -39,7 +39,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowAccumulator;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -393,7 +393,7 @@ public final class AggregationFromAnnotationsParser
         TypeSignatureMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
 
         if (stateClass.equals(InOut.class)) {
-            String typeVariable = typeParameterMapping.mapTypeSignature(new TypeSignature("T")).toString();
+            String typeVariable = typeParameterMapping.mapTypeSignature(new TypeDescriptor("T")).toString();
             @SuppressWarnings("unchecked") AccumulatorStateDetails<T> stateDetails = (AccumulatorStateDetails<T>) getInOutAccumulatorStateDetails(typeVariable);
             return stateDetails;
         }

@@ -56,8 +56,8 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -1516,7 +1516,7 @@ public class TestEventListenerBasic
         JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         Symbol.class, new SymbolKeyDeserializer(typeManager),
-                        TypeSignature.class, new TypeSignatureKeyDeserializer()))
+                        TypeDescriptor.class, new TypeSignatureKeyDeserializer()))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager)))
                 .get();

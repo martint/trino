@@ -19,7 +19,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -38,8 +38,8 @@ public class IdentityCast
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .returnType(new TypeDescriptor("T"))
+                        .argumentType(new TypeDescriptor("T"))
                         .build())
                 .neverFails()
                 .build());

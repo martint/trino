@@ -31,7 +31,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.type.Json2016Type;
 
 import java.lang.invoke.MethodHandle;
@@ -67,8 +67,8 @@ public class JsonObjectFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeSignature(JSON_2016))
-                        .argumentTypes(ImmutableList.of(new TypeSignature("K"), new TypeSignature("V"), new TypeSignature(BOOLEAN), new TypeSignature(BOOLEAN)))
+                        .returnType(new TypeDescriptor(JSON_2016))
+                        .argumentTypes(ImmutableList.of(new TypeDescriptor("K"), new TypeDescriptor("V"), new TypeDescriptor(BOOLEAN), new TypeDescriptor(BOOLEAN)))
                         .build())
                 .argumentNullability(true, true, false, false)
                 .hidden()

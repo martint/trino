@@ -20,7 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.lang.invoke.MethodHandle;
 
@@ -44,7 +44,7 @@ public final class ConcatFunction
 
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
-    private ConcatFunction(TypeSignature type, String description)
+    private ConcatFunction(TypeDescriptor type, String description)
     {
         super(FunctionMetadata.scalarBuilder("concat")
                 .signature(Signature.builder()

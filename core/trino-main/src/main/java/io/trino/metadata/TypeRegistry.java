@@ -26,11 +26,11 @@ import io.trino.cache.NonEvictableCache;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
@@ -112,10 +112,10 @@ public final class TypeRegistry
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TypeDescriptor, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
-    private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<TypeDescriptor, Type> parametricTypeCache;
     private final NonEvictableCache<String, Type> sqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
@@ -179,7 +179,7 @@ public final class TypeRegistry
         verifyTypes();
     }
 
-    public Type getType(TypeSignature signature)
+    public Type getType(TypeDescriptor signature)
     {
         Type type = types.get(signature);
         if (type == null) {
@@ -216,7 +216,7 @@ public final class TypeRegistry
         }
     }
 
-    private Type instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(TypeDescriptor signature)
     {
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
@@ -239,7 +239,7 @@ public final class TypeRegistry
     public boolean isTypeRegistered(String name)
     {
         String key = name.toLowerCase(Locale.ENGLISH);
-        return types.containsKey(new TypeSignature(key)) || parametricTypes.containsKey(key);
+        return types.containsKey(new TypeDescriptor(key)) || parametricTypes.containsKey(key);
     }
 
     public Collection<Type> getTypes()
@@ -264,7 +264,7 @@ public final class TypeRegistry
         requireNonNull(alias, "alias is null");
         requireNonNull(type, "type is null");
 
-        Type existingType = types.putIfAbsent(new TypeSignature(alias), type);
+        Type existingType = types.putIfAbsent(new TypeDescriptor(alias), type);
         checkState(existingType == null || existingType.equals(type), "Alias %s is already mapped to %s", alias, type);
     }
 
@@ -447,7 +447,7 @@ public final class TypeRegistry
         }
 
         @Override
-        public Type getType(TypeSignature signature)
+        public Type getType(TypeDescriptor signature)
         {
             return typeRegistry.getType(signature);
         }

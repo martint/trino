@@ -20,7 +20,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.util.Reflection.methodHandle;
 
 /**
@@ -46,8 +46,8 @@ public final class InvokeFunction
         super(FunctionMetadata.scalarBuilder("invoke")
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(functionType(new TypeSignature("T")))
+                        .returnType(new TypeDescriptor("T"))
+                        .argumentType(functionType(new TypeDescriptor("T")))
                         .build())
                 .nullable()
                 .hidden()

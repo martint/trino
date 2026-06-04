@@ -42,8 +42,8 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
@@ -67,7 +67,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -96,16 +96,16 @@ public class JsonValueFunction
                         .typeVariable("T")
                         .typeVariable("E")
                         .typeVariable("D")
-                        .returnType(new TypeSignature("R"))
+                        .returnType(new TypeDescriptor("R"))
                         .argumentTypes(ImmutableList.of(
-                                new TypeSignature(JSON_2016),
-                                new TypeSignature(JsonPath2016Type.NAME),
-                                new TypeSignature("T"),
-                                new TypeSignature("R"),
-                                new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("E")),
-                                new TypeSignature(TINYINT),
-                                functionType(new TypeSignature("D"))))
+                                new TypeDescriptor(JSON_2016),
+                                new TypeDescriptor(JsonPath2016Type.NAME),
+                                new TypeDescriptor("T"),
+                                new TypeDescriptor("R"),
+                                new TypeDescriptor(TINYINT),
+                                functionType(new TypeDescriptor("E")),
+                                new TypeDescriptor(TINYINT),
+                                functionType(new TypeDescriptor("D"))))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, true, false, false, false, false)

@@ -15,7 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 import org.junit.jupiter.api.Test;
@@ -68,7 +68,7 @@ class TestParseTypeTemplate
     {
         // A variable-free template parses and binds to the same signature TypeSignatureTranslator would produce.
         TypeTemplate template = parseTypeTemplate("row(a decimal(10,2), b varchar(5))", Set.of(), Set.of());
-        TypeSignature expected = TypeSignatureTranslator.parseTypeSignature("row(a decimal(10,2), b varchar(5))");
+        TypeDescriptor expected = TypeSignatureTranslator.parseTypeSignature("row(a decimal(10,2), b varchar(5))");
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(expected);
     }
 
@@ -77,7 +77,7 @@ class TestParseTypeTemplate
     {
         TypeTemplate template = parseTypeTemplate("decimal(p, s)", Set.of(), Set.of("p", "s"));
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of("p", 10L, "s", 2L)))
-                .isEqualTo(new TypeSignature("decimal", List.of(numericParameter(10), numericParameter(2))));
+                .isEqualTo(new TypeDescriptor("decimal", List.of(numericParameter(10), numericParameter(2))));
     }
 
     @Test

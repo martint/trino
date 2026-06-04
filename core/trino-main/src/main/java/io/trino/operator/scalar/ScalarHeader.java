@@ -20,7 +20,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.StaticMethod;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 
@@ -99,7 +99,7 @@ public class ScalarHeader
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             Optional<TypeTemplate> receiverType = Optional.empty();
             if (staticMethod != null) {
-                TypeSignature parsed = parseTypeSignature(staticMethod.value());
+                TypeDescriptor parsed = parseTypeSignature(staticMethod.value());
                 checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
                 receiverType = Optional.of(TypeTemplates.fromTypeSignature(parsed));
             }

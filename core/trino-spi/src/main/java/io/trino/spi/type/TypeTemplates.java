@@ -28,8 +28,8 @@ import static java.util.stream.Collectors.joining;
 
 /**
  * Operations over {@link TypeTemplate} — binding it to ground types, and lifting a ground
- * {@link TypeSignature} into one. Kept here rather than on the template records so the template stays a
- * pure data carrier and does not depend on {@link TypeSignature}.
+ * {@link TypeDescriptor} into one. Kept here rather than on the template records so the template stays a
+ * pure data carrier and does not depend on {@link TypeDescriptor}.
  */
 public final class TypeTemplates
 {
@@ -38,11 +38,11 @@ public final class TypeTemplates
     /**
      * Substitutes the given type- and numeric-variable bindings, producing a ground type signature.
      */
-    public static TypeSignature bind(TypeTemplate template, Map<String, TypeSignature> typeBindings, Map<String, Long> numericBindings)
+    public static TypeDescriptor bind(TypeTemplate template, Map<String, TypeDescriptor> typeBindings, Map<String, Long> numericBindings)
     {
         return switch (template) {
             case TypeVariable(String name) -> {
-                TypeSignature binding = typeBindings.get(name);
+                TypeDescriptor binding = typeBindings.get(name);
                 if (binding == null) {
                     throw new IllegalArgumentException("No binding for type variable " + name);
                 }
@@ -53,12 +53,12 @@ public final class TypeTemplates
                 for (TemplateParameter parameter : parameters) {
                     bound.add(bind(parameter, typeBindings, numericBindings));
                 }
-                yield new TypeSignature(base, bound);
+                yield new TypeDescriptor(base, bound);
             }
         };
     }
 
-    private static TypeParameter bind(TemplateParameter parameter, Map<String, TypeSignature> typeBindings, Map<String, Long> numericBindings)
+    private static TypeParameter bind(TemplateParameter parameter, Map<String, TypeDescriptor> typeBindings, Map<String, Long> numericBindings)
     {
         return switch (parameter) {
             case TypeArgument(Optional<String> name, TypeTemplate type) -> TypeParameter.typeParameter(name, bind(type, typeBindings, numericBindings));
@@ -69,7 +69,7 @@ public final class TypeTemplates
     /**
      * Lowers a ground template to a type signature. Fails if the template carries an unbound variable.
      */
-    public static TypeSignature toTypeSignature(TypeTemplate template)
+    public static TypeDescriptor toTypeSignature(TypeTemplate template)
     {
         return bind(template, Map.of(), Map.of());
     }
@@ -143,7 +143,7 @@ public final class TypeTemplates
      * {@link #canonicalizeTypeVariables} promotes it to a {@link TypeTemplate.TypeVariable} once the declared
      * type-variable names are known.
      */
-    public static TypeTemplate fromTypeSignature(TypeSignature signature)
+    public static TypeTemplate fromTypeSignature(TypeDescriptor signature)
     {
         List<TemplateParameter> parameters = new ArrayList<>(signature.getParameters().size());
         for (TypeParameter parameter : signature.getParameters()) {
@@ -155,7 +155,7 @@ public final class TypeTemplates
     private static TemplateParameter fromTypeParameter(TypeParameter parameter)
     {
         return switch (parameter) {
-            case TypeParameter.Type(Optional<String> name, TypeSignature type) -> new TypeArgument(name, fromTypeSignature(type));
+            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> new TypeArgument(name, fromTypeSignature(type));
             case TypeParameter.Numeric(long value) -> new NumericArgument(new NumericExpression.Literal(value));
         };
     }

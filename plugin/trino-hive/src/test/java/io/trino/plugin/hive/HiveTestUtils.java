@@ -60,8 +60,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -264,5 +264,5 @@ public final class HiveTestUtils
         return new UUID(msb, lsb);
     }
 
-    record Field(String name, TypeSignature type) {}
+    record Field(String name, TypeDescriptor type) {}
 }

@@ -32,8 +32,8 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
@@ -341,7 +341,7 @@ public class TestGlobalFunctionCatalog
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
         private List<Signature.Builder> functionSignatures = ImmutableList.of();
-        private List<TypeSignature> parameterTypes = ImmutableList.of();
+        private List<TypeDescriptor> parameterTypes = ImmutableList.of();
 
         public ResolveFunctionAssertion among(Signature.Builder... functionSignatures)
         {
@@ -403,7 +403,7 @@ public class TestGlobalFunctionCatalog
             return new InternalFunctionBundle(functions.build());
         }
 
-        private static List<TypeSignature> parseTypeSignatures(Type... signatures)
+        private static List<TypeDescriptor> parseTypeSignatures(Type... signatures)
         {
             return ImmutableList.copyOf(signatures)
                     .stream()

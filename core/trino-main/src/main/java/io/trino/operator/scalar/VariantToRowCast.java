@@ -25,7 +25,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.variant.Variant;
 import io.trino.util.variant.VariantUtil.BlockBuilderAppender;
 
@@ -66,7 +66,7 @@ public class VariantToRowCast
                                 TypeVariableConstraint.builder("T")
                                         .rowType()
                                         .build())
-                        .returnType(new TypeSignature("T"))
+                        .returnType(new TypeDescriptor("T"))
                         .argumentType(VARIANT)
                         .build())
                 .nullable()

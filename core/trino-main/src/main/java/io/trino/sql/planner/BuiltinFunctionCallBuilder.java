@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -32,7 +32,7 @@ public class BuiltinFunctionCallBuilder
 {
     private final Metadata metadata;
     private String name;
-    private List<TypeSignature> argumentTypes = new ArrayList<>();
+    private List<TypeDescriptor> argumentTypes = new ArrayList<>();
     private List<Expression> argumentValues = new ArrayList<>();
 
     public static BuiltinFunctionCallBuilder resolve(Metadata metadata)
@@ -63,7 +63,7 @@ public class BuiltinFunctionCallBuilder
         return addArgument(type.getTypeSignature(), value);
     }
 
-    public BuiltinFunctionCallBuilder addArgument(TypeSignature typeSignature, Expression value)
+    public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
     {
         requireNonNull(typeSignature, "typeSignature is null");
         requireNonNull(value, "value is null");

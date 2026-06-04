@@ -24,8 +24,8 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
 import java.util.Collection;
@@ -193,7 +193,7 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record FunctionCacheKey(String name, List<? extends TypeSignature> types)
+    private record FunctionCacheKey(String name, List<? extends TypeDescriptor> types)
     {
         private FunctionCacheKey
         {

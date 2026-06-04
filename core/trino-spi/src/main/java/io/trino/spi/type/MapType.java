@@ -115,7 +115,7 @@ public class MapType
     public MapType(Type keyType, Type valueType, TypeOperators typeOperators)
     {
         super(
-                new TypeSignature(
+                new TypeDescriptor(
                         NAME,
                         TypeParameter.typeParameter(keyType.getTypeSignature()),
                         TypeParameter.typeParameter(valueType.getTypeSignature())),

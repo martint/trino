@@ -24,8 +24,8 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 
@@ -130,7 +130,7 @@ class FunctionBinder
     }
 
     // A fully-bound (ground) Signature's argument types, lowered to TypeSignatures.
-    private static List<TypeSignature> groundArgumentTypes(Signature signature)
+    private static List<TypeDescriptor> groundArgumentTypes(Signature signature)
     {
         return signature.getArgumentTypes().stream()
                 .map(TypeTemplates::toTypeSignature)

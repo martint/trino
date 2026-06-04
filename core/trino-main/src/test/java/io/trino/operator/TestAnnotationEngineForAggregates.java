@@ -65,7 +65,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Disabled;
@@ -94,7 +94,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -377,8 +377,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(new TypeDescriptor("T"))
+                .argumentType(new TypeDescriptor("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(GenericAggregationFunction.class));
@@ -533,9 +533,9 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(new TypeSignature("T"))
+                .returnType(new TypeDescriptor("T"))
+                .argumentType(arrayType(new TypeDescriptor("T")))
+                .argumentType(new TypeDescriptor("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ImplicitSpecializedAggregationFunction.class));
@@ -624,8 +624,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(arrayType(new TypeSignature("T")))
+                .returnType(new TypeDescriptor("T"))
+                .argumentType(arrayType(new TypeDescriptor("T")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(ExplicitSpecializedAggregationFunction.class));
@@ -845,8 +845,8 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .typeVariable("T")
-                .returnType(new TypeSignature("T"))
-                .argumentType(new TypeSignature("T"))
+                .returnType(new TypeDescriptor("T"))
+                .argumentType(new TypeDescriptor("T"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectTypeAggregateFunction.class));
@@ -1100,8 +1100,8 @@ public class TestAnnotationEngineForAggregates
                 .typeVariable("T1")
                 .typeVariable("T2")
                 .returnType(DoubleType.DOUBLE)
-                .argumentType(new TypeSignature("T1"))
-                .argumentType(new TypeSignature("T2"))
+                .argumentType(new TypeDescriptor("T1"))
+                .argumentType(new TypeDescriptor("T2"))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(PartiallyFixedTypeParameterInjectionAggregateFunction.class));
@@ -1194,9 +1194,9 @@ public class TestAnnotationEngineForAggregates
         assertThat(aggregationMetadata.getIntermediateTypes()).isNotEmpty();
         FunctionDependencyDeclaration dependencyDeclaration = aggregation.getFunctionDependencies(boundSignature);
 
-        ImmutableMap.Builder<TypeSignature, Type> typeDependencies = ImmutableMap.builder();
+        ImmutableMap.Builder<TypeDescriptor, Type> typeDependencies = ImmutableMap.builder();
         for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
-            TypeSignature typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
+            TypeDescriptor typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
             typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
         }
 
@@ -1223,18 +1223,18 @@ public class TestAnnotationEngineForAggregates
         return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(toTypeSignatures(dependency.getArgumentTypes())), new AllowAllAccessControl());
     }
 
-    private static List<TypeSignature> toTypeSignatures(List<TypeTemplate> templates)
+    private static List<TypeDescriptor> toTypeSignatures(List<TypeTemplate> templates)
     {
         return templates.stream()
                 .map(TestAnnotationEngineForAggregates::toTypeSignature)
                 .collect(toImmutableList());
     }
 
-    private static TypeSignature toTypeSignature(TypeTemplate template)
+    private static TypeDescriptor toTypeSignature(TypeTemplate template)
     {
         return switch (template) {
-            case TypeTemplate.TypeVariable(String name) -> new TypeSignature(name);
-            case TypeTemplate.TypeApplication(String base, List<io.trino.spi.type.TemplateParameter> parameters) -> new TypeSignature(
+            case TypeTemplate.TypeVariable(String name) -> new TypeDescriptor(name);
+            case TypeTemplate.TypeApplication(String base, List<io.trino.spi.type.TemplateParameter> parameters) -> new TypeDescriptor(
                     base,
                     parameters.stream()
                             .map(parameter -> switch (parameter) {

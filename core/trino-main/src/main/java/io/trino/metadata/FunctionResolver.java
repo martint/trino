@@ -35,8 +35,8 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
@@ -135,7 +135,7 @@ public class FunctionResolver
 
     public ResolvedFunction resolveStaticMethod(
             Session session,
-            TypeSignature receiverType,
+            TypeDescriptor receiverType,
             QualifiedName methodName,
             List<TypeSignatureProvider> parameterTypes,
             AccessControl accessControl)
@@ -162,7 +162,7 @@ public class FunctionResolver
 
     public ResolvedFunction resolveInstanceMethod(
             Session session,
-            TypeSignature receiverType,
+            TypeDescriptor receiverType,
             QualifiedName methodName,
             List<TypeSignatureProvider> parameterTypes,
             AccessControl accessControl)
@@ -275,7 +275,7 @@ public class FunctionResolver
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             Function<CatalogFunctionBinding, ResolvedFunction> resolver)
     {
-        Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
+        Map<TypeDescriptor, Type> dependentTypes = dependencies.getTypeDependencies().stream()
                 .map(typeTemplate -> applyBoundVariables(typeTemplate, functionBinding.variables()))
                 .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, _) -> left));
 

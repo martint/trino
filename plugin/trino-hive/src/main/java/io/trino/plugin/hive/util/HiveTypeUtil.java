@@ -25,8 +25,8 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,12 +50,12 @@ public final class HiveTypeUtil
      * @deprecated Prefer {@link #getTypeSignature(HiveType, HiveTimestampPrecision)}.
      */
     @Deprecated
-    public static TypeSignature getTypeSignature(HiveType type)
+    public static TypeDescriptor getTypeSignature(HiveType type)
     {
         return getTypeSignature(type, DEFAULT_PRECISION);
     }
 
-    public static TypeSignature getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
     {
         return toTypeSignature(type.getTypeInfo(), timestampPrecision);
     }

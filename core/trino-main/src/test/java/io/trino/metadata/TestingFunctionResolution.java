@@ -22,7 +22,7 @@ import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -191,7 +191,7 @@ public class TestingFunctionResolution
     public class TestingFunctionCallBuilder
     {
         private final String name;
-        private List<TypeSignature> argumentTypes = new ArrayList<>();
+        private List<TypeDescriptor> argumentTypes = new ArrayList<>();
         private List<Expression> argumentValues = new ArrayList<>();
 
         public TestingFunctionCallBuilder(String name)
@@ -205,7 +205,7 @@ public class TestingFunctionResolution
             return addArgument(type.getTypeSignature(), value);
         }
 
-        public TestingFunctionCallBuilder addArgument(TypeSignature typeSignature, Expression value)
+        public TestingFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
         {
             requireNonNull(typeSignature, "typeSignature is null");
             requireNonNull(value, "value is null");

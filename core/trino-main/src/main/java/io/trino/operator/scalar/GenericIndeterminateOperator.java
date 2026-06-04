@@ -19,8 +19,8 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -39,7 +39,7 @@ public class GenericIndeterminateOperator
                 .signature(Signature.builder()
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
-                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeDescriptor("T"))
                         .build())
                 .argumentNullability(true)
                 .neverFails()
