@@ -37,6 +37,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
 
@@ -148,7 +149,7 @@ public class FunctionResolver
                         metadata.getFunctions(session, catalogSchemaFunctionName),
                         candidate -> !candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
-                                .map(TypeSignature::getBase).equals(Optional.of(receiver))),
+                                .map(TypeTemplates::baseName).equals(Optional.of(receiver))),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
@@ -175,7 +176,7 @@ public class FunctionResolver
                         metadata.getFunctions(session, catalogSchemaFunctionName),
                         candidate -> candidate.functionMetadata().isInstanceMethod()
                                 && candidate.functionMetadata().getReceiverType()
-                                .map(TypeSignature::getBase).equals(Optional.of(receiver))),
+                                .map(TypeTemplates::baseName).equals(Optional.of(receiver))),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();

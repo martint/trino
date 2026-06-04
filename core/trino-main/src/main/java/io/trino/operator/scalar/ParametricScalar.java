@@ -29,7 +29,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDec
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeTemplates;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -86,7 +85,7 @@ public class ParametricScalar
         }
         if (details.isInstanceMethod()) {
             checkCondition(!signature.getArgumentTypes().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Instance method %s must declare a self argument", details.getName());
-            functionMetadata.receiverType(TypeTemplates.toLegacyTypeSignature(signature.getArgumentTypes().getFirst()));
+            functionMetadata.receiverType(signature.getArgumentTypes().getFirst());
             functionMetadata.instanceMethod();
         }
         else {

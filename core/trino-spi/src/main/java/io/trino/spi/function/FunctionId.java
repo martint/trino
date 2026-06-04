@@ -15,11 +15,12 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplate;
 
 import java.util.Locale;
 import java.util.Optional;
 
+import static io.trino.spi.type.TypeTemplates.render;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionId
@@ -73,9 +74,9 @@ public class FunctionId
         return toFunctionId(canonicalName, signature, Optional.empty());
     }
 
-    public static FunctionId toFunctionId(String canonicalName, Signature signature, Optional<TypeSignature> receiverType)
+    public static FunctionId toFunctionId(String canonicalName, Signature signature, Optional<TypeTemplate> receiverType)
     {
-        String prefix = receiverType.map(type -> type + "::").orElse("");
+        String prefix = receiverType.map(type -> render(type) + "::").orElse("");
         return new FunctionId((prefix + canonicalName + signature).toLowerCase(Locale.US));
     }
 }
