@@ -115,14 +115,4 @@ class TestTypeTemplate
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No binding for numeric variable p");
     }
-
-    @Test
-    void testLiftMapsVariableToNumericVariable()
-    {
-        // A TypeParameter.Variable is a numeric variable by convention (type variables are base-string signatures).
-        TypeSignature withVariable = new TypeSignature("decimal", List.of(TypeParameter.typeVariable("p"), TypeParameter.numericParameter(2)));
-        assertThat(TypeTemplates.fromTypeSignature(withVariable)).isEqualTo(new TypeTemplate.TypeApplication("decimal", List.of(
-                new TemplateParameter.NumericArgument(new NumericExpression.Variable("p")),
-                new TemplateParameter.NumericArgument(new NumericExpression.Literal(2)))));
-    }
 }

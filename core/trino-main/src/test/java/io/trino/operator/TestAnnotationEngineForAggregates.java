@@ -67,7 +67,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeTemplate;
-import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -95,8 +94,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
-import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -908,8 +908,8 @@ public class TestAnnotationEngineForAggregates
     public void testInjectLiteralAggregateParse()
     {
         Signature expectedSignature = Signature.builder()
-                .returnType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentType(new TypeSignature("varchar", typeVariable("x")))
+                .returnType(numericType("varchar", numericVariable("x")))
+                .argumentType(numericType("varchar", numericVariable("x")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectLiteralAggregateFunction.class));
@@ -974,9 +974,9 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .numericVariable("z", parseNumericExpression("x + y"))
-                .returnType(new TypeSignature("varchar", typeVariable("z")))
-                .argumentType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentType(new TypeSignature("varchar", typeVariable("y")))
+                .returnType(numericType("varchar", numericVariable("z")))
+                .argumentType(numericType("varchar", numericVariable("x")))
+                .argumentType(numericType("varchar", numericVariable("y")))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(LongConstraintAggregateFunction.class));
@@ -1226,8 +1226,23 @@ public class TestAnnotationEngineForAggregates
     private static List<TypeSignature> toTypeSignatures(List<TypeTemplate> templates)
     {
         return templates.stream()
-                .map(TypeTemplates::toLegacyTypeSignature)
+                .map(TestAnnotationEngineForAggregates::toTypeSignature)
                 .collect(toImmutableList());
+    }
+
+    private static TypeSignature toTypeSignature(TypeTemplate template)
+    {
+        return switch (template) {
+            case TypeTemplate.TypeVariable(String name) -> new TypeSignature(name);
+            case TypeTemplate.TypeApplication(String base, List<io.trino.spi.type.TemplateParameter> parameters) -> new TypeSignature(
+                    base,
+                    parameters.stream()
+                            .map(parameter -> switch (parameter) {
+                                case io.trino.spi.type.TemplateParameter.TypeArgument(var name, var type) -> io.trino.spi.type.TypeParameter.typeParameter(name, toTypeSignature(type));
+                                case io.trino.spi.type.TemplateParameter.NumericArgument(io.trino.spi.type.NumericExpression value) -> io.trino.spi.type.TypeParameter.numericParameter(((io.trino.spi.type.NumericExpression.Literal) value).value());
+                            })
+                            .collect(toImmutableList()));
+        };
     }
 
     private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)

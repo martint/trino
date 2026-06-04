@@ -422,6 +422,17 @@
                                     <new>method java.util.List&lt;io.trino.spi.type.TypeTemplate&gt; io.trino.spi.function.AggregationFunctionMetadata::getIntermediateTypes()</new>
                                     <justification>An aggregation's intermediate types are now carried as TypeTemplate, the open variable-bearing form, instead of TypeSignature.</justification>
                                 </item>
+                                <!-- TypeSignature is now strictly ground: a numeric variable is no longer a TypeParameter.Variable but a NumericExpression carried by TypeTemplate. -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeParameter.Variable</old>
+                                    <justification>A TypeSignature is now always ground; variables live only in TypeTemplate, so the Variable type parameter is removed.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::typeVariable(java.lang.String)</old>
+                                    <justification>The factory for the removed TypeParameter.Variable.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

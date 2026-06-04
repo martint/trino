@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
 /**
  * Operations over {@link TypeTemplate} — binding it to ground types, and lifting a ground
@@ -73,35 +72,6 @@ public final class TypeTemplates
     public static TypeSignature toTypeSignature(TypeTemplate template)
     {
         return bind(template, Map.of(), Map.of());
-    }
-
-    /**
-     * Transitional: converts a template (which MAY contain variables) to the legacy {@link TypeSignature}
-     * form the binder and operator validation still expect — a type variable becomes a bare base-string
-     * signature, a numeric variable a {@link TypeParameter.Variable}. Removed once those consumers read
-     * {@link TypeTemplate} natively; calculated {@link NumericExpression.Operation}s must be inlined first.
-     */
-    public static TypeSignature toLegacyTypeSignature(TypeTemplate template)
-    {
-        return switch (template) {
-            case TypeVariable(String name) -> new TypeSignature(name);
-            case TypeApplication(String base, List<TemplateParameter> parameters) -> new TypeSignature(
-                    base,
-                    parameters.stream().map(TypeTemplates::toLegacyParameter).collect(toList()));
-        };
-    }
-
-    private static TypeParameter toLegacyParameter(TemplateParameter parameter)
-    {
-        return switch (parameter) {
-            case TypeArgument(Optional<String> name, TypeTemplate type) -> TypeParameter.typeParameter(name, toLegacyTypeSignature(type));
-            case NumericArgument(NumericExpression value) -> switch (value) {
-                case NumericExpression.Literal(long literal) -> TypeParameter.numericParameter(literal);
-                case NumericExpression.Variable(String name) -> TypeParameter.typeVariable(name);
-                case NumericExpression.Operation operation -> throw new UnsupportedOperationException("Calculated numeric expression cannot be converted to the legacy form: " + operation);
-                case NumericExpression.Conditional conditional -> throw new UnsupportedOperationException("Calculated numeric expression cannot be converted to the legacy form: " + conditional);
-            };
-        };
     }
 
     /**
@@ -168,9 +138,10 @@ public final class TypeTemplates
     }
 
     /**
-     * Lifts a type signature into a template. A {@link TypeParameter.Variable} is taken to be a numeric
-     * variable, matching the programmatic convention where a type variable is a bare base-string signature
-     * and only numeric parameters (decimal precision/scale, varchar length) are written as variables.
+     * Lifts a ground type signature into a template. A type variable, which a programmatic signature writes as a
+     * bare base-string signature, becomes a parameterless {@link TypeTemplate.TypeApplication};
+     * {@link #canonicalizeTypeVariables} promotes it to a {@link TypeTemplate.TypeVariable} once the declared
+     * type-variable names are known.
      */
     public static TypeTemplate fromTypeSignature(TypeSignature signature)
     {
@@ -186,7 +157,6 @@ public final class TypeTemplates
         return switch (parameter) {
             case TypeParameter.Type(Optional<String> name, TypeSignature type) -> new TypeArgument(name, fromTypeSignature(type));
             case TypeParameter.Numeric(long value) -> new NumericArgument(new NumericExpression.Literal(value));
-            case TypeParameter.Variable(String name) -> new NumericArgument(new NumericExpression.Variable(name));
         };
     }
 
