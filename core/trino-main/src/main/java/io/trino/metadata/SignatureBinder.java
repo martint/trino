@@ -683,7 +683,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastFromRow(Type toType, Signature signature)
     {
         // the return type must match toType
-        if (!toType.getTypeSignature().equals(TypeTemplates.toLegacyTypeSignature(signature.getReturnType()))) {
+        if (!signature.getReturnType().equals(TypeTemplates.fromTypeSignature(toType.getTypeSignature()))) {
             return false;
         }
 
@@ -710,7 +710,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastToRow(Type fromType, Signature signature)
     {
         // the argument type must match fromType
-        if (signature.getArgumentTypes().size() != 1 || !fromType.getTypeSignature().equals(TypeTemplates.toLegacyTypeSignature(signature.getArgumentTypes().getFirst()))) {
+        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeSignature(fromType.getTypeSignature()))) {
             return false;
         }
 
