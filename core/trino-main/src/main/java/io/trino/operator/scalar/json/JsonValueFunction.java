@@ -67,7 +67,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -96,16 +97,15 @@ public class JsonValueFunction
                         .typeVariable("T")
                         .typeVariable("E")
                         .typeVariable("D")
-                        .returnType(new TypeDescriptor("R"))
-                        .argumentTypes(ImmutableList.of(
-                                new TypeDescriptor(JSON_2016),
-                                new TypeDescriptor(JsonPath2016Type.NAME),
-                                new TypeDescriptor("T"),
-                                new TypeDescriptor("R"),
-                                new TypeDescriptor(TINYINT),
-                                functionType(new TypeDescriptor("E")),
-                                new TypeDescriptor(TINYINT),
-                                functionType(new TypeDescriptor("D"))))
+                        .returnType(typeVariable("R"))
+                        .argumentType(new TypeDescriptor(JSON_2016))
+                        .argumentType(new TypeDescriptor(JsonPath2016Type.NAME))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(typeVariable("R"))
+                        .argumentType(new TypeDescriptor(TINYINT))
+                        .argumentType(functionType(typeVariable("E")))
+                        .argumentType(new TypeDescriptor(TINYINT))
+                        .argumentType(functionType(typeVariable("D")))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, true, false, false, false, false)

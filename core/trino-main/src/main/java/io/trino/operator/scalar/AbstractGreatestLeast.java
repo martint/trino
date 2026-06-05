@@ -31,7 +31,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -59,6 +58,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -80,8 +80,8 @@ public abstract class AbstractGreatestLeast
         super(FunctionMetadata.scalarBuilder(min ? "least" : "greatest")
                 .signature(Signature.builder()
                         .orderableTypeParameter("E")
-                        .returnType(new TypeDescriptor("E"))
-                        .argumentType(new TypeDescriptor("E"))
+                        .returnType(typeVariable("E"))
+                        .argumentType(typeVariable("E"))
                         .variableArity()
                         .build())
                 .nullable()

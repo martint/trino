@@ -193,18 +193,28 @@ public class Signature
                     .build());
         }
 
-        public Builder castableToTypeParameter(String name, TypeDescriptor toType)
+        public Builder castableToTypeParameter(String name, TypeTemplate toType)
         {
             return typeVariableConstraint(TypeVariableConstraint.builder(name)
-                    .castableTo(TypeTemplates.fromTypeSignature(toType))
+                    .castableTo(toType)
+                    .build());
+        }
+
+        public Builder castableToTypeParameter(String name, TypeDescriptor toType)
+        {
+            return castableToTypeParameter(name, TypeTemplates.fromTypeSignature(toType));
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeTemplate fromType)
+        {
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
+                    .castableFrom(fromType)
                     .build());
         }
 
         public Builder castableFromTypeParameter(String name, TypeDescriptor fromType)
         {
-            return typeVariableConstraint(TypeVariableConstraint.builder(name)
-                    .castableFrom(TypeTemplates.fromTypeSignature(fromType))
-                    .build());
+            return castableFromTypeParameter(name, TypeTemplates.fromTypeSignature(fromType));
         }
 
         public Builder rowTypeParameter(String name)

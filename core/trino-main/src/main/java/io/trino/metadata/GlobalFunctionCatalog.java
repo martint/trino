@@ -41,11 +41,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -64,6 +62,7 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -119,8 +118,10 @@ public class GlobalFunctionCatalog
         // The trick here is the Generic*Operator implementations implement these exact signatures,
         // so we only these exact signatures to be registered.  Since, only a single function with
         // a specific signature can be registered, it prevents others from being registered.
-        Signature.Builder expectedSignature = Signature.builder()
-                .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeDescriptor("T")));
+        Signature.Builder expectedSignature = Signature.builder();
+        for (int i = 0; i < operatorType.getArgumentCount(); i++) {
+            expectedSignature.argumentType(typeVariable("T"));
+        }
 
         switch (operatorType) {
             case EQUAL, IDENTICAL, INDETERMINATE -> {

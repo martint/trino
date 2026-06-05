@@ -28,7 +28,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
@@ -43,8 +42,9 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -73,9 +73,9 @@ public final class MapConstructor
                 .signature(Signature.builder()
                         .comparableTypeParameter("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeDescriptor("K"), new TypeDescriptor("V")))
-                        .argumentType(arrayType(new TypeDescriptor("K")))
-                        .argumentType(arrayType(new TypeDescriptor("V")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(arrayType(typeVariable("K")))
+                        .argumentType(arrayType(typeVariable("V")))
                         .build())
                 .description(DESCRIPTION)
                 .build());

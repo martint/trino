@@ -38,7 +38,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -63,8 +62,10 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.TypeDescriptor.functionType;
-import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeTemplates.fromTypeSignature;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -84,9 +85,9 @@ public final class MapFilterFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeDescriptor("K"), new TypeDescriptor("V")))
-                        .argumentType(mapType(new TypeDescriptor("K"), new TypeDescriptor("V")))
-                        .argumentType(functionType(new TypeDescriptor("K"), new TypeDescriptor("V"), BOOLEAN.getTypeSignature()))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), fromTypeSignature(BOOLEAN.getTypeSignature())))
                         .build())
                 .description("return map containing entries that match the given predicate")
                 .build());

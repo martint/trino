@@ -25,7 +25,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
@@ -33,7 +32,8 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -53,9 +53,9 @@ public class MapElementAtFunction
                 .signature(Signature.builder()
                         .typeVariable("K")
                         .typeVariable("V")
-                        .returnType(new TypeDescriptor("V"))
-                        .argumentType(mapType(new TypeDescriptor("K"), new TypeDescriptor("V")))
-                        .argumentType(new TypeDescriptor("K"))
+                        .returnType(typeVariable("V"))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(typeVariable("K"))
                         .build())
                 .nullable()
                 .description("Get value for the given key, or null if it does not exist")

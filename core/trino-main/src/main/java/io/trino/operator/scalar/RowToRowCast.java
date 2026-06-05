@@ -41,7 +41,6 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -66,6 +65,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -121,8 +121,8 @@ public class RowToRowCast
                                         .castableTo(TypeTemplates.typeVariable("T"))
                                         .build())
                         .rowTypeParameter("T")
-                        .returnType(new TypeDescriptor("T"))
-                        .argumentType(new TypeDescriptor("F"))
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("F"))
                         .build())
                 .build());
     }

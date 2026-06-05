@@ -50,6 +50,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -70,7 +71,10 @@ public class JsonExistsFunction
                 .signature(Signature.builder()
                         .typeVariable("T")
                         .returnType(BOOLEAN)
-                        .argumentTypes(ImmutableList.of(new TypeDescriptor(JSON_2016), new TypeDescriptor(JsonPath2016Type.NAME), new TypeDescriptor("T"), new TypeDescriptor(TINYINT)))
+                        .argumentType(new TypeDescriptor(JSON_2016))
+                        .argumentType(new TypeDescriptor(JsonPath2016Type.NAME))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(new TypeDescriptor(TINYINT))
                         .build())
                 .nullable()
                 .argumentNullability(false, false, true, false)

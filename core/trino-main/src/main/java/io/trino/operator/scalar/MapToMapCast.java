@@ -32,7 +32,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -49,7 +48,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -89,12 +89,12 @@ public final class MapToMapCast
     {
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
-                        .castableToTypeParameter("FK", new TypeDescriptor("TK"))
-                        .castableToTypeParameter("FV", new TypeDescriptor("TV"))
+                        .castableToTypeParameter("FK", typeVariable("TK"))
+                        .castableToTypeParameter("FV", typeVariable("TV"))
                         .typeVariable("TK")
                         .typeVariable("TV")
-                        .returnType(mapType(new TypeDescriptor("TK"), new TypeDescriptor("TV")))
-                        .argumentType(mapType(new TypeDescriptor("FK"), new TypeDescriptor("FV")))
+                        .returnType(mapType(typeVariable("TK"), typeVariable("TV")))
+                        .argumentType(mapType(typeVariable("FK"), typeVariable("FV")))
                         .build())
                 .nullable()
                 .build());

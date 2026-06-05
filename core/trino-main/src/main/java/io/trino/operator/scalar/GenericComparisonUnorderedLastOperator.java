@@ -19,13 +19,13 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.util.Objects.requireNonNull;
 
 public class GenericComparisonUnorderedLastOperator
@@ -39,8 +39,8 @@ public class GenericComparisonUnorderedLastOperator
                 .signature(Signature.builder()
                         .orderableTypeParameter("T")
                         .returnType(INTEGER)
-                        .argumentType(new TypeDescriptor("T"))
-                        .argumentType(new TypeDescriptor("T"))
+                        .argumentType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
                 .neverFails()
                 .build());

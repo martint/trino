@@ -23,7 +23,6 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
@@ -37,7 +36,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
@@ -71,8 +71,8 @@ public class ArraySubscriptOperator
         super(FunctionMetadata.operatorBuilder(SUBSCRIPT)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(new TypeDescriptor("E"))
-                        .argumentType(arrayType(new TypeDescriptor("E")))
+                        .returnType(typeVariable("E"))
+                        .argumentType(arrayType(typeVariable("E")))
                         .argumentType(BIGINT)
                         .build())
                 .nullable()

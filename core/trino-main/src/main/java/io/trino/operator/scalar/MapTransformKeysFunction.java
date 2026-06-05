@@ -43,7 +43,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -71,8 +70,9 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeDescriptor.functionType;
-import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -93,9 +93,9 @@ public final class MapTransformKeysFunction
                         .typeVariable("K1")
                         .typeVariable("K2")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeDescriptor("K2"), new TypeDescriptor("V")))
-                        .argumentType(mapType(new TypeDescriptor("K1"), new TypeDescriptor("V")))
-                        .argumentType(functionType(new TypeDescriptor("K1"), new TypeDescriptor("V"), new TypeDescriptor("K2")))
+                        .returnType(mapType(typeVariable("K2"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K1"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K1"), typeVariable("V"), typeVariable("K2")))
                         .build())
                 .description("Apply lambda to each entry of the map and transform the key")
                 .build());

@@ -22,7 +22,6 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -33,8 +32,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeDescriptor.functionType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -52,11 +52,11 @@ public final class ArrayReduceFunction
                         .typeVariable("T")
                         .typeVariable("S")
                         .typeVariable("R")
-                        .returnType(new TypeDescriptor("R"))
-                        .argumentType(arrayType(new TypeDescriptor("T")))
-                        .argumentType(new TypeDescriptor("S"))
-                        .argumentType(functionType(new TypeDescriptor("S"), new TypeDescriptor("T"), new TypeDescriptor("S")))
-                        .argumentType(functionType(new TypeDescriptor("S"), new TypeDescriptor("R")))
+                        .returnType(typeVariable("R"))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(typeVariable("S"))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("T"), typeVariable("S")))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("R")))
                         .build())
                 .nullable()
                 .argumentNullability(false, true, false, false)
