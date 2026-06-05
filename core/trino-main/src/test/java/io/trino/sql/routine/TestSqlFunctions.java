@@ -601,8 +601,8 @@ class TestSqlFunctions
     {
         @Language("SQL") String sql = "FUNCTION %s(p %s)\nRETURNS %s\n%s\nRETURN %s".formatted(
                 "test" + nextId.incrementAndGet(),
-                inputType.getTypeSignature(),
-                outputType.getTypeSignature(),
+                inputType.getTypeDescriptor(),
+                outputType.getTypeDescriptor(),
                 deterministic ? "DETERMINISTIC" : "NOT DETERMINISTIC",
                 expression);
 

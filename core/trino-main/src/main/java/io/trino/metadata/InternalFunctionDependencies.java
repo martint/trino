@@ -108,7 +108,7 @@ public class InternalFunctionDependencies
     @Override
     public FunctionNullability getCastNullability(Type fromType, Type toType)
     {
-        CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
+        CastKey castKey = new CastKey(fromType.getTypeDescriptor(), toType.getTypeDescriptor());
         ResolvedFunction resolvedFunction = casts.get(castKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
@@ -163,7 +163,7 @@ public class InternalFunctionDependencies
     @Override
     public ScalarFunctionImplementation getCastImplementation(Type fromType, Type toType, InvocationConvention invocationConvention)
     {
-        CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
+        CastKey castKey = new CastKey(fromType.getTypeDescriptor(), toType.getTypeDescriptor());
         ResolvedFunction resolvedFunction = casts.get(castKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
@@ -185,7 +185,7 @@ public class InternalFunctionDependencies
     private static List<TypeDescriptor> toTypeSignatures(List<Type> types)
     {
         return types.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .collect(toImmutableList());
     }
 
@@ -210,7 +210,7 @@ public class InternalFunctionDependencies
         {
             name = resolvedFunction.signature().getName();
             argumentTypes = resolvedFunction.signature().getArgumentTypes().stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(toImmutableList());
         }
 
@@ -302,8 +302,8 @@ public class InternalFunctionDependencies
 
         private CastKey(ResolvedFunction resolvedFunction)
         {
-            fromType = resolvedFunction.signature().getArgumentTypes().get(0).getTypeSignature();
-            toType = resolvedFunction.signature().getReturnType().getTypeSignature();
+            fromType = resolvedFunction.signature().getArgumentTypes().get(0).getTypeDescriptor();
+            toType = resolvedFunction.signature().getReturnType().getTypeDescriptor();
         }
 
         private CastKey(TypeDescriptor fromType, TypeDescriptor toType)

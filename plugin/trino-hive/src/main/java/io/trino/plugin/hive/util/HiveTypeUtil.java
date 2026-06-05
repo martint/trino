@@ -47,22 +47,22 @@ public final class HiveTypeUtil
     private HiveTypeUtil() {}
 
     /**
-     * @deprecated Prefer {@link #getTypeSignature(HiveType, HiveTimestampPrecision)}.
+     * @deprecated Prefer {@link #getTypeDescriptor(HiveType, HiveTimestampPrecision)}.
      */
     @Deprecated
-    public static TypeDescriptor getTypeSignature(HiveType type)
+    public static TypeDescriptor getTypeDescriptor(HiveType type)
     {
-        return getTypeSignature(type, DEFAULT_PRECISION);
+        return getTypeDescriptor(type, DEFAULT_PRECISION);
     }
 
-    public static TypeDescriptor getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor getTypeDescriptor(HiveType type, HiveTimestampPrecision timestampPrecision)
     {
         return toTypeDescriptor(type.getTypeInfo(), timestampPrecision);
     }
 
     public static Type getType(HiveType type, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
-        return typeManager.getType(getTypeSignature(type, timestampPrecision));
+        return typeManager.getType(getTypeDescriptor(type, timestampPrecision));
     }
 
     public static boolean typeSupported(TypeInfo typeInfo, StorageFormat storageFormat)

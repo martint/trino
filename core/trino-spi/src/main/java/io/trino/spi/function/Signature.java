@@ -249,7 +249,7 @@ public class Signature
 
         public Builder returnType(Type returnType)
         {
-            return returnType(returnType.getTypeSignature());
+            return returnType(returnType.getTypeDescriptor());
         }
 
         public Builder numericVariable(String name, NumericExpression expression)
@@ -306,12 +306,12 @@ public class Signature
 
         public Builder argumentType(Type type)
         {
-            return argumentType(type.getTypeSignature());
+            return argumentType(type.getTypeDescriptor());
         }
 
         public Builder argumentType(Type type, String name)
         {
-            return argumentType(type.getTypeSignature(), name);
+            return argumentType(type.getTypeDescriptor(), name);
         }
 
         public Builder argumentTypes(List<TypeDescriptor> argumentTypes)

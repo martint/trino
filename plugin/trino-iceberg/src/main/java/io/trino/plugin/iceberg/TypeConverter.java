@@ -96,8 +96,8 @@ public final class TypeConverter
             }
             case MAP -> {
                 Types.MapType mapType = (Types.MapType) type;
-                TypeDescriptor keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
-                TypeDescriptor valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
+                TypeDescriptor keyType = toTrinoType(mapType.keyType(), typeManager).getTypeDescriptor();
+                TypeDescriptor valueType = toTrinoType(mapType.valueType(), typeManager).getTypeDescriptor();
                 yield typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
             }
             case STRUCT -> {

@@ -87,29 +87,29 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class DecimalCasts
 {
-    public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN.getTypeSignature(), true, "shortDecimalToBoolean", "longDecimalToBoolean");
-    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeSignature(), true, "booleanToShortDecimal", "booleanToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT.getTypeSignature(), false, "shortDecimalToBigint", "longDecimalToBigint");
-    public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT.getTypeSignature(), false, "bigintToShortDecimal", "bigintToLongDecimal");
-    public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER.getTypeSignature(), false, "integerToShortDecimal", "integerToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_INTEGER_CAST = castFunctionFromDecimalTo(INTEGER.getTypeSignature(), false, "shortDecimalToInteger", "longDecimalToInteger");
-    public static final SqlScalarFunction SMALLINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(SMALLINT.getTypeSignature(), false, "smallintToShortDecimal", "smallintToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_SMALLINT_CAST = castFunctionFromDecimalTo(SMALLINT.getTypeSignature(), false, "shortDecimalToSmallint", "longDecimalToSmallint");
-    public static final SqlScalarFunction TINYINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(TINYINT.getTypeSignature(), false, "tinyintToShortDecimal", "tinyintToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT.getTypeSignature(), false, "shortDecimalToTinyint", "longDecimalToTinyint");
-    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeSignature(), true, "shortDecimalToDouble", "longDecimalToDouble");
-    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeSignature(), true, "doubleToShortDecimal", "doubleToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeSignature(), true, "shortDecimalToReal", "longDecimalToReal");
-    public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeSignature(), true, "realToShortDecimal", "realToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_NUMBER_CAST = castFunctionFromDecimalTo(NUMBER.getTypeSignature(), true, "shortDecimalToNumber", "longDecimalToNumber");
-    public static final SqlScalarFunction NUMBER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(NUMBER.getTypeSignature(), false, "numberToShortDecimal", "numberToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_BOOLEAN_CAST = castFunctionFromDecimalTo(BOOLEAN.getTypeDescriptor(), true, "shortDecimalToBoolean", "longDecimalToBoolean");
+    public static final SqlScalarFunction BOOLEAN_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BOOLEAN.getTypeDescriptor(), true, "booleanToShortDecimal", "booleanToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_BIGINT_CAST = castFunctionFromDecimalTo(BIGINT.getTypeDescriptor(), false, "shortDecimalToBigint", "longDecimalToBigint");
+    public static final SqlScalarFunction BIGINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(BIGINT.getTypeDescriptor(), false, "bigintToShortDecimal", "bigintToLongDecimal");
+    public static final SqlScalarFunction INTEGER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(INTEGER.getTypeDescriptor(), false, "integerToShortDecimal", "integerToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_INTEGER_CAST = castFunctionFromDecimalTo(INTEGER.getTypeDescriptor(), false, "shortDecimalToInteger", "longDecimalToInteger");
+    public static final SqlScalarFunction SMALLINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(SMALLINT.getTypeDescriptor(), false, "smallintToShortDecimal", "smallintToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_SMALLINT_CAST = castFunctionFromDecimalTo(SMALLINT.getTypeDescriptor(), false, "shortDecimalToSmallint", "longDecimalToSmallint");
+    public static final SqlScalarFunction TINYINT_TO_DECIMAL_CAST = castFunctionToDecimalFrom(TINYINT.getTypeDescriptor(), false, "tinyintToShortDecimal", "tinyintToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_TINYINT_CAST = castFunctionFromDecimalTo(TINYINT.getTypeDescriptor(), false, "shortDecimalToTinyint", "longDecimalToTinyint");
+    public static final SqlScalarFunction DECIMAL_TO_DOUBLE_CAST = castFunctionFromDecimalTo(DOUBLE.getTypeDescriptor(), true, "shortDecimalToDouble", "longDecimalToDouble");
+    public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeDescriptor(), true, "doubleToShortDecimal", "doubleToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeDescriptor(), true, "shortDecimalToReal", "longDecimalToReal");
+    public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeDescriptor(), true, "realToShortDecimal", "realToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_NUMBER_CAST = castFunctionFromDecimalTo(NUMBER.getTypeDescriptor(), true, "shortDecimalToNumber", "longDecimalToNumber");
+    public static final SqlScalarFunction NUMBER_TO_DECIMAL_CAST = castFunctionToDecimalFrom(NUMBER.getTypeDescriptor(), false, "numberToShortDecimal", "numberToLongDecimal");
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(numericType("varchar", numericVariable("x")), false, "varcharToShortDecimal", "varcharToLongDecimal");
     // Despite decimalToJson having a catch inside that suggests that function can fail, IOException comes from the Jackson writing to an OutputStream
     // that never happens for SliceOutput.
-    public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), true, "shortDecimalToJson", "longDecimalToJson");
-    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(JSON.getTypeSignature()), true, false, "jsonToShortDecimal", "jsonToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeSignature(), true, "shortDecimalToVariant", "longDecimalToVariant");
-    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(VARIANT.getTypeSignature()), true, false, "variantToShortDecimal", "variantToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeDescriptor(), true, "shortDecimalToJson", "longDecimalToJson");
+    public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(JSON.getTypeDescriptor()), true, false, "jsonToShortDecimal", "jsonToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeDescriptor(), true, "shortDecimalToVariant", "longDecimalToVariant");
+    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(fromTypeDescriptor(VARIANT.getTypeDescriptor()), true, false, "variantToShortDecimal", "variantToLongDecimal");
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 

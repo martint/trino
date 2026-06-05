@@ -84,9 +84,9 @@ public class TableFunctionRegistry
         return tableFunction.getArguments().stream()
                 .map(function -> {
                     if (function instanceof ScalarArgumentSpecification scalarArgument) {
-                        return scalarArgument.getType().getTypeSignature();
+                        return scalarArgument.getType().getTypeDescriptor();
                     }
-                    return UnknownType.UNKNOWN.getTypeSignature();
+                    return UnknownType.UNKNOWN.getTypeDescriptor();
                 })
                 .collect(toImmutableList());
     }

@@ -87,7 +87,7 @@ public final class MapFilterFunction
                         .typeVariable("V")
                         .returnType(mapType(typeVariable("K"), typeVariable("V")))
                         .argumentType(mapType(typeVariable("K"), typeVariable("V")))
-                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), fromTypeDescriptor(BOOLEAN.getTypeSignature())))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V"), fromTypeDescriptor(BOOLEAN.getTypeDescriptor())))
                         .build())
                 .description("return map containing entries that match the given predicate")
                 .build());

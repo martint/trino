@@ -358,7 +358,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(BOOLEAN.getTypeSignature()))
+                .argumentType(arrayType(BOOLEAN.getTypeDescriptor()))
                 .build();
 
         assertThat(function)
@@ -458,8 +458,8 @@ public class TestSignatureBinder
     public void testBindVarchar()
     {
         Signature function = functionSignature()
-                .returnType(createVarcharType(42).getTypeSignature())
-                .argumentType(createVarcharType(42).getTypeSignature())
+                .returnType(createVarcharType(42).getTypeDescriptor())
+                .argumentType(createVarcharType(42).getTypeDescriptor())
                 .build();
 
         assertThat(function)
@@ -707,14 +707,14 @@ public class TestSignatureBinder
                 .build();
 
         assertThat(getValueFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), BIGINT)
+                .boundTo(type(mapType(BIGINT.getTypeDescriptor(), VARCHAR.getTypeDescriptor())), BIGINT)
                 .produces(new BindingsBuilder()
                         .setTypeVariable("K", BIGINT)
                         .setTypeVariable("V", VARCHAR)
                         .build());
 
         assertThat(getValueFunction)
-                .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), VARCHAR)
+                .boundTo(type(mapType(BIGINT.getTypeDescriptor(), VARCHAR.getTypeDescriptor())), VARCHAR)
                 .withCoercion()
                 .fails();
     }
@@ -724,7 +724,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(rowType(List.of(anonymousField(INTEGER.getTypeSignature()))))
+                .argumentType(rowType(List.of(anonymousField(INTEGER.getTypeDescriptor()))))
                 .build();
 
         assertThat(function)
@@ -933,7 +933,7 @@ public class TestSignatureBinder
     {
         Signature simple = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(functionType(INTEGER.getTypeSignature(), INTEGER.getTypeSignature()))
+                .argumentType(functionType(INTEGER.getTypeDescriptor(), INTEGER.getTypeDescriptor()))
                 .build();
 
         assertThat(simple)
@@ -974,8 +974,8 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         INTEGER,
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("U", VARCHAR)
@@ -984,16 +984,16 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         // pass function argument to non-function position of a function
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .fails();
         assertThat(applyTwice)
                 .boundTo(
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeDescriptor()),
                         // pass non-function argument to function position of a function
                         INTEGER,
-                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeDescriptorProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeDescriptor()))
                 .fails();
 
         Signature flatMap = functionSignature()
@@ -1031,10 +1031,10 @@ public class TestSignatureBinder
                 .typeVariable("T")
                 .build();
         assertThat(loop)
-                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeDescriptor()))
                 .fails();
         assertThat(loop)
-                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, BIGINT).getTypeDescriptor()))
                 .withCoercion()
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", BIGINT)
@@ -1042,7 +1042,7 @@ public class TestSignatureBinder
         // TODO: Support coercion of return type of lambda
         assertThat(loop)
                 .withCoercion()
-                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeSignature()))
+                .boundTo(INTEGER, new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, SMALLINT).getTypeDescriptor()))
                 .fails();
 
         // TODO: Support coercion of return type of lambda
@@ -1050,11 +1050,11 @@ public class TestSignatureBinder
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(VARCHAR)
-                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeSignature()), numericType("varchar", numericVariable("x"))))
+                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()), numericType("varchar", numericVariable("x"))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()
-                .boundTo(createVarcharType(10), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeSignature()))
+                .boundTo(createVarcharType(10), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, createVarcharType(1)).getTypeDescriptor()))
                 .succeeds();
 
         Signature sortByKey = functionSignature()
@@ -1065,7 +1065,7 @@ public class TestSignatureBinder
                 .orderableTypeParameter("E")
                 .build();
         assertThat(sortByKey)
-                .boundTo(new ArrayType(INTEGER), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeSignature()))
+                .boundTo(new ArrayType(INTEGER), new TypeDescriptorProvider(paramTypes -> new FunctionType(paramTypes, VARCHAR).getTypeDescriptor()))
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("E", VARCHAR)
@@ -1078,7 +1078,7 @@ public class TestSignatureBinder
         Signature arrayJoin = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(arrayType(new TypeDescriptor("E")))
-                .castableToTypeParameter("E", VARCHAR.getTypeSignature())
+                .castableToTypeParameter("E", VARCHAR.getTypeDescriptor())
                 .build();
         assertThat(arrayJoin)
                 .boundTo(new ArrayType(INTEGER))
@@ -1129,8 +1129,8 @@ public class TestSignatureBinder
         Signature arrayJoin = functionSignature()
                 .returnType(BOOLEAN)
                 .argumentType(arrayType(new TypeDescriptor("E")))
-                .argumentType(JSON.getTypeSignature())
-                .castableFromTypeParameter("E", JSON.getTypeSignature())
+                .argumentType(JSON.getTypeDescriptor())
+                .castableFromTypeParameter("E", JSON.getTypeDescriptor())
                 .build();
         assertThat(arrayJoin)
                 .boundTo(new ArrayType(INTEGER), JSON)
@@ -1186,7 +1186,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(TypeTemplates.fromTypeDescriptor(TIMESTAMP_MILLIS.getTypeSignature()))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(TIMESTAMP_MILLIS.getTypeDescriptor()))
                         .build())
                 .build();
 
@@ -1282,7 +1282,7 @@ public class TestSignatureBinder
             ImmutableList.Builder<TypeDescriptorProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
                 if (argument instanceof Type type) {
-                    builder.add(new TypeDescriptorProvider(type.getTypeSignature()));
+                    builder.add(new TypeDescriptorProvider(type.getTypeDescriptor()));
                     continue;
                 }
                 if (argument instanceof TypeDescriptorProvider typeSignatureProvider) {
@@ -1329,7 +1329,7 @@ public class TestSignatureBinder
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }
-            return signatureBinder.bindVariables(argumentTypes, returnType.getTypeSignature());
+            return signatureBinder.bindVariables(argumentTypes, returnType.getTypeDescriptor());
         }
     }
 }

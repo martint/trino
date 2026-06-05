@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class AiFunctions
         implements FunctionProvider
 {
-    private static final TypeDescriptor TEXT = VARCHAR.getTypeSignature();
+    private static final TypeDescriptor TEXT = VARCHAR.getTypeDescriptor();
     private static final List<FunctionMetadata> FUNCTIONS = ImmutableList.<FunctionMetadata>builder()
             .add(function("ai_analyze_sentiment")
                     .description("Perform sentiment analysis on text")

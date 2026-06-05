@@ -47,7 +47,7 @@ public class TestRemoveRedundantInItems
     private static final Expression RANDOM_BOUND = new Constant(TINYINT, 10L);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     // random with tinyint bound may fail
-    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of(new TypeDescriptorProvider(TINYINT.getTypeSignature())));
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of(new TypeDescriptorProvider(TINYINT.getTypeDescriptor())));
     private static final ResolvedFunction IS_INDETERMINATE = FUNCTIONS.resolveOperator(INDETERMINATE, ImmutableList.of(BIGINT));
 
     @Test

@@ -89,8 +89,8 @@ class TestTypeTemplate
         TypeTemplate template = new TypeTemplate.TypeApplication("array", List.of(
                 new TemplateParameter.TypeArgument(Optional.empty(), new TypeTemplate.TypeVariable("E"))));
 
-        TypeDescriptor bound = TypeTemplates.bind(template, Map.of("E", BigintType.BIGINT.getTypeSignature()), Map.of());
-        assertThat(bound).isEqualTo(new TypeDescriptor("array", List.of(typeParameter(BigintType.BIGINT.getTypeSignature()))));
+        TypeDescriptor bound = TypeTemplates.bind(template, Map.of("E", BigintType.BIGINT.getTypeDescriptor()), Map.of());
+        assertThat(bound).isEqualTo(new TypeDescriptor("array", List.of(typeParameter(BigintType.BIGINT.getTypeDescriptor()))));
     }
 
     @Test

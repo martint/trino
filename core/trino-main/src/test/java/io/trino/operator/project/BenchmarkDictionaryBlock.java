@@ -127,7 +127,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createVarcharMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(VARCHAR.getTypeSignature()), TypeParameter.typeParameter(VARCHAR.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(VARCHAR.getTypeDescriptor()), TypeParameter.typeParameter(VARCHAR.getTypeDescriptor())));
             Block keyBlock = createVarcharDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createVarcharDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];
@@ -150,7 +150,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createIntMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(INTEGER.getTypeSignature()), TypeParameter.typeParameter(INTEGER.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(INTEGER.getTypeDescriptor()), TypeParameter.typeParameter(INTEGER.getTypeDescriptor())));
             Block keyBlock = createIntDictionaryBlock(positionCount);
             Block valueBlock = createIntDictionaryBlock(positionCount);
             int[] offsets = new int[positionCount + 1];

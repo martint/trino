@@ -127,7 +127,7 @@ public final class TypeRegistry
         requireNonNull(featuresConfig, "featuresConfig is null");
 
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
-        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
+        this.types.put(UNKNOWN.getTypeDescriptor(), UNKNOWN);
 
         // always add the built-in types; Trino will not function without these
         addType(BOOLEAN);
@@ -255,7 +255,7 @@ public final class TypeRegistry
     public void addType(Type type)
     {
         requireNonNull(type, "type is null");
-        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        Type existingType = types.putIfAbsent(type.getTypeDescriptor(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 

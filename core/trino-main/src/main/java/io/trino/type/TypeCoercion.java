@@ -310,7 +310,7 @@ public final class TypeCoercion
                 return TypeCompatibility.incompatible();
             }
             coercible &= compatibility.isCoercible();
-            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
+            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeDescriptor()));
         }
         String typeBase = fromType.getBaseName();
         return TypeCompatibility.compatible(lookupType.apply(new TypeDescriptor(typeBase, commonParameterTypes.build())), coercible);

@@ -33,10 +33,10 @@ public class TestRowParametricType
     {
         TypeDescriptor typeSignature = new TypeDescriptor(
                 ROW,
-                TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeSignature()),
-                TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeSignature()));
+                TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeDescriptor()),
+                TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeDescriptor()));
         Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeSignature.getParameters());
 
-        assertThat(rowType.getTypeSignature()).isEqualTo(typeSignature);
+        assertThat(rowType.getTypeDescriptor()).isEqualTo(typeSignature);
     }
 }

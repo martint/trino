@@ -49,13 +49,13 @@ public final class TypeDescriptorProvider
         return hasDependency;
     }
 
-    public TypeDescriptor getTypeSignature()
+    public TypeDescriptor getTypeDescriptor()
     {
         checkState(!hasDependency);
         return typeSignatureResolver.apply(ImmutableList.of());
     }
 
-    public TypeDescriptor getTypeSignature(List<Type> boundTypeParameters)
+    public TypeDescriptor getTypeDescriptor(List<Type> boundTypeParameters)
     {
         checkState(hasDependency);
         return typeSignatureResolver.apply(boundTypeParameters);
@@ -69,7 +69,7 @@ public final class TypeDescriptorProvider
     public static List<TypeDescriptorProvider> fromTypes(List<? extends Type> types)
     {
         return types.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }
@@ -92,6 +92,6 @@ public final class TypeDescriptorProvider
         if (hasDependency) {
             return "<function>";
         }
-        return getTypeSignature().toString();
+        return getTypeDescriptor().toString();
     }
 }

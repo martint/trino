@@ -96,7 +96,7 @@ class BuiltinFunctionResolver
                     () -> resolveBuiltinFunction(
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
-                                    .map(Type::getTypeSignature)
+                                    .map(Type::getTypeDescriptor)
                                     .map(TypeDescriptorProvider::new)
                                     .collect(toImmutableList())));
         }
@@ -204,7 +204,7 @@ class BuiltinFunctionResolver
         public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return new FunctionCacheKey(name, parameterTypes.stream()
-                    .map(TypeDescriptorProvider::getTypeSignature)
+                    .map(TypeDescriptorProvider::getTypeDescriptor)
                     .collect(toImmutableList()));
         }
     }

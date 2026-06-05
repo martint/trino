@@ -139,7 +139,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(BIGINT.getTypeSignature()), TypeParameter.typeParameter(BIGINT.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(BIGINT.getTypeDescriptor()), TypeParameter.typeParameter(BIGINT.getTypeDescriptor())));
 
         int rows = 10000;
         OrcRecordReader reader = null;

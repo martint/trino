@@ -54,13 +54,13 @@ public class BuiltinFunctionCallBuilder
     public BuiltinFunctionCallBuilder addArgument(Constant value)
     {
         requireNonNull(value, "value is null");
-        return addArgument(value.type().getTypeSignature(), value);
+        return addArgument(value.type().getTypeDescriptor(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(Type type, Expression value)
     {
         requireNonNull(type, "type is null");
-        return addArgument(type.getTypeSignature(), value);
+        return addArgument(type.getTypeDescriptor(), value);
     }
 
     public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
@@ -77,7 +77,7 @@ public class BuiltinFunctionCallBuilder
         requireNonNull(types, "types is null");
         requireNonNull(values, "values is null");
         argumentTypes = types.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .collect(Collectors.toList());
         argumentValues = new ArrayList<>(values);
         return this;

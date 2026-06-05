@@ -1148,7 +1148,7 @@ public class ExpressionAnalyzer
         protected Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeDescriptor())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1485,7 +1485,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
@@ -1733,12 +1733,12 @@ public class ExpressionAnalyzer
         private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
         {
             List<TypeDescriptorProvider> argumentTypes = ImmutableList.<TypeDescriptorProvider>builder()
-                    .add(new TypeDescriptorProvider(receiverType.getTypeSignature()))
+                    .add(new TypeDescriptorProvider(receiverType.getTypeDescriptor()))
                     .addAll(getCallArgumentTypes(arguments, context))
                     .build();
             ResolvedFunction function = functionResolver.resolveInstanceMethod(
                     session,
-                    receiverType.getTypeSignature(),
+                    receiverType.getTypeDescriptor(),
                     QualifiedName.of(methodName),
                     argumentTypes,
                     accessControl);
@@ -1770,7 +1770,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
                 }
             }
@@ -1820,7 +1820,7 @@ public class ExpressionAnalyzer
                     process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
                 }
                 else {
-                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor());
                     coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
                 }
             }
@@ -2146,7 +2146,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
                                     }
                                 }
-                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeSignature();
+                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.expectingLambda(types)).getTypeDescriptor();
                             }));
                 }
                 else {
@@ -2161,7 +2161,7 @@ public class ExpressionAnalyzer
                         labels.put(NodeRef.of(allRowsDereference), Optional.of(label));
                     }
                     else {
-                        argumentTypesBuilder.add(new TypeDescriptorProvider(process(argument, context).getTypeSignature()));
+                        argumentTypesBuilder.add(new TypeDescriptorProvider(process(argument, context).getTypeDescriptor()));
                     }
                 }
             }

@@ -185,7 +185,7 @@ public class RowType
     private static TypeDescriptor makeSignature(List<Field> fields)
     {
         List<TypeParameter> parameters = fields.stream()
-                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeSignature()))
+                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeDescriptor()))
                 .toList();
 
         return new TypeDescriptor(NAME, parameters);

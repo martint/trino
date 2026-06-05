@@ -172,7 +172,7 @@ public class ExpressionBytecodeCompiler
             }
 
             // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + node.type().getTypeSignature());
+            block.comment("constant " + node.type().getTypeDescriptor());
             if (javaType == boolean.class) {
                 return block.append(loadBoolean((Boolean) value));
             }

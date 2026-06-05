@@ -407,7 +407,7 @@ public class TestGlobalFunctionCatalog
         {
             return ImmutableList.copyOf(signatures)
                     .stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(toList());
         }
     }

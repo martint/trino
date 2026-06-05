@@ -68,7 +68,7 @@ public final class JsonStringArrayExtractScalar
                         .argumentType(numericType("varchar", numericVariable("N")))
                         .numericVariable("N")
                         .argumentType(new TypeDescriptor(JsonPathType.NAME))
-                        .returnType(arrayType(VARCHAR.getTypeSignature()))
+                        .returnType(arrayType(VARCHAR.getTypeDescriptor()))
                         .build())
                 .nullable()
                 .hidden()

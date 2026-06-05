@@ -1036,8 +1036,8 @@ public class TestAnnotationEngineForAggregates
     public void testFixedTypeParameterInjectionAggregateFunctionParse()
     {
         Signature expectedSignature = Signature.builder()
-                .returnType(DoubleType.DOUBLE.getTypeSignature())
-                .argumentType(DoubleType.DOUBLE.getTypeSignature())
+                .returnType(DoubleType.DOUBLE.getTypeDescriptor())
+                .argumentType(DoubleType.DOUBLE.getTypeDescriptor())
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(FixedTypeParameterInjectionAggregateFunction.class));

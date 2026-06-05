@@ -234,13 +234,13 @@ public class TestTypeSignature
     @Test
     public void testVarchar()
     {
-        assertThat(VARCHAR.getTypeSignature().toString()).isEqualTo("varchar");
-        assertThat(createVarcharType(42).getTypeSignature().toString()).isEqualTo("varchar(42)");
-        assertThat(VARCHAR.getTypeSignature()).isEqualTo(createUnboundedVarcharType().getTypeSignature());
-        assertThat(createUnboundedVarcharType().getTypeSignature()).isEqualTo(VARCHAR.getTypeSignature());
-        assertThat(VARCHAR.getTypeSignature().hashCode()).isEqualTo(createUnboundedVarcharType().getTypeSignature().hashCode());
-        assertThat(createUnboundedVarcharType().getTypeSignature())
-                .isNotEqualTo(createVarcharType(10).getTypeSignature());
+        assertThat(VARCHAR.getTypeDescriptor().toString()).isEqualTo("varchar");
+        assertThat(createVarcharType(42).getTypeDescriptor().toString()).isEqualTo("varchar(42)");
+        assertThat(VARCHAR.getTypeDescriptor()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor());
+        assertThat(createUnboundedVarcharType().getTypeDescriptor()).isEqualTo(VARCHAR.getTypeDescriptor());
+        assertThat(VARCHAR.getTypeDescriptor().hashCode()).isEqualTo(createUnboundedVarcharType().getTypeDescriptor().hashCode());
+        assertThat(createUnboundedVarcharType().getTypeDescriptor())
+                .isNotEqualTo(createVarcharType(10).getTypeDescriptor());
     }
 
     private static void assertRowSignature(

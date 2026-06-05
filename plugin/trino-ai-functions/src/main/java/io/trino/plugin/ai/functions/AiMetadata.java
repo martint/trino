@@ -73,7 +73,7 @@ public class AiMetadata
     public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         return FunctionDependencyDeclaration.builder()
-                .addType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))
+                .addType(mapType(VARCHAR.getTypeDescriptor(), VARCHAR.getTypeDescriptor()))
                 .build();
     }
 }

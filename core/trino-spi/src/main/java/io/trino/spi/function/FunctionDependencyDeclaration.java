@@ -209,7 +209,7 @@ public class FunctionDependencyDeclaration
 
         private static TypeTemplate toTemplate(Type type)
         {
-            return TypeTemplates.fromTypeDescriptor(type.getTypeSignature());
+            return TypeTemplates.fromTypeDescriptor(type.getTypeDescriptor());
         }
     }
 

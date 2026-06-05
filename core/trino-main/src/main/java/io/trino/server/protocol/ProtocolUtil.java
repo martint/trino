@@ -82,7 +82,7 @@ public final class ProtocolUtil
     {
         String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)

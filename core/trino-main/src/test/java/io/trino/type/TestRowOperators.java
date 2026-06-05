@@ -113,7 +113,7 @@ public class TestRowOperators
     @Test
     public void testRowTypeLookup()
     {
-        TypeDescriptor signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
+        TypeDescriptor signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeDescriptor();
         RowType type = (RowType) assertions.getQueryRunner().getPlannerContext().getTypeManager().getType(signature);
         assertThat(type.getFields()).hasSize(1);
         assertThat(type.getFields().get(0).getName().get()).isEqualTo("b");

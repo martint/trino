@@ -332,7 +332,7 @@ class FunctionBinder
             if (typeSignatureProvider.hasDependency()) {
                 return Optional.empty();
             }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
+            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeDescriptor()));
         }
         return Optional.of(resultBuilder.build());
     }

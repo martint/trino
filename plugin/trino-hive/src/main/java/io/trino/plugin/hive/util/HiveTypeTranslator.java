@@ -181,7 +181,7 @@ public final class HiveTypeTranslator
                 if (primitiveType == null) {
                     throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
                 }
-                yield primitiveType.getTypeSignature();
+                yield primitiveType.getTypeDescriptor();
             }
             case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;

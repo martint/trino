@@ -49,10 +49,10 @@ public final class FunctionType
         requireNonNull(argumentTypes, "argumentTypes is null");
         List<TypeParameter> typeParameters = new ArrayList<>(argumentTypes.size() + 1);
         argumentTypes.stream()
-                .map(Type::getTypeSignature)
+                .map(Type::getTypeDescriptor)
                 .map(TypeParameter::typeParameter)
                 .forEach(typeParameters::add);
-        typeParameters.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
+        typeParameters.add(TypeParameter.typeParameter(returnType.getTypeDescriptor()));
         return List.copyOf(typeParameters);
     }
 
@@ -73,7 +73,7 @@ public final class FunctionType
     }
 
     @Override
-    public TypeDescriptor getTypeSignature()
+    public TypeDescriptor getTypeDescriptor()
     {
         return signature;
     }

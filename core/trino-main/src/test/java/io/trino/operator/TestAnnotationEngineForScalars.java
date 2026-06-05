@@ -383,7 +383,7 @@ public class TestAnnotationEngineForScalars
 
         Signature exactSignature = Signature.builder()
                 .returnType(BOOLEAN)
-                .argumentType(arrayType(createVarcharType(17).getTypeSignature()))
+                .argumentType(arrayType(createVarcharType(17).getTypeDescriptor()))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(ComplexParametricScalarFunction.class);

@@ -172,7 +172,7 @@ public class SignatureBinder
     private static Signature applyBoundVariables(Signature signature, VariableBindings bindings, int arity)
     {
         Map<String, TypeDescriptor> typeBindings = new HashMap<>();
-        bindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeSignature()));
+        bindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeDescriptor()));
         Map<String, Long> numericBindings = bindings.getNumericVariables();
 
         List<TypeTemplate> argumentTemplates = signature.getArgumentTypes();
@@ -217,7 +217,7 @@ public class SignatureBinder
     public static TypeDescriptor applyBoundVariables(TypeTemplate template, VariableBindings bindings)
     {
         Map<String, TypeDescriptor> typeBindings = bindings.getTypeVariables().entrySet().stream()
-                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> entry.getValue().getTypeSignature()));
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, entry -> entry.getValue().getTypeDescriptor()));
         return TypeTemplates.bind(template, typeBindings, bindings.getNumericVariables());
     }
 
@@ -281,13 +281,13 @@ public class SignatureBinder
             return;
         }
 
-        verifyBoundSignature(base.equalsIgnoreCase(actualType.getTypeSignature().getBase()), boundSignature, declaredSignature);
+        verifyBoundSignature(base.equalsIgnoreCase(actualType.getTypeDescriptor().getBase()), boundSignature, declaredSignature);
 
         // type with nested literal parameters
         if (isTypeWithLiteralParameters(declaredTemplate)) {
             for (int i = 0; i < parameters.size(); i++) {
                 NumericExpression parameter = ((TemplateParameter.NumericArgument) parameters.get(i)).value();
-                Long actualLongBinding = ((TypeParameter.Numeric) actualType.getTypeSignature().getParameters().get(i)).value();
+                Long actualLongBinding = ((TypeParameter.Numeric) actualType.getTypeDescriptor().getParameters().get(i)).value();
                 switch (parameter) {
                     case NumericExpression.Variable(String variable) -> {
                         if (bindings.containsLongVariable(variable)) {
@@ -453,7 +453,7 @@ public class SignatureBinder
             if (typeVariableConstraint == null) {
                 return true;
             }
-            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor());
             for (TypeTemplate castToTemplate : typeVariableConstraint.getCastableTo()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castToTemplate), actualTypeSignatureProvider, EXPLICIT_COERCION_TO);
             }
@@ -472,7 +472,7 @@ public class SignatureBinder
             return true;
         }
 
-        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
+        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor());
         if (isTypeWithLiteralParameters(formalTemplate)) {
             resultBuilder.add(new TypeWithLiteralParametersSolver(formalTemplate, actualType));
             return true;
@@ -480,7 +480,7 @@ public class SignatureBinder
 
         List<TypeDescriptorProvider> actualTypeParametersTypeSignatureProvider;
         if (UNKNOWN.equals(actualType)) {
-            actualTypeParametersTypeSignatureProvider = Collections.nCopies(parameters.size(), new TypeDescriptorProvider(UNKNOWN.getTypeSignature()));
+            actualTypeParametersTypeSignatureProvider = Collections.nCopies(parameters.size(), new TypeDescriptorProvider(UNKNOWN.getTypeDescriptor()));
         }
         else {
             actualTypeParametersTypeSignatureProvider = fromTypes(actualType.getTypeParameters());
@@ -623,7 +623,7 @@ public class SignatureBinder
     private boolean satisfiesCoercion(RelationshipType relationshipType, Type actualType, TypeDescriptor constraintTypeSignature)
     {
         return switch (relationshipType) {
-            case EXACT -> actualType.getTypeSignature().equals(constraintTypeSignature);
+            case EXACT -> actualType.getTypeDescriptor().equals(constraintTypeSignature);
             case IMPLICIT_COERCION -> typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_TO -> canCast(actualType, typeManager.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_FROM -> canCast(typeManager.getType(constraintTypeSignature), actualType);
@@ -683,7 +683,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastFromRow(Type toType, Signature signature)
     {
         // the return type must match toType
-        if (!signature.getReturnType().equals(TypeTemplates.fromTypeDescriptor(toType.getTypeSignature()))) {
+        if (!signature.getReturnType().equals(TypeTemplates.fromTypeDescriptor(toType.getTypeDescriptor()))) {
             return false;
         }
 
@@ -710,7 +710,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastToRow(Type fromType, Signature signature)
     {
         // the argument type must match fromType
-        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeDescriptor(fromType.getTypeSignature()))) {
+        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeDescriptor(fromType.getTypeDescriptor()))) {
             return false;
         }
 
@@ -879,7 +879,7 @@ public class SignatureBinder
                                     actualType,
                                     base,
                                     type.get());
-                            TypeDescriptor typeSignature = type.get().getTypeSignature();
+                            TypeDescriptor typeSignature = type.get().getTypeDescriptor();
                             originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeSignature.getParameters().get(i)).value()));
                         }
                     }
@@ -893,7 +893,7 @@ public class SignatureBinder
             if (commonSuperType.isEmpty()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            TypeDescriptor commonSuperTypeSignature = commonSuperType.get().getTypeSignature();
+            TypeDescriptor commonSuperTypeSignature = commonSuperType.get().getTypeDescriptor();
             if (!commonSuperTypeSignature.getBase().equals(base)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -948,13 +948,13 @@ public class SignatureBinder
             }
             TypeDescriptor actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
+                actualLambdaTypeSignature = typeSignatureProvider.getTypeDescriptor();
                 if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(lambdaArgumentTypes.get());
+                actualLambdaTypeSignature = typeSignatureProvider.getTypeDescriptor(lambdaArgumentTypes.get());
                 if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
@@ -966,10 +966,10 @@ public class SignatureBinder
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
             // Coercion on function type is not supported yet.
-            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeSignature()), EXACT)) {
+            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeDescriptor()), EXACT)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
+            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeDescriptor()), allowCoercion)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
@@ -1006,7 +1006,7 @@ public class SignatureBinder
         private List<TypeDescriptor> toTypeSignatures(List<Type> types)
         {
             return types.stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(toImmutableList());
         }
     }
@@ -1028,7 +1028,7 @@ public class SignatureBinder
                 formalTemplate,
                 typeVariables,
                 longVariables,
-                typeManager.getType(actualTypeSignatureProvider.getTypeSignature()),
+                typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor()),
                 relationshipType));
         return true;
     }
@@ -1067,7 +1067,7 @@ public class SignatureBinder
 
             VariableBindings variableBindings = bindings.build();
             Map<String, TypeDescriptor> typeBindings = new HashMap<>();
-            variableBindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeSignature()));
+            variableBindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeDescriptor()));
             TypeDescriptor constraintTypeSignature = TypeTemplates.bind(formalTemplate, typeBindings, variableBindings.getNumericVariables());
 
             return satisfiesCoercion(relationshipType, actualType, constraintTypeSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;

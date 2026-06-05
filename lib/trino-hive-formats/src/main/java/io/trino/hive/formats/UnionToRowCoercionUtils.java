@@ -45,7 +45,7 @@ public final class UnionToRowCoercionUtils
     public static TypeDescriptor rowTypeSignatureForUnionOfTypes(List<TypeDescriptor> typeSignatures)
     {
         ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
-        fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
+        fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeDescriptor()));
         for (int i = 0; i < typeSignatures.size(); i++) {
             fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeSignatures.get(i)));
         }

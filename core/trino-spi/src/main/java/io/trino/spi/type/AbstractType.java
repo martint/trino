@@ -35,7 +35,7 @@ public abstract class AbstractType
     }
 
     @Override
-    public final TypeDescriptor getTypeSignature()
+    public final TypeDescriptor getTypeDescriptor()
     {
         return signature;
     }
@@ -152,7 +152,7 @@ public abstract class AbstractType
             return false;
         }
 
-        return this.getTypeSignature().equals(((Type) o).getTypeSignature());
+        return this.getTypeDescriptor().equals(((Type) o).getTypeDescriptor());
     }
 
     @Override

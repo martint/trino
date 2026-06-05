@@ -97,7 +97,7 @@ public final class TypeDescriptorTranslator
 
     public static DataType toSqlType(Type type)
     {
-        return toDataType(type.getTypeSignature());
+        return toDataType(type.getTypeDescriptor());
     }
 
     public static TypeDescriptor toTypeDescriptor(DataType type)
@@ -184,7 +184,7 @@ public final class TypeDescriptorTranslator
 
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
             // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeDescriptor.
-            return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeSignature());
+            return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeDescriptor());
         }
 
         List<TemplateParameter> parameters = new ArrayList<>();
@@ -259,7 +259,7 @@ public final class TypeDescriptorTranslator
         if (type.getName().getValue().equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
             // We treat VARCHAR specially because currently, the unbounded VARCHAR type is modeled in the system as a VARCHAR(n) with a "magic" length
             // TODO: Eventually, we should split the types into VARCHAR and VARCHAR(n)
-            return VarcharType.VARCHAR.getTypeSignature();
+            return VarcharType.VARCHAR.getTypeDescriptor();
         }
 
         for (DataTypeParameter parameter : type.getArguments()) {
@@ -294,7 +294,7 @@ public final class TypeDescriptorTranslator
                 qualifier.getFrom() instanceof IntervalField.Year() &&
                 qualifier.getTo() instanceof IntervalField.Month &&
                 qualifier.getPrecision().isEmpty()) {
-            return INTERVAL_YEAR_MONTH.getTypeSignature();
+            return INTERVAL_YEAR_MONTH.getTypeDescriptor();
         }
 
         if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
@@ -302,7 +302,7 @@ public final class TypeDescriptorTranslator
                 qualifier.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) &&
                 qualifier.getPrecision().isEmpty() &&
                 fractionalPrecision.isEmpty()) {
-            return INTERVAL_DAY_TIME.getTypeSignature();
+            return INTERVAL_DAY_TIME.getTypeDescriptor();
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));

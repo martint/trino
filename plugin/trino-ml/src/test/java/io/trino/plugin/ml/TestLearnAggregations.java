@@ -69,7 +69,7 @@ public class TestLearnAggregations
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_classifier",
-                fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
+                fromTypeSignatures(BIGINT.getTypeDescriptor(), mapType(BIGINT.getTypeDescriptor(), DOUBLE.getTypeDescriptor())));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
@@ -78,7 +78,7 @@ public class TestLearnAggregations
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_libsvm_classifier",
-                fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
+                fromTypeSignatures(BIGINT.getTypeDescriptor(), mapType(BIGINT.getTypeDescriptor(), DOUBLE.getTypeDescriptor()), VARCHAR.getTypeDescriptor()));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
@@ -99,7 +99,7 @@ public class TestLearnAggregations
 
     private static Page getPage()
     {
-        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeSignature()), typeParameter(DOUBLE.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeDescriptor()), typeParameter(DOUBLE.getTypeDescriptor())));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VARCHAR);
         Random rand = new Random(0);

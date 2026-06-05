@@ -37,7 +37,7 @@ public class ClassifierType
 
     public ClassifierType(Type type)
     {
-        super(new TypeDescriptor(ClassifierParametricType.NAME, TypeParameter.typeParameter(type.getTypeSignature())));
+        super(new TypeDescriptor(ClassifierParametricType.NAME, TypeParameter.typeParameter(type.getTypeDescriptor())));
         checkArgument(type.isComparable(), "type must be comparable");
         labelType = type;
     }

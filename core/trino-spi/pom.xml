@@ -338,6 +338,23 @@
                                     <new>.*io\.trino\.spi\.type\.TypeDescriptor.*</new>
                                     <justification>Renamed TypeSignature to TypeDescriptor</justification>
                                 </item>
+                                <!-- Renamed Type.getTypeSignature() to getTypeDescriptor() -->
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.method.removed</code>
+                                    <old>method io\.trino\.spi\.type\.TypeSignature io\.trino\.spi\.type\.\w+::getTypeSignature\(\)</old>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.Type::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method io.trino.spi.type.TypeDescriptor io.trino.spi.type.AbstractType::getTypeDescriptor()</new>
+                                    <justification>Renamed getTypeSignature to getTypeDescriptor</justification>
+                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>

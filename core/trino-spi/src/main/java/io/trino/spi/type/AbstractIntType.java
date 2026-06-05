@@ -107,10 +107,10 @@ public abstract class AbstractIntType
     protected void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT for type %s", value, getTypeDescriptor()));
         }
         if (value < Integer.MIN_VALUE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeSignature()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT for type %s", value, getTypeDescriptor()));
         }
     }
 

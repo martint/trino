@@ -45,8 +45,8 @@ public class TestConcreteAggregationStateTypeParameters
     public void testConcreteMapAggregationStateTypeParameters()
     {
         TestingAggregationFunction function = FUNCTION_RESOLUTION.getAggregateFunction("test_fixed_map_agg", fromTypes(BIGINT, BIGINT));
-        assertThat(function.getFinalType().getTypeSignature().toString()).isEqualTo("map(varchar,bigint)");
-        assertThat(function.getIntermediateType().getTypeSignature().toString()).isEqualTo("map(varchar,bigint)");
+        assertThat(function.getFinalType().getTypeDescriptor().toString()).isEqualTo("map(varchar,bigint)");
+        assertThat(function.getIntermediateType().getTypeDescriptor().toString()).isEqualTo("map(varchar,bigint)");
 
         assertAggregation(
                 FUNCTION_RESOLUTION,

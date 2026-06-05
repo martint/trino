@@ -75,6 +75,6 @@ public class ModelType
             return null;
         }
 
-        return format("<%s>", getTypeSignature()).getBytes(UTF_8);
+        return format("<%s>", getTypeDescriptor()).getBytes(UTF_8);
     }
 }

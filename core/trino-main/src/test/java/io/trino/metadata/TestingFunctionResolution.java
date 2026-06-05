@@ -202,7 +202,7 @@ public class TestingFunctionResolution
         public TestingFunctionCallBuilder addArgument(Type type, Expression value)
         {
             requireNonNull(type, "type is null");
-            return addArgument(type.getTypeSignature(), value);
+            return addArgument(type.getTypeDescriptor(), value);
         }
 
         public TestingFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
@@ -219,7 +219,7 @@ public class TestingFunctionResolution
             requireNonNull(types, "types is null");
             requireNonNull(values, "values is null");
             argumentTypes = types.stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(Collectors.toList());
             argumentValues = new ArrayList<>(values);
             return this;
