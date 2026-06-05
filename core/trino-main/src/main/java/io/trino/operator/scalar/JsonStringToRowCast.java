@@ -19,9 +19,9 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.parametricType;
-import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public final class JsonStringToRowCast
