@@ -24,14 +24,14 @@ public sealed interface TypeParameter
         permits TypeParameter.Numeric,
                 TypeParameter.Type
 {
-    static TypeParameter typeParameter(TypeDescriptor typeSignature)
+    static TypeParameter typeParameter(TypeDescriptor typeDescriptor)
     {
-        return new Type(Optional.empty(), typeSignature);
+        return new Type(Optional.empty(), typeDescriptor);
     }
 
-    static TypeParameter typeParameter(Optional<String> name, TypeDescriptor typeSignature)
+    static TypeParameter typeParameter(Optional<String> name, TypeDescriptor typeDescriptor)
     {
-        return new Type(name, typeSignature);
+        return new Type(name, typeDescriptor);
     }
 
     static TypeParameter numericParameter(long longLiteral)

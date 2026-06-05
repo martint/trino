@@ -29,19 +29,19 @@ public final class TypeDescriptorProvider
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
     private final boolean hasDependency;
-    private final Function<List<Type>, TypeDescriptor> typeSignatureResolver;
+    private final Function<List<Type>, TypeDescriptor> typeDescriptorResolver;
 
-    public TypeDescriptorProvider(TypeDescriptor typeSignature)
+    public TypeDescriptorProvider(TypeDescriptor typeDescriptor)
     {
         this.hasDependency = false;
-        requireNonNull(typeSignature, "typeSignature is null");
-        this.typeSignatureResolver = _ -> typeSignature;
+        requireNonNull(typeDescriptor, "typeDescriptor is null");
+        this.typeDescriptorResolver = _ -> typeDescriptor;
     }
 
-    public TypeDescriptorProvider(Function<List<Type>, TypeDescriptor> typeSignatureResolver)
+    public TypeDescriptorProvider(Function<List<Type>, TypeDescriptor> typeDescriptorResolver)
     {
         this.hasDependency = true;
-        this.typeSignatureResolver = requireNonNull(typeSignatureResolver, "typeSignatureResolver is null");
+        this.typeDescriptorResolver = requireNonNull(typeDescriptorResolver, "typeDescriptorResolver is null");
     }
 
     public boolean hasDependency()
@@ -52,13 +52,13 @@ public final class TypeDescriptorProvider
     public TypeDescriptor getTypeDescriptor()
     {
         checkState(!hasDependency);
-        return typeSignatureResolver.apply(ImmutableList.of());
+        return typeDescriptorResolver.apply(ImmutableList.of());
     }
 
     public TypeDescriptor getTypeDescriptor(List<Type> boundTypeParameters)
     {
         checkState(hasDependency);
-        return typeSignatureResolver.apply(boundTypeParameters);
+        return typeDescriptorResolver.apply(boundTypeParameters);
     }
 
     public static List<TypeDescriptorProvider> fromTypes(Type... types)
@@ -74,14 +74,14 @@ public final class TypeDescriptorProvider
                 .collect(toImmutableList());
     }
 
-    public static List<TypeDescriptorProvider> fromTypeSignatures(TypeDescriptor... typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeDescriptors(TypeDescriptor... typeDescriptors)
     {
-        return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
+        return fromTypeDescriptors(ImmutableList.copyOf(typeDescriptors));
     }
 
-    public static List<TypeDescriptorProvider> fromTypeSignatures(List<? extends TypeDescriptor> typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeDescriptors(List<? extends TypeDescriptor> typeDescriptors)
     {
-        return typeSignatures.stream()
+        return typeDescriptors.stream()
                 .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }

@@ -344,7 +344,7 @@ public class Signature
                     variables.stream().filter(VariableDeclaration.NumericVariable.class::isInstance))
                     .collect(toUnmodifiableList());
 
-            // Normalize base-string type variables (as the TypeSignature-based builder methods produce) into
+            // Normalize base-string type variables (as the TypeDescriptor-based builder methods produce) into
             // first-class TypeVariable nodes, so a programmatically-built signature equals the parsed one.
             Set<String> typeVariableNames = orderedVariables.stream()
                     .filter(VariableDeclaration.TypeVariable.class::isInstance)

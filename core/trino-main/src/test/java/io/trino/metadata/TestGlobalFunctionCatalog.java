@@ -56,7 +56,7 @@ import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;
@@ -351,7 +351,7 @@ public class TestGlobalFunctionCatalog
 
         public ResolveFunctionAssertion forParameters(Type... parameters)
         {
-            this.parameterTypes = parseTypeSignatures(parameters);
+            this.parameterTypes = parseTypeDescriptors(parameters);
             return this;
         }
 
@@ -374,7 +374,7 @@ public class TestGlobalFunctionCatalog
         private BoundSignature resolveSignature()
         {
             return new TestingFunctionResolution(createFunctionsFromSignatures())
-                    .resolveFunction(TEST_FUNCTION_NAME, fromTypeSignatures(parameterTypes))
+                    .resolveFunction(TEST_FUNCTION_NAME, fromTypeDescriptors(parameterTypes))
                     .signature();
         }
 
@@ -403,7 +403,7 @@ public class TestGlobalFunctionCatalog
             return new InternalFunctionBundle(functions.build());
         }
 
-        private static List<TypeDescriptor> parseTypeSignatures(Type... signatures)
+        private static List<TypeDescriptor> parseTypeDescriptors(Type... signatures)
         {
             return ImmutableList.copyOf(signatures)
                     .stream()

@@ -51,8 +51,8 @@ import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
-import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDeserializer;
 
 import java.util.ArrayList;
 import java.util.List;

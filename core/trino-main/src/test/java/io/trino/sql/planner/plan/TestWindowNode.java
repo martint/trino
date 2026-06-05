@@ -27,8 +27,8 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolKeyDeserializer;
-import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
+import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

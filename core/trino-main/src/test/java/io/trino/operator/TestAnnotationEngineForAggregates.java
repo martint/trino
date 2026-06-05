@@ -98,7 +98,7 @@ import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.invoke.MethodType.methodType;
@@ -1196,8 +1196,8 @@ public class TestAnnotationEngineForAggregates
 
         ImmutableMap.Builder<TypeDescriptor, Type> typeDependencies = ImmutableMap.builder();
         for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
-            TypeDescriptor typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
-            typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
+            TypeDescriptor typeDescriptor = applyBoundVariables(typeTemplate, functionBinding.variables());
+            typeDependencies.put(typeDescriptor, PLANNER_CONTEXT.getTypeManager().getType(typeDescriptor));
         }
 
         ImmutableSet.Builder<ResolvedFunction> functionDependencies = ImmutableSet.builder();
@@ -1214,16 +1214,16 @@ public class TestAnnotationEngineForAggregates
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.OperatorDependency dependency)
     {
         QualifiedName name = QualifiedName.of(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(dependency.getOperatorType()));
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(toTypeSignatures(dependency.getArgumentTypes())), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeDescriptors(toTypeDescriptors(dependency.getArgumentTypes())), new AllowAllAccessControl());
     }
 
     private static ResolvedFunction resolveDependency(FunctionDependencyDeclaration.FunctionDependency dependency)
     {
         QualifiedName name = QualifiedName.of(dependency.getName().catalogName(), dependency.getName().schemaName(), dependency.getName().functionName());
-        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(toTypeSignatures(dependency.getArgumentTypes())), new AllowAllAccessControl());
+        return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeDescriptors(toTypeDescriptors(dependency.getArgumentTypes())), new AllowAllAccessControl());
     }
 
-    private static List<TypeDescriptor> toTypeSignatures(List<TypeTemplate> templates)
+    private static List<TypeDescriptor> toTypeDescriptors(List<TypeTemplate> templates)
     {
         return templates.stream()
                 .map(TestAnnotationEngineForAggregates::toTypeDescriptor)

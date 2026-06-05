@@ -128,26 +128,26 @@ class TypeDescriptorMapping
         return parameter;
     }
 
-    public TypeDescriptor mapTypeSignature(TypeDescriptor typeSignature)
+    public TypeDescriptor mapTypeDescriptor(TypeDescriptor typeDescriptor)
     {
         if (mapping.isEmpty()) {
-            return typeSignature;
+            return typeDescriptor;
         }
-        if (mapping.containsKey(typeSignature.getBase())) {
-            checkArgument(typeSignature.getParameters().isEmpty(), "Type variable can not have type parameters: %s", typeSignature);
-            return parseTypeDescriptor(mapping.get(typeSignature.getBase()));
+        if (mapping.containsKey(typeDescriptor.getBase())) {
+            checkArgument(typeDescriptor.getParameters().isEmpty(), "Type variable can not have type parameters: %s", typeDescriptor);
+            return parseTypeDescriptor(mapping.get(typeDescriptor.getBase()));
         }
         return new TypeDescriptor(
-                typeSignature.getBase(),
-                typeSignature.getParameters().stream()
-                        .map(this::mapTypeSignatureParameter)
+                typeDescriptor.getBase(),
+                typeDescriptor.getParameters().stream()
+                        .map(this::mapTypeDescriptorParameter)
                         .collect(toImmutableList()));
     }
 
-    private TypeParameter mapTypeSignatureParameter(TypeParameter parameter)
+    private TypeParameter mapTypeDescriptorParameter(TypeParameter parameter)
     {
         if (parameter instanceof TypeParameter.Type(Optional<String> name, TypeDescriptor type)) {
-            return TypeParameter.typeParameter(name, mapTypeSignature(type));
+            return TypeParameter.typeParameter(name, mapTypeDescriptor(type));
         }
         return parameter;
     }

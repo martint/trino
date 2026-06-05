@@ -47,8 +47,8 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
-import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
+import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

@@ -329,7 +329,7 @@ public class SignatureBinder
     }
 
     /**
-     * Example of not allowed literal variable usages across typeSignatures:
+     * Example of not allowed literal variable usages across typeDescriptors:
      * <p><ul>
      * <li>x used in different base types: char(x) and varchar(x)
      * <li>x used in different positions of the same base type: decimal(x,y) and decimal(z,x)
@@ -423,7 +423,7 @@ public class SignatureBinder
     private boolean appendConstraintSolvers(
             ImmutableList.Builder<TypeConstraintSolver> resultBuilder,
             TypeTemplate formalTemplate,
-            TypeDescriptorProvider actualTypeSignatureProvider,
+            TypeDescriptorProvider actualTypeDescriptorProvider,
             boolean allowCoercion)
     {
         // formalTemplate can be categorized into one of the 5 cases below:
@@ -440,11 +440,11 @@ public class SignatureBinder
             resultBuilder.add(new FunctionSolver(
                     getLambdaArgumentTemplates(formalTemplate),
                     ((TemplateParameter.TypeArgument) parameters.getLast()).type(),
-                    actualTypeSignatureProvider));
+                    actualTypeDescriptorProvider));
             return true;
         }
 
-        if (actualTypeSignatureProvider.hasDependency()) {
+        if (actualTypeDescriptorProvider.hasDependency()) {
             return false;
         }
 
@@ -453,12 +453,12 @@ public class SignatureBinder
             if (typeVariableConstraint == null) {
                 return true;
             }
-            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor());
+            Type actualType = typeManager.getType(actualTypeDescriptorProvider.getTypeDescriptor());
             for (TypeTemplate castToTemplate : typeVariableConstraint.getCastableTo()) {
-                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castToTemplate), actualTypeSignatureProvider, EXPLICIT_COERCION_TO);
+                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castToTemplate), actualTypeDescriptorProvider, EXPLICIT_COERCION_TO);
             }
             for (TypeTemplate castFromTemplate : typeVariableConstraint.getCastableFrom()) {
-                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castFromTemplate), actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
+                appendTypeRelationshipConstraintSolver(resultBuilder, liftConstraintType(castFromTemplate), actualTypeDescriptorProvider, EXPLICIT_COERCION_FROM);
             }
             if (typeVariableConstraint.isRowType() && !(actualType instanceof RowType)) {
                 return actualType == UNKNOWN;
@@ -472,18 +472,18 @@ public class SignatureBinder
             return true;
         }
 
-        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor());
+        Type actualType = typeManager.getType(actualTypeDescriptorProvider.getTypeDescriptor());
         if (isTypeWithLiteralParameters(formalTemplate)) {
             resultBuilder.add(new TypeWithLiteralParametersSolver(formalTemplate, actualType));
             return true;
         }
 
-        List<TypeDescriptorProvider> actualTypeParametersTypeSignatureProvider;
+        List<TypeDescriptorProvider> actualTypeParametersTypeDescriptorProvider;
         if (UNKNOWN.equals(actualType)) {
-            actualTypeParametersTypeSignatureProvider = Collections.nCopies(parameters.size(), new TypeDescriptorProvider(UNKNOWN.getTypeDescriptor()));
+            actualTypeParametersTypeDescriptorProvider = Collections.nCopies(parameters.size(), new TypeDescriptorProvider(UNKNOWN.getTypeDescriptor()));
         }
         else {
-            actualTypeParametersTypeSignatureProvider = fromTypes(actualType.getTypeParameters());
+            actualTypeParametersTypeDescriptorProvider = fromTypes(actualType.getTypeParameters());
         }
 
         ImmutableList.Builder<TypeTemplate> formalTypeParameterTemplates = ImmutableList.builder();
@@ -494,7 +494,7 @@ public class SignatureBinder
         return appendConstraintSolvers(
                 resultBuilder,
                 formalTypeParameterTemplates.build(),
-                actualTypeParametersTypeSignatureProvider,
+                actualTypeParametersTypeDescriptorProvider,
                 allowCoercion && isCovariantTypeBase(base));
     }
 
@@ -620,13 +620,13 @@ public class SignatureBinder
                 .allMatch(typeVariables::containsTypeVariable);
     }
 
-    private boolean satisfiesCoercion(RelationshipType relationshipType, Type actualType, TypeDescriptor constraintTypeSignature)
+    private boolean satisfiesCoercion(RelationshipType relationshipType, Type actualType, TypeDescriptor constraintTypeDescriptor)
     {
         return switch (relationshipType) {
-            case EXACT -> actualType.getTypeDescriptor().equals(constraintTypeSignature);
-            case IMPLICIT_COERCION -> typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeSignature));
-            case EXPLICIT_COERCION_TO -> canCast(actualType, typeManager.getType(constraintTypeSignature));
-            case EXPLICIT_COERCION_FROM -> canCast(typeManager.getType(constraintTypeSignature), actualType);
+            case EXACT -> actualType.getTypeDescriptor().equals(constraintTypeDescriptor);
+            case IMPLICIT_COERCION -> typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeDescriptor));
+            case EXPLICIT_COERCION_TO -> canCast(actualType, typeManager.getType(constraintTypeDescriptor));
+            case EXPLICIT_COERCION_FROM -> canCast(typeManager.getType(constraintTypeDescriptor), actualType);
         };
     }
 
@@ -724,9 +724,9 @@ public class SignatureBinder
                 typeVariableConstraint.isRowType();
     }
 
-    private static List<TypeDescriptor> getLambdaArgumentTypeSignatures(TypeDescriptor lambdaTypeSignature)
+    private static List<TypeDescriptor> getLambdaArgumentTypeDescriptors(TypeDescriptor lambdaTypeDescriptor)
     {
-        List<TypeParameter> parameters = lambdaTypeSignature.getParameters();
+        List<TypeParameter> parameters = lambdaTypeDescriptor.getParameters();
         return parameters.subList(0, parameters.size() - 1).stream()
                 .map(parameter -> ((TypeParameter.Type) parameter).type())
                 .collect(toImmutableList());
@@ -879,8 +879,8 @@ public class SignatureBinder
                                     actualType,
                                     base,
                                     type.get());
-                            TypeDescriptor typeSignature = type.get().getTypeDescriptor();
-                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeSignature.getParameters().get(i)).value()));
+                            TypeDescriptor typeDescriptor = type.get().getTypeDescriptor();
+                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeDescriptor.getParameters().get(i)).value()));
                         }
                     }
                     case NumericExpression.Literal(long value) -> originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(value));
@@ -893,14 +893,14 @@ public class SignatureBinder
             if (commonSuperType.isEmpty()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            TypeDescriptor commonSuperTypeSignature = commonSuperType.get().getTypeDescriptor();
-            if (!commonSuperTypeSignature.getBase().equals(base)) {
+            TypeDescriptor commonSuperTypeDescriptor = commonSuperType.get().getTypeDescriptor();
+            if (!commonSuperTypeDescriptor.getBase().equals(base)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatus result = SolverReturnStatus.UNCHANGED_SATISFIED;
             for (int i = 0; i < parameters.size(); i++) {
                 NumericExpression parameter = ((TemplateParameter.NumericArgument) parameters.get(i)).value();
-                long commonSuperLongLiteral = ((TypeParameter.Numeric) commonSuperTypeSignature.getParameters().get(i)).value();
+                long commonSuperLongLiteral = ((TypeParameter.Numeric) commonSuperTypeDescriptor.getParameters().get(i)).value();
 
                 switch (parameter) {
                     case NumericExpression.Variable(String name) -> {
@@ -927,16 +927,16 @@ public class SignatureBinder
     {
         private final List<TypeTemplate> formalLambdaArgumentTemplates;
         private final TypeTemplate formalLambdaReturnTemplate;
-        private final TypeDescriptorProvider typeSignatureProvider;
+        private final TypeDescriptorProvider typeDescriptorProvider;
 
         public FunctionSolver(
                 List<TypeTemplate> formalLambdaArgumentTemplates,
                 TypeTemplate formalLambdaReturnTemplate,
-                TypeDescriptorProvider typeSignatureProvider)
+                TypeDescriptorProvider typeDescriptorProvider)
         {
             this.formalLambdaArgumentTemplates = formalLambdaArgumentTemplates;
             this.formalLambdaReturnTemplate = formalLambdaReturnTemplate;
-            this.typeSignatureProvider = typeSignatureProvider;
+            this.typeDescriptorProvider = typeDescriptorProvider;
         }
 
         @Override
@@ -946,22 +946,22 @@ public class SignatureBinder
             if (lambdaArgumentTypes.isEmpty()) {
                 return SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
             }
-            TypeDescriptor actualLambdaTypeSignature;
-            if (!typeSignatureProvider.hasDependency()) {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeDescriptor();
-                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+            TypeDescriptor actualLambdaTypeDescriptor;
+            if (!typeDescriptorProvider.hasDependency()) {
+                actualLambdaTypeDescriptor = typeDescriptorProvider.getTypeDescriptor();
+                if (!FunctionType.NAME.equals(actualLambdaTypeDescriptor.getBase()) || !getLambdaArgumentTypeDescriptors(actualLambdaTypeDescriptor).equals(toTypeDescriptors(lambdaArgumentTypes.get()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeDescriptor(lambdaArgumentTypes.get());
-                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
+                actualLambdaTypeDescriptor = typeDescriptorProvider.getTypeDescriptor(lambdaArgumentTypes.get());
+                if (!FunctionType.NAME.equals(actualLambdaTypeDescriptor.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
-                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
+                verify(getLambdaArgumentTypeDescriptors(actualLambdaTypeDescriptor).equals(toTypeDescriptors(lambdaArgumentTypes.get())));
             }
 
-            Type actualLambdaType = typeManager.getType(actualLambdaTypeSignature);
+            Type actualLambdaType = typeManager.getType(actualLambdaTypeDescriptor);
             Type actualReturnType = ((FunctionType) actualLambdaType).getReturnType();
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
@@ -1003,7 +1003,7 @@ public class SignatureBinder
             return Optional.of(lambdaArgumentTypesBuilder.build());
         }
 
-        private List<TypeDescriptor> toTypeSignatures(List<Type> types)
+        private List<TypeDescriptor> toTypeDescriptors(List<Type> types)
         {
             return types.stream()
                     .map(Type::getTypeDescriptor)
@@ -1014,10 +1014,10 @@ public class SignatureBinder
     private boolean appendTypeRelationshipConstraintSolver(
             ImmutableList.Builder<TypeConstraintSolver> resultBuilder,
             TypeTemplate formalTemplate,
-            TypeDescriptorProvider actualTypeSignatureProvider,
+            TypeDescriptorProvider actualTypeDescriptorProvider,
             RelationshipType relationshipType)
     {
-        if (actualTypeSignatureProvider.hasDependency()) {
+        if (actualTypeDescriptorProvider.hasDependency()) {
             // Fail if the formal type is not function.
             // Otherwise do nothing because FunctionConstraintSolver will handle type relationship constraint directly
             return FunctionType.NAME.equals(TypeTemplates.baseName(formalTemplate));
@@ -1028,7 +1028,7 @@ public class SignatureBinder
                 formalTemplate,
                 typeVariables,
                 longVariables,
-                typeManager.getType(actualTypeSignatureProvider.getTypeDescriptor()),
+                typeManager.getType(actualTypeDescriptorProvider.getTypeDescriptor()),
                 relationshipType));
         return true;
     }
@@ -1068,9 +1068,9 @@ public class SignatureBinder
             VariableBindings variableBindings = bindings.build();
             Map<String, TypeDescriptor> typeBindings = new HashMap<>();
             variableBindings.getTypeVariables().forEach((name, type) -> typeBindings.put(name, type.getTypeDescriptor()));
-            TypeDescriptor constraintTypeSignature = TypeTemplates.bind(formalTemplate, typeBindings, variableBindings.getNumericVariables());
+            TypeDescriptor constraintTypeDescriptor = TypeTemplates.bind(formalTemplate, typeBindings, variableBindings.getNumericVariables());
 
-            return satisfiesCoercion(relationshipType, actualType, constraintTypeSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
+            return satisfiesCoercion(relationshipType, actualType, constraintTypeDescriptor) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
         }
     }
 

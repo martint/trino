@@ -126,9 +126,9 @@ public class RowType
     private final int flatFixedSize;
     private final boolean flatVariableWidth;
 
-    private RowType(TypeDescriptor typeSignature, List<Field> originalFields)
+    private RowType(TypeDescriptor typeDescriptor, List<Field> originalFields)
     {
-        super(typeSignature, SqlRow.class, RowBlock.class);
+        super(typeDescriptor, SqlRow.class, RowBlock.class);
 
         this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()

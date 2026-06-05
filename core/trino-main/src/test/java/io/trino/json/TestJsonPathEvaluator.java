@@ -284,7 +284,7 @@ public class TestJsonPathEvaluator
         assertThat(pathResult(
                 IntNode.valueOf(-5),
                 path(true, subtract(variable("short_decimal_parameter"), variable("long_decimal_parameter")))))
-                .withEqualsForType(TypeDescriptor::equals, TypeDescriptor.class) // we don't want deep TypeSignature comparison because of cached hashCode
+                .withEqualsForType(TypeDescriptor::equals, TypeDescriptor.class) // we don't want deep TypeDescriptor comparison because of cached hashCode
                 .isEqualTo(singletonSequence(new TypedValue(createDecimalType(31, 20), Int128.valueOf("-1330000000000000000000"))));
 
         // division by 0

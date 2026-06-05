@@ -393,7 +393,7 @@ public final class AggregationFromAnnotationsParser
         TypeDescriptorMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
 
         if (stateClass.equals(InOut.class)) {
-            String typeVariable = typeParameterMapping.mapTypeSignature(new TypeDescriptor("T")).toString();
+            String typeVariable = typeParameterMapping.mapTypeDescriptor(new TypeDescriptor("T")).toString();
             @SuppressWarnings("unchecked") AccumulatorStateDetails<T> stateDetails = (AccumulatorStateDetails<T>) getInOutAccumulatorStateDetails(typeVariable);
             return stateDetails;
         }
@@ -485,7 +485,7 @@ public final class AggregationFromAnnotationsParser
         return new TypeDescriptorMapping(mapping.buildOrThrow());
     }
 
-    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeSignatureMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeDescriptorMapping, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 
@@ -495,10 +495,10 @@ public final class AggregationFromAnnotationsParser
                 validateImplementationDependencyAnnotation(
                         inputFunction,
                         annotation,
-                        typeSignatureMapping.getTypeParameters(),
+                        typeDescriptorMapping.getTypeParameters(),
                         ImmutableSet.of());
-                ImplementationDependency dependency = createDependency(annotation, typeSignatureMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
-                dependency = typeSignatureMapping.mapTypes(dependency);
+                ImplementationDependency dependency = createDependency(annotation, typeDescriptorMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
+                dependency = typeDescriptorMapping.mapTypes(dependency);
                 builder.add(dependency);
             });
         }

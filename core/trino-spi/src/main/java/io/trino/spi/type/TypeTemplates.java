@@ -36,7 +36,7 @@ public final class TypeTemplates
     private TypeTemplates() {}
 
     /**
-     * Substitutes the given type- and numeric-variable bindings, producing a ground type signature.
+     * Substitutes the given type- and numeric-variable bindings, producing a ground type descriptor.
      */
     public static TypeDescriptor bind(TypeTemplate template, Map<String, TypeDescriptor> typeBindings, Map<String, Long> numericBindings)
     {
@@ -67,7 +67,7 @@ public final class TypeTemplates
     }
 
     /**
-     * Lowers a ground template to a type signature. Fails if the template carries an unbound variable.
+     * Lowers a ground template to a type descriptor. Fails if the template carries an unbound variable.
      */
     public static TypeDescriptor toTypeDescriptor(TypeTemplate template)
     {
@@ -138,7 +138,7 @@ public final class TypeTemplates
     }
 
     /**
-     * Lifts a ground type signature into a template. A type variable, which a programmatic signature writes as a
+     * Lifts a ground type descriptor into a template. A type variable, which a programmatic signature writes as a
      * bare base-string signature, becomes a parameterless {@link TypeTemplate.TypeApplication};
      * {@link #canonicalizeTypeVariables} promotes it to a {@link TypeTemplate.TypeVariable} once the declared
      * type-variable names are known.
@@ -215,7 +215,7 @@ public final class TypeTemplates
 
     /**
      * Renders the template in type syntax, e.g. {@code array(E)}, {@code decimal(p,s)}, {@code char(x + y)}.
-     * Mirrors the legacy {@code TypeSignature} formatting (unbounded varchar, time-zone syntax, quoted row
+     * Mirrors the legacy {@code TypeDescriptor} formatting (unbounded varchar, time-zone syntax, quoted row
      * field names) so error messages and round-trips match.
      */
     public static String render(TypeTemplate template)

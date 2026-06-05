@@ -78,15 +78,15 @@ public interface ImplementationDependency
         }
     }
 
-    static void checkTypeParameters(TypeDescriptor typeSignature, Set<String> typeParameterNames, AnnotatedElement element)
+    static void checkTypeParameters(TypeDescriptor typeDescriptor, Set<String> typeParameterNames, AnnotatedElement element)
     {
-        // Check recursively if `typeSignature` contains something like `T(bigint)`
-        if (typeParameterNames.contains(typeSignature.getBase())) {
-            checkArgument(typeSignature.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got '%s' on method [%s]", typeSignature.getBase(), element);
+        // Check recursively if `typeDescriptor` contains something like `T(bigint)`
+        if (typeParameterNames.contains(typeDescriptor.getBase())) {
+            checkArgument(typeDescriptor.getParameters().isEmpty(), "Expected type parameter not to take parameters, but got '%s' on method [%s]", typeDescriptor.getBase(), element);
             return;
         }
 
-        for (TypeParameter parameter : typeSignature.getParameters()) {
+        for (TypeParameter parameter : typeDescriptor.getParameters()) {
             if (parameter instanceof TypeParameter.Type(_, TypeDescriptor type)) {
                 checkTypeParameters(type, typeParameterNames, element);
             }

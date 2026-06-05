@@ -29,14 +29,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestRowParametricType
 {
     @Test
-    public void testTypeSignatureRoundTrip()
+    public void testTypeDescriptorRoundTrip()
     {
-        TypeDescriptor typeSignature = new TypeDescriptor(
+        TypeDescriptor typeDescriptor = new TypeDescriptor(
                 ROW,
                 TypeParameter.typeParameter(Optional.of("col1"), BIGINT.getTypeDescriptor()),
                 TypeParameter.typeParameter(Optional.of("col2"), DOUBLE.getTypeDescriptor()));
-        Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeSignature.getParameters());
+        Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeDescriptor.getParameters());
 
-        assertThat(rowType.getTypeDescriptor()).isEqualTo(typeSignature);
+        assertThat(rowType.getTypeDescriptor()).isEqualTo(typeDescriptor);
     }
 }

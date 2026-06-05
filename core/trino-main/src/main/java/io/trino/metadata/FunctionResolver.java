@@ -62,7 +62,7 @@ import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionResolver
@@ -284,7 +284,7 @@ public class FunctionResolver
             try {
                 CatalogSchemaFunctionName name = functionDependency.getName();
                 CatalogFunctionBinding catalogFunctionBinding = functionBinder.bindFunction(
-                        fromTypeSignatures(functionDependency.getArgumentTypes().stream()
+                        fromTypeDescriptors(functionDependency.getArgumentTypes().stream()
                                 .map(argumentType -> applyBoundVariables(argumentType, functionBinding.variables()))
                                 .collect(toImmutableList())),
                         candidateLoader.apply(name),

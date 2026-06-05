@@ -173,11 +173,11 @@ public final class HiveTestUtils
                 TypeParameter.typeParameter(valueType.getTypeDescriptor())));
     }
 
-    public static RowType rowType(List<Field> elementTypeSignatures)
+    public static RowType rowType(List<Field> elementTypeDescriptors)
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
-                elementTypeSignatures.stream()
+                elementTypeDescriptors.stream()
                         .map(field -> TypeParameter.typeParameter(
                                 Optional.of(field.name()),
                                 field.type()))

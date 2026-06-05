@@ -205,11 +205,11 @@ public class TestingFunctionResolution
             return addArgument(type.getTypeDescriptor(), value);
         }
 
-        public TestingFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
+        public TestingFunctionCallBuilder addArgument(TypeDescriptor typeDescriptor, Expression value)
         {
-            requireNonNull(typeSignature, "typeSignature is null");
+            requireNonNull(typeDescriptor, "typeDescriptor is null");
             requireNonNull(value, "value is null");
-            argumentTypes.add(typeSignature);
+            argumentTypes.add(typeDescriptor);
             argumentValues.add(value);
             return this;
         }
@@ -228,7 +228,7 @@ public class TestingFunctionResolution
         public Call build()
         {
             return new Call(
-                    resolveFunction(name, TypeDescriptorProvider.fromTypeSignatures(argumentTypes)),
+                    resolveFunction(name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes)),
                     argumentValues);
         }
     }

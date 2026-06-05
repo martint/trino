@@ -20,7 +20,7 @@ import java.util.List;
 
 public interface FunctionDependencies
 {
-    Type getType(TypeDescriptor typeSignature);
+    Type getType(TypeDescriptor typeDescriptor);
 
     FunctionNullability getFunctionNullability(CatalogSchemaFunctionName name, List<Type> parameterTypes);
 

@@ -45,7 +45,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeSignatureForUnionOfTypes;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeDescriptorForUnionOfTypes;
 import static io.trino.metastore.HiveType.HIVE_BINARY;
 import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
 import static io.trino.metastore.HiveType.HIVE_BYTE;
@@ -215,7 +215,7 @@ public final class HiveTypeTranslator
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
-                yield rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
+                yield rowTypeDescriptorForUnionOfTypes(unionObjectTypes.stream()
                         .map(unionObjectType -> toTypeDescriptor(unionObjectType, timestampPrecision))
                         .collect(toImmutableList()));
             }

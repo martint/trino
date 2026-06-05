@@ -98,8 +98,8 @@ public final class TypeDescriptor
             return base;
         }
 
-        // TODO: this is somewhat of a hack. We need to evolve TypeSignature to be more "structural" for the special types, similar to DataType from the AST.
-        //   In fact. TypeSignature should become the IR counterpart to DataType from the AST.
+        // TODO: this is somewhat of a hack. We need to evolve TypeDescriptor to be more "structural" for the special types, similar to DataType from the AST.
+        //   In fact. TypeDescriptor should become the IR counterpart to DataType from the AST.
         if (base.equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
             return format("timestamp(%s) with time zone", parameters.get(0));
         }
@@ -165,7 +165,7 @@ public final class TypeDescriptor
         return hash;
     }
 
-    // Type signature constructors for common types
+    // Type descriptor constructors for common types
 
     public static TypeDescriptor arrayType(TypeDescriptor elementType)
     {

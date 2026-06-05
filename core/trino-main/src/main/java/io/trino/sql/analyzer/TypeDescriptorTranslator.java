@@ -111,7 +111,7 @@ public final class TypeDescriptorTranslator
     }
 
     /**
-     * Parses a ground type signature — one that refers to no signature variables. Function signature
+     * Parses a ground type descriptor — one that refers to no signature variables. Function signature
      * argument and return types, which may reference a function's type or numeric variables, are parsed
      * with {@link #parseTypeTemplate} instead.
      */
@@ -346,9 +346,9 @@ public final class TypeDescriptorTranslator
     }
 
     @VisibleForTesting
-    static DataType toDataType(TypeDescriptor typeSignature)
+    static DataType toDataType(TypeDescriptor typeDescriptor)
     {
-        return switch (typeSignature.getBase()) {
+        return switch (typeDescriptor.getBase()) {
             case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(
                     Optional.empty(),
                     new CompositeIntervalQualifier(
@@ -367,33 +367,33 @@ public final class TypeDescriptorTranslator
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
                     true,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
                             .map(TypeDescriptorTranslator::toTypeParameter));
             case TIMESTAMP -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
                     false,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
                             .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     true,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
                             .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     false,
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .findAny()
                             .map(TypeDescriptorTranslator::toTypeParameter));
             case ROW -> new RowDataType(
                     Optional.empty(),
-                    typeSignature.getParameters().stream()
+                    typeDescriptor.getParameters().stream()
                             .map(parameter -> {
                                 TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
                                 return new RowDataType.Field(
@@ -404,15 +404,15 @@ public final class TypeDescriptorTranslator
                             .collect(toImmutableList()));
             case VARCHAR -> new GenericDataType(
                     Optional.empty(),
-                    new Identifier(typeSignature.getBase(), false),
-                    typeSignature.getParameters().stream()
+                    new Identifier(typeDescriptor.getBase(), false),
+                    typeDescriptor.getParameters().stream()
                             .filter(parameter -> ((TypeParameter.Numeric) parameter).value() != UNBOUNDED_LENGTH)
                             .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()));
             default -> new GenericDataType(
                     Optional.empty(),
-                    new Identifier(typeSignature.getBase(), false),
-                    typeSignature.getParameters().stream()
+                    new Identifier(typeDescriptor.getBase(), false),
+                    typeDescriptor.getParameters().stream()
                             .map(TypeDescriptorTranslator::toTypeParameter)
                             .collect(toImmutableList()));
         };

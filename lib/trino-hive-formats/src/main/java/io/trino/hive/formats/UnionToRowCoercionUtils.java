@@ -42,12 +42,12 @@ public final class UnionToRowCoercionUtils
         return RowType.from(fields.build());
     }
 
-    public static TypeDescriptor rowTypeSignatureForUnionOfTypes(List<TypeDescriptor> typeSignatures)
+    public static TypeDescriptor rowTypeDescriptorForUnionOfTypes(List<TypeDescriptor> typeDescriptors)
     {
         ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
         fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeDescriptor()));
-        for (int i = 0; i < typeSignatures.size(); i++) {
-            fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeSignatures.get(i)));
+        for (int i = 0; i < typeDescriptors.size(); i++) {
+            fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeDescriptors.get(i)));
         }
         return TypeDescriptor.rowType(fields.build());
     }

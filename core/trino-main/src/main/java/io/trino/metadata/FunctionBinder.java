@@ -46,7 +46,7 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionKind.SCALAR;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -126,10 +126,10 @@ class FunctionBinder
     private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
     {
         return new SignatureBinder(metadata, typeManager, declaredSignature, false)
-                .canBind(fromTypeSignatures(groundArgumentTypes(actualSignature)), TypeTemplates.toTypeDescriptor(actualSignature.getReturnType()));
+                .canBind(fromTypeDescriptors(groundArgumentTypes(actualSignature)), TypeTemplates.toTypeDescriptor(actualSignature.getReturnType()));
     }
 
-    // A fully-bound (ground) Signature's argument types, lowered to TypeSignatures.
+    // A fully-bound (ground) Signature's argument types, lowered to TypeDescriptors.
     private static List<TypeDescriptor> groundArgumentTypes(Signature signature)
     {
         return signature.getArgumentTypes().stream()
@@ -325,14 +325,14 @@ class FunctionBinder
         return false;
     }
 
-    private Optional<List<Type>> toTypes(List<TypeDescriptorProvider> typeSignatureProviders)
+    private Optional<List<Type>> toTypes(List<TypeDescriptorProvider> typeDescriptorProviders)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (TypeDescriptorProvider typeSignatureProvider : typeSignatureProviders) {
-            if (typeSignatureProvider.hasDependency()) {
+        for (TypeDescriptorProvider typeDescriptorProvider : typeDescriptorProviders) {
+            if (typeDescriptorProvider.hasDependency()) {
                 return Optional.empty();
             }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeDescriptor()));
+            resultBuilder.add(typeManager.getType(typeDescriptorProvider.getTypeDescriptor()));
         }
         return Optional.of(resultBuilder.build());
     }
@@ -342,7 +342,7 @@ class FunctionBinder
      */
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
-        List<TypeDescriptorProvider> resolvedTypes = fromTypeSignatures(groundArgumentTypes(left.boundSignature()));
+        List<TypeDescriptorProvider> resolvedTypes = fromTypeDescriptors(groundArgumentTypes(left.boundSignature()));
         return new SignatureBinder(metadata, typeManager, right.declaredSignature(), true)
                 .canBind(resolvedTypes);
     }

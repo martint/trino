@@ -100,9 +100,9 @@ public class FunctionDependencyDeclaration
 
         private FunctionDependencyDeclarationBuilder() {}
 
-        public FunctionDependencyDeclarationBuilder addType(TypeDescriptor typeSignature)
+        public FunctionDependencyDeclarationBuilder addType(TypeDescriptor typeDescriptor)
         {
-            typeDependencies.add(TypeTemplates.fromTypeDescriptor(typeSignature));
+            typeDependencies.add(TypeTemplates.fromTypeDescriptor(typeDescriptor));
             return this;
         }
 

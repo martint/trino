@@ -150,10 +150,10 @@ import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
-import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
+import io.trino.type.TypeDeserializer;
+import io.trino.type.TypeOperatorsCache;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
 

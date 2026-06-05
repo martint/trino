@@ -25,7 +25,7 @@ import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.parser.ParserAssert.type;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTypeSignatureTranslator
+public class TestTypeDescriptorTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 

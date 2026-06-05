@@ -63,11 +63,11 @@ public class BuiltinFunctionCallBuilder
         return addArgument(type.getTypeDescriptor(), value);
     }
 
-    public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeSignature, Expression value)
+    public BuiltinFunctionCallBuilder addArgument(TypeDescriptor typeDescriptor, Expression value)
     {
-        requireNonNull(typeSignature, "typeSignature is null");
+        requireNonNull(typeDescriptor, "typeDescriptor is null");
         requireNonNull(value, "value is null");
-        argumentTypes.add(typeSignature);
+        argumentTypes.add(typeDescriptor);
         argumentValues.add(value);
         return this;
     }
@@ -85,7 +85,7 @@ public class BuiltinFunctionCallBuilder
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeDescriptorProvider.fromTypeSignatures(argumentTypes));
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeDescriptorProvider.fromTypeDescriptors(argumentTypes));
         return new Call(resolvedFunction, argumentValues);
     }
 }
