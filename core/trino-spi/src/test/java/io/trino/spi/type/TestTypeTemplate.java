@@ -100,7 +100,7 @@ class TestTypeTemplate
         TypeDescriptor signature = new TypeDescriptor("array", List.of(typeParameter(
                 new TypeDescriptor("decimal", List.of(numericParameter(10), numericParameter(2))))));
 
-        TypeTemplate template = TypeTemplates.fromTypeSignature(signature);
+        TypeTemplate template = TypeTemplates.fromTypeDescriptor(signature);
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(signature);
     }
 

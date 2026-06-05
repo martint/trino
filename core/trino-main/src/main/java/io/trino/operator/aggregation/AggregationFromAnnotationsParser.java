@@ -422,7 +422,7 @@ public final class AggregationFromAnnotationsParser
             // type, but this will only work if there are no dependencies
             checkArgument(allDependencies.isEmpty(), "serializedType must be set for state %s with dependencies", stateClass);
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
-            serializedType = TypeTemplates.fromTypeSignature(serializer.getSerializedType().getTypeSignature());
+            serializedType = TypeTemplates.fromTypeDescriptor(serializer.getSerializedType().getTypeSignature());
             // since there are no dependencies, the same serializer can be used for all
             serializerGenerator = (_, _) -> serializer;
         }

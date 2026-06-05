@@ -524,7 +524,7 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
-                        .castableTo(TypeTemplates.fromTypeSignature(new TypeDescriptor("variant")))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(new TypeDescriptor("variant")))
                         .build())
                 .build();
 
@@ -1050,7 +1050,7 @@ public class TestSignatureBinder
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(VARCHAR)
-                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeSignature(VARCHAR.getTypeSignature()), numericType("varchar", numericVariable("x"))))
+                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeSignature()), numericType("varchar", numericVariable("x"))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()
@@ -1168,7 +1168,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(TypeTemplates.fromTypeSignature(parseTypeSignature("variant")))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(parseTypeSignature("variant")))
                         .build())
                 .build();
 
@@ -1186,7 +1186,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(TypeTemplates.fromTypeSignature(TIMESTAMP_MILLIS.getTypeSignature()))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(TIMESTAMP_MILLIS.getTypeSignature()))
                         .build())
                 .build();
 
@@ -1204,7 +1204,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableFrom(TypeTemplates.fromTypeSignature(parseTypeSignature("json")))
+                        .castableFrom(TypeTemplates.fromTypeDescriptor(parseTypeSignature("json")))
                         .build())
                 .build();
 

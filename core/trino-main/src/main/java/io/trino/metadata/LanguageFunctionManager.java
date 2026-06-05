@@ -566,10 +566,10 @@ public class LanguageFunctionManager
 
             private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
             {
-                Type returnType = typeManager.getType(TypeTemplates.toTypeSignature(functionMetadata.getSignature().getReturnType()));
+                Type returnType = typeManager.getType(TypeTemplates.toTypeDescriptor(functionMetadata.getSignature().getReturnType()));
 
                 List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
-                        .map(TypeTemplates::toTypeSignature)
+                        .map(TypeTemplates::toTypeDescriptor)
                         .map(typeManager::getType)
                         .collect(toImmutableList());
 

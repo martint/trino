@@ -126,14 +126,14 @@ class FunctionBinder
     private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
     {
         return new SignatureBinder(metadata, typeManager, declaredSignature, false)
-                .canBind(fromTypeSignatures(groundArgumentTypes(actualSignature)), TypeTemplates.toTypeSignature(actualSignature.getReturnType()));
+                .canBind(fromTypeSignatures(groundArgumentTypes(actualSignature)), TypeTemplates.toTypeDescriptor(actualSignature.getReturnType()));
     }
 
     // A fully-bound (ground) Signature's argument types, lowered to TypeSignatures.
     private static List<TypeDescriptor> groundArgumentTypes(Signature signature)
     {
         return signature.getArgumentTypes().stream()
-                .map(TypeTemplates::toTypeSignature)
+                .map(TypeTemplates::toTypeDescriptor)
                 .collect(toImmutableList());
     }
 
@@ -296,7 +296,7 @@ class FunctionBinder
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(TypeTemplates.toTypeSignature(function.boundSignature().getReturnType())))
+                .map(function -> typeManager.getType(TypeTemplates.toTypeDescriptor(function.boundSignature().getReturnType())))
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -354,7 +354,7 @@ class FunctionBinder
                         functionMetadata.catalogHandle().getCatalogName().toString(),
                         functionMetadata.schemaName(),
                         functionMetadata.functionMetadata().getCanonicalName()),
-                typeManager.getType(TypeTemplates.toTypeSignature(signature.getReturnType())),
+                typeManager.getType(TypeTemplates.toTypeDescriptor(signature.getReturnType())),
                 groundArgumentTypes(signature).stream()
                         .map(typeManager::getType)
                         .collect(toImmutableList()));

@@ -683,7 +683,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastFromRow(Type toType, Signature signature)
     {
         // the return type must match toType
-        if (!signature.getReturnType().equals(TypeTemplates.fromTypeSignature(toType.getTypeSignature()))) {
+        if (!signature.getReturnType().equals(TypeTemplates.fromTypeDescriptor(toType.getTypeSignature()))) {
             return false;
         }
 
@@ -710,7 +710,7 @@ public class SignatureBinder
     private static boolean isRecursiveCastToRow(Type fromType, Signature signature)
     {
         // the argument type must match fromType
-        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeSignature(fromType.getTypeSignature()))) {
+        if (signature.getArgumentTypes().size() != 1 || !signature.getArgumentTypes().getFirst().equals(TypeTemplates.fromTypeDescriptor(fromType.getTypeSignature()))) {
             return false;
         }
 
@@ -997,7 +997,7 @@ public class SignatureBinder
                     lambdaArgumentTypesBuilder.add(typeVariable);
                 }
                 else {
-                    lambdaArgumentTypesBuilder.add(typeManager.getType(TypeTemplates.toTypeSignature(lambdaArgument)));
+                    lambdaArgumentTypesBuilder.add(typeManager.getType(TypeTemplates.toTypeDescriptor(lambdaArgument)));
                 }
             }
             return Optional.of(lambdaArgumentTypesBuilder.build());

@@ -202,7 +202,7 @@ public class Signature
 
         public Builder castableToTypeParameter(String name, TypeDescriptor toType)
         {
-            return castableToTypeParameter(name, TypeTemplates.fromTypeSignature(toType));
+            return castableToTypeParameter(name, TypeTemplates.fromTypeDescriptor(toType));
         }
 
         public Builder castableFromTypeParameter(String name, TypeTemplate fromType)
@@ -214,7 +214,7 @@ public class Signature
 
         public Builder castableFromTypeParameter(String name, TypeDescriptor fromType)
         {
-            return castableFromTypeParameter(name, TypeTemplates.fromTypeSignature(fromType));
+            return castableFromTypeParameter(name, TypeTemplates.fromTypeDescriptor(fromType));
         }
 
         public Builder rowTypeParameter(String name)
@@ -244,7 +244,7 @@ public class Signature
 
         public Builder returnType(TypeDescriptor returnType)
         {
-            return returnType(TypeTemplates.fromTypeSignature(returnType));
+            return returnType(TypeTemplates.fromTypeDescriptor(returnType));
         }
 
         public Builder returnType(Type returnType)
@@ -296,12 +296,12 @@ public class Signature
 
         public Builder argumentType(TypeDescriptor type)
         {
-            return argumentType(TypeTemplates.fromTypeSignature(type));
+            return argumentType(TypeTemplates.fromTypeDescriptor(type));
         }
 
         public Builder argumentType(TypeDescriptor type, String name)
         {
-            return argumentType(TypeTemplates.fromTypeSignature(type), name);
+            return argumentType(TypeTemplates.fromTypeDescriptor(type), name);
         }
 
         public Builder argumentType(Type type)

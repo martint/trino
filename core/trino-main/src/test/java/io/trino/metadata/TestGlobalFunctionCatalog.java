@@ -99,7 +99,7 @@ public class TestGlobalFunctionCatalog
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
-                    .map(TypeTemplates::toTypeSignature)
+                    .map(TypeTemplates::toTypeDescriptor)
                     .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
             BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).signature();

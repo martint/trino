@@ -102,7 +102,7 @@ public class FunctionDependencyDeclaration
 
         public FunctionDependencyDeclarationBuilder addType(TypeDescriptor typeSignature)
         {
-            typeDependencies.add(TypeTemplates.fromTypeSignature(typeSignature));
+            typeDependencies.add(TypeTemplates.fromTypeDescriptor(typeSignature));
             return this;
         }
 
@@ -209,7 +209,7 @@ public class FunctionDependencyDeclaration
 
         private static TypeTemplate toTemplate(Type type)
         {
-            return TypeTemplates.fromTypeSignature(type.getTypeSignature());
+            return TypeTemplates.fromTypeDescriptor(type.getTypeSignature());
         }
     }
 

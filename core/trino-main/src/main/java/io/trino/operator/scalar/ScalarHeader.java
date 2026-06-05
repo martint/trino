@@ -101,7 +101,7 @@ public class ScalarHeader
             if (staticMethod != null) {
                 TypeDescriptor parsed = parseTypeSignature(staticMethod.value());
                 checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
-                receiverType = Optional.of(TypeTemplates.fromTypeSignature(parsed));
+                receiverType = Optional.of(TypeTemplates.fromTypeDescriptor(parsed));
             }
             builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
         }

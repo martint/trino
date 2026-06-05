@@ -164,7 +164,7 @@ public final class TypeDescriptorTranslator
             case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
             case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
             // Interval types are always ground; lift the ground signature into a (variable-free) template.
-            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeSignature(toTypeSignature(intervalDataType));
+            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeDescriptor(toTypeSignature(intervalDataType));
         };
     }
 
@@ -184,7 +184,7 @@ public final class TypeDescriptorTranslator
 
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
             // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeSignature.
-            return TypeTemplates.fromTypeSignature(VarcharType.VARCHAR.getTypeSignature());
+            return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeSignature());
         }
 
         List<TemplateParameter> parameters = new ArrayList<>();

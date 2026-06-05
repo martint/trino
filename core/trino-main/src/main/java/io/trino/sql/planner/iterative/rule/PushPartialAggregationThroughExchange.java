@@ -200,7 +200,7 @@ public class PushPartialAggregationThroughExchange
             ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
             AggregationFunctionMetadata functionMetadata = plannerContext.getMetadata().getAggregationFunctionMetadata(context.getSession(), resolvedFunction);
             List<Type> intermediateTypes = functionMetadata.getIntermediateTypes().stream()
-                    .map(TypeTemplates::toTypeSignature)
+                    .map(TypeTemplates::toTypeDescriptor)
                     .map(plannerContext.getTypeManager()::getType)
                     .collect(toImmutableList());
             Type intermediateType = intermediateTypes.size() == 1 ? intermediateTypes.get(0) : RowType.anonymous(intermediateTypes);

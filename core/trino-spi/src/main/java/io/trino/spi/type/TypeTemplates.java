@@ -69,7 +69,7 @@ public final class TypeTemplates
     /**
      * Lowers a ground template to a type signature. Fails if the template carries an unbound variable.
      */
-    public static TypeDescriptor toTypeSignature(TypeTemplate template)
+    public static TypeDescriptor toTypeDescriptor(TypeTemplate template)
     {
         return bind(template, Map.of(), Map.of());
     }
@@ -143,7 +143,7 @@ public final class TypeTemplates
      * {@link #canonicalizeTypeVariables} promotes it to a {@link TypeTemplate.TypeVariable} once the declared
      * type-variable names are known.
      */
-    public static TypeTemplate fromTypeSignature(TypeDescriptor signature)
+    public static TypeTemplate fromTypeDescriptor(TypeDescriptor signature)
     {
         List<TemplateParameter> parameters = new ArrayList<>(signature.getParameters().size());
         for (TypeParameter parameter : signature.getParameters()) {
@@ -155,7 +155,7 @@ public final class TypeTemplates
     private static TemplateParameter fromTypeParameter(TypeParameter parameter)
     {
         return switch (parameter) {
-            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> new TypeArgument(name, fromTypeSignature(type));
+            case TypeParameter.Type(Optional<String> name, TypeDescriptor type) -> new TypeArgument(name, fromTypeDescriptor(type));
             case TypeParameter.Numeric(long value) -> new NumericArgument(new NumericExpression.Literal(value));
         };
     }
