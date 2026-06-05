@@ -64,7 +64,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -1516,7 +1516,7 @@ public class TestEventListenerBasic
         JsonMapper jsonMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
                         Symbol.class, new SymbolKeyDeserializer(typeManager),
-                        TypeDescriptor.class, new TypeSignatureKeyDeserializer()))
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer()))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager)))
                 .get();

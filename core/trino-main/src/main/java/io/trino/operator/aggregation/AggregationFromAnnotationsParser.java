@@ -73,7 +73,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.parseDescripti
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -390,7 +390,7 @@ public final class AggregationFromAnnotationsParser
     {
         StateMetadata metadata = StateMetadata.create(getMetadataAnnotation(stateClass));
         // Generic state classes have their own type variables, that must be mapped to the aggregation's type variables
-        TypeSignatureMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
+        TypeDescriptorMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
 
         if (stateClass.equals(InOut.class)) {
             String typeVariable = typeParameterMapping.mapTypeSignature(new TypeDescriptor("T")).toString();
@@ -468,11 +468,11 @@ public final class AggregationFromAnnotationsParser
                 ImmutableList.of(new TypeImplementationDependency(TypeTemplates.typeVariable(typeVariable))));
     }
 
-    private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)
+    private static TypeDescriptorMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)
     {
         List<String> expectedTypeParameters = metadata.typeParameters();
         if (expectedTypeParameters.isEmpty()) {
-            return new TypeSignatureMapping(ImmutableMap.of());
+            return new TypeDescriptorMapping(ImmutableMap.of());
         }
         checkArgument(declaredTypeParameters.size() == expectedTypeParameters.size(), "AggregationState %s requires %s type parameters", stateClass, expectedTypeParameters.size());
 
@@ -482,10 +482,10 @@ public final class AggregationFromAnnotationsParser
             String expectedTypeParameter = expectedTypeParameters.get(parameterIndex);
             mapping.put(expectedTypeParameter, declaredTypeParameter);
         }
-        return new TypeSignatureMapping(mapping.buildOrThrow());
+        return new TypeDescriptorMapping(mapping.buildOrThrow());
     }
 
-    private static List<ImplementationDependency> parseImplementationDependencies(TypeSignatureMapping typeSignatureMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeSignatureMapping, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 

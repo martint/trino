@@ -41,7 +41,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ExpressionFormatter;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
@@ -80,7 +80,7 @@ public final class ProtocolUtil
 
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
-        String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+        String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
 
         return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
     }

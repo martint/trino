@@ -81,7 +81,7 @@ public class TestJsonPath2016TypeSerialization
     private static final JsonMapper OBJECT_MAPPER = new JsonMapperProvider()
             .withJsonDeserializers(ImmutableMap.of(
                     Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                    TypeDescriptor.class, new TypeSignatureDeserializer(),
+                    TypeDescriptor.class, new TypeDescriptorDeserializer(),
                     Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
             .withJsonSerializers(ImmutableMap.of(
                     Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))

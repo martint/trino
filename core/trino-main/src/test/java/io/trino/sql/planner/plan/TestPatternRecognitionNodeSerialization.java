@@ -48,7 +48,7 @@ import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrConcatenation;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -85,7 +85,7 @@ public class TestPatternRecognitionNodeSerialization
     static {
         JsonMapper objectMapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                        TypeDescriptor.class, new TypeSignatureKeyDeserializer(),
+                        TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                         Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),

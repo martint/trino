@@ -48,8 +48,8 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
-import io.trino.type.TypeSignatureDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -77,9 +77,9 @@ public class TestQueryInfo
                                 Span.class, new SpanSerializer(OpenTelemetry.noop())))
                         .withJsonDeserializers(Map.of(
                                 Span.class, new SpanDeserializer(OpenTelemetry.noop()),
-                                TypeDescriptor.class, new TypeSignatureDeserializer()))
+                                TypeDescriptor.class, new TypeDescriptorDeserializer()))
                         .withKeyDeserializers(Map.of(
-                                TypeDescriptor.class, new TypeSignatureKeyDeserializer(),
+                                TypeDescriptor.class, new TypeDescriptorKeyDeserializer(),
                                 Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                         .get())
                 .jsonCodec(QueryInfo.class);

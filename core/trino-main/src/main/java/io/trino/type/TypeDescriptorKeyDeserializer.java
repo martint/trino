@@ -16,9 +16,9 @@ package io.trino.type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
 
-public final class TypeSignatureKeyDeserializer
+public final class TypeDescriptorKeyDeserializer
         extends KeyDeserializer
 {
     @Override

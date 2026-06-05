@@ -69,7 +69,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
-public final class TypeSignatureTranslator
+public final class TypeDescriptorTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -93,7 +93,7 @@ public final class TypeSignatureTranslator
             .or(CharMatcher.inRange('0', '9'))
             .precomputed();
 
-    private TypeSignatureTranslator() {}
+    private TypeDescriptorTranslator() {}
 
     public static DataType toSqlType(Type type)
     {
@@ -219,7 +219,7 @@ public final class TypeSignatureTranslator
     {
         List<TemplateParameter> parameters = type.getFields().stream()
                 .map(field -> (TemplateParameter) new TemplateParameter.TypeArgument(
-                        field.getName().map(TypeSignatureTranslator::canonicalize),
+                        field.getName().map(TypeDescriptorTranslator::canonicalize),
                         toTypeTemplate(field.getType(), typeVariables, numericVariables)))
                 .collect(toImmutableList());
         return new TypeTemplate.TypeApplication(ROW, parameters);
@@ -281,7 +281,7 @@ public final class TypeSignatureTranslator
     {
         List<TypeParameter> parameters = type.getFields().stream()
                 .map(field -> typeParameter(
-                        field.getName().map(TypeSignatureTranslator::canonicalize),
+                        field.getName().map(TypeDescriptorTranslator::canonicalize),
                         toTypeSignature(field.getType())))
                 .collect(toImmutableList());
 
@@ -369,28 +369,28 @@ public final class TypeSignatureTranslator
                     true,
                     typeSignature.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIMESTAMP -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
                     false,
                     typeSignature.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     true,
                     typeSignature.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case TIME -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIME,
                     false,
                     typeSignature.getParameters().stream()
                             .findAny()
-                            .map(TypeSignatureTranslator::toTypeParameter));
+                            .map(TypeDescriptorTranslator::toTypeParameter));
             case ROW -> new RowDataType(
                     Optional.empty(),
                     typeSignature.getParameters().stream()
@@ -413,7 +413,7 @@ public final class TypeSignatureTranslator
                     Optional.empty(),
                     new Identifier(typeSignature.getBase(), false),
                     typeSignature.getParameters().stream()
-                            .map(TypeSignatureTranslator::toTypeParameter)
+                            .map(TypeDescriptorTranslator::toTypeParameter)
                             .collect(toImmutableList()));
         };
     }

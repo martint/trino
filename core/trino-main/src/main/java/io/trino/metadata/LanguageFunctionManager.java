@@ -49,7 +49,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.routine.SqlRoutineAnalysis;
 import io.trino.sql.routine.SqlRoutineAnalyzer;
@@ -255,7 +255,7 @@ public class LanguageFunctionManager
     {
         return parameters.stream()
                 .map(ParameterDeclaration::getType)
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeSignature)
                 .map(typeManager::getType)
                 .map(Type::getTypeId)
                 .map(TypeId::getId)

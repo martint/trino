@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Comparator;
 import java.util.Locale;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toDataType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toDataType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeSignature;
 import static io.trino.sql.parser.ParserAssert.type;
 import static org.assertj.core.api.Assertions.assertThat;
 

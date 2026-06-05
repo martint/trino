@@ -18,13 +18,13 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeDescriptor;
 
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
 
-public final class TypeSignatureDeserializer
+public final class TypeDescriptorDeserializer
         extends FromStringDeserializer<TypeDescriptor>
 {
     @Inject
-    public TypeSignatureDeserializer()
+    public TypeDescriptorDeserializer()
     {
         super(TypeDescriptor.class);
     }

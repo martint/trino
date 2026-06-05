@@ -223,7 +223,7 @@ import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
-import io.trino.type.TypeSignatureDeserializer;
+import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 
@@ -411,7 +411,7 @@ public class PlanTester
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(typeManager),
-                        TypeDescriptor.class, new TypeSignatureDeserializer(),
+                        TypeDescriptor.class, new TypeDescriptorDeserializer(),
                         Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)))
                 .withJsonSerializers(ImmutableMap.of(
                         Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)))

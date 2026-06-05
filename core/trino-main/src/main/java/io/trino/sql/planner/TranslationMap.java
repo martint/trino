@@ -40,7 +40,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -1190,7 +1190,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeSignature)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 
@@ -1257,7 +1257,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeSignature)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 
@@ -1313,7 +1313,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeSignature)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 

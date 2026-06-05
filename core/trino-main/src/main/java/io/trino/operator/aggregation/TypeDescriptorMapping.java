@@ -35,11 +35,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
-class TypeSignatureMapping
+class TypeDescriptorMapping
 {
     // A type variable name follows the [A-Z][A-Z0-9]* convention; anything else a state parameter is bound to
     // (varchar, bigint, array(bigint), ...) is a concrete type.
@@ -48,7 +48,7 @@ class TypeSignatureMapping
     private final Map<String, String> mapping;
     private final Set<String> typeVariableTargets;
 
-    public TypeSignatureMapping(Map<String, String> mapping)
+    public TypeDescriptorMapping(Map<String, String> mapping)
     {
         this.mapping = mapping.entrySet().stream()
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));

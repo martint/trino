@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.type.TypeParameter.numericParameter;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -68,7 +68,7 @@ class TestParseTypeTemplate
     {
         // A variable-free template parses and binds to the same signature TypeSignatureTranslator would produce.
         TypeTemplate template = parseTypeTemplate("row(a decimal(10,2), b varchar(5))", Set.of(), Set.of());
-        TypeDescriptor expected = TypeSignatureTranslator.parseTypeSignature("row(a decimal(10,2), b varchar(5))");
+        TypeDescriptor expected = TypeDescriptorTranslator.parseTypeSignature("row(a decimal(10,2), b varchar(5))");
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(expected);
     }
 
