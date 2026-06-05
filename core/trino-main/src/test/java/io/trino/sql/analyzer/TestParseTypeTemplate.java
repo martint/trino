@@ -68,7 +68,7 @@ class TestParseTypeTemplate
     {
         // A variable-free template parses and binds to the same signature TypeSignatureTranslator would produce.
         TypeTemplate template = parseTypeTemplate("row(a decimal(10,2), b varchar(5))", Set.of(), Set.of());
-        TypeDescriptor expected = TypeDescriptorTranslator.parseTypeSignature("row(a decimal(10,2), b varchar(5))");
+        TypeDescriptor expected = TypeDescriptorTranslator.parseTypeDescriptor("row(a decimal(10,2), b varchar(5))");
         assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(expected);
     }
 

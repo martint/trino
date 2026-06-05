@@ -173,7 +173,7 @@ public final class HiveTypeTranslator
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    public static TypeDescriptor toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
+    public static TypeDescriptor toTypeDescriptor(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
         return switch (typeInfo.getCategory()) {
             case PRIMITIVE -> {
@@ -186,12 +186,12 @@ public final class HiveTypeTranslator
             case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 yield mapType(
-                        toTypeSignature(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
-                        toTypeSignature(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
+                        toTypeDescriptor(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
+                        toTypeDescriptor(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
             }
             case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                TypeDescriptor elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
+                TypeDescriptor elementType = toTypeDescriptor(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
                 yield arrayType(typeParameter(elementType));
             }
             case STRUCT -> {
@@ -207,7 +207,7 @@ public final class HiveTypeTranslator
                                 // Users can't work around this by casting in their queries because Trino parser always lower case types.
                                 // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
                                 fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
-                                fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
+                                fieldTypes.stream().map(type -> toTypeDescriptor(type, timestampPrecision)),
                                 TypeParameter::namedField)
                         .collect(Collectors.toList()));
             }
@@ -216,7 +216,7 @@ public final class HiveTypeTranslator
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
                 yield rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
-                        .map(unionObjectType -> toTypeSignature(unionObjectType, timestampPrecision))
+                        .map(unionObjectType -> toTypeDescriptor(unionObjectType, timestampPrecision))
                         .collect(toImmutableList()));
             }
         };

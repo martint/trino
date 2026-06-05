@@ -100,13 +100,13 @@ public final class TypeDescriptorTranslator
         return toDataType(type.getTypeSignature());
     }
 
-    public static TypeDescriptor toTypeSignature(DataType type)
+    public static TypeDescriptor toTypeDescriptor(DataType type)
     {
         return switch (type) {
-            case DateTimeDataType dateTimeDataType -> toTypeSignature(dateTimeDataType);
-            case IntervalDataType intervalDataType -> toTypeSignature(intervalDataType);
-            case RowDataType rowDataType -> toTypeSignature(rowDataType);
-            case GenericDataType genericDataType -> toTypeSignature(genericDataType);
+            case DateTimeDataType dateTimeDataType -> toTypeDescriptor(dateTimeDataType);
+            case IntervalDataType intervalDataType -> toTypeDescriptor(intervalDataType);
+            case RowDataType rowDataType -> toTypeDescriptor(rowDataType);
+            case GenericDataType genericDataType -> toTypeDescriptor(genericDataType);
         };
     }
 
@@ -115,10 +115,10 @@ public final class TypeDescriptorTranslator
      * argument and return types, which may reference a function's type or numeric variables, are parsed
      * with {@link #parseTypeTemplate} instead.
      */
-    public static TypeDescriptor parseTypeSignature(String signature)
+    public static TypeDescriptor parseTypeDescriptor(String signature)
     {
         try {
-            return toTypeSignature(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
+            return toTypeDescriptor(DATA_TYPE_CACHE.get(signature.toLowerCase(ENGLISH), () -> parseDataType(signature)));
         }
         catch (Exception e) {
             if (e.getCause() != null) {
@@ -131,7 +131,7 @@ public final class TypeDescriptorTranslator
 
     /**
      * Parses a type template — the open, variable-bearing form used in function signature argument and
-     * return positions. Unlike {@link #parseTypeSignature}, a variable's kind is structural in the result,
+     * return positions. Unlike {@link #parseTypeDescriptor}, a variable's kind is structural in the result,
      * so the declared type-variable and numeric-variable names are passed separately (the syntax alone
      * cannot tell {@code E} in {@code array(E)} from a numeric {@code p} in {@code decimal(p, s)}).
      */
@@ -164,7 +164,7 @@ public final class TypeDescriptorTranslator
             case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
             case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
             // Interval types are always ground; lift the ground signature into a (variable-free) template.
-            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeDescriptor(toTypeSignature(intervalDataType));
+            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeDescriptor(toTypeDescriptor(intervalDataType));
         };
     }
 
@@ -183,7 +183,7 @@ public final class TypeDescriptorTranslator
                 name);
 
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
-            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeSignature.
+            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeDescriptor.
             return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeSignature());
         }
 
@@ -252,7 +252,7 @@ public final class TypeDescriptorTranslator
         return new TypeTemplate.TypeApplication(base, parameters);
     }
 
-    private static TypeDescriptor toTypeSignature(GenericDataType type)
+    private static TypeDescriptor toTypeDescriptor(GenericDataType type)
     {
         ImmutableList.Builder<TypeParameter> parameters = ImmutableList.builder();
 
@@ -268,7 +268,7 @@ public final class TypeDescriptorTranslator
                     parameters.add(numericParameter(numericParameter.getParsedValue()));
                 }
                 case io.trino.sql.tree.TypeParameter typeParameter -> {
-                    parameters.add(typeParameter(toTypeSignature(typeParameter.getValue())));
+                    parameters.add(typeParameter(toTypeDescriptor(typeParameter.getValue())));
                 }
                 default -> throw new UnsupportedOperationException("Unsupported type parameter kind: " + parameter.getClass().getName());
             }
@@ -277,18 +277,18 @@ public final class TypeDescriptorTranslator
         return new TypeDescriptor(canonicalize(type.getName()), parameters.build());
     }
 
-    private static TypeDescriptor toTypeSignature(RowDataType type)
+    private static TypeDescriptor toTypeDescriptor(RowDataType type)
     {
         List<TypeParameter> parameters = type.getFields().stream()
                 .map(field -> typeParameter(
                         field.getName().map(TypeDescriptorTranslator::canonicalize),
-                        toTypeSignature(field.getType())))
+                        toTypeDescriptor(field.getType())))
                 .collect(toImmutableList());
 
         return new TypeDescriptor(ROW, parameters);
     }
 
-    private static TypeDescriptor toTypeSignature(IntervalDataType type)
+    private static TypeDescriptor toTypeDescriptor(IntervalDataType type)
     {
         if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
                 qualifier.getFrom() instanceof IntervalField.Year() &&
@@ -308,7 +308,7 @@ public final class TypeDescriptorTranslator
         throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
     }
 
-    private static TypeDescriptor toTypeSignature(DateTimeDataType type)
+    private static TypeDescriptor toTypeDescriptor(DateTimeDataType type)
     {
         boolean withTimeZone = type.isWithTimeZone();
 

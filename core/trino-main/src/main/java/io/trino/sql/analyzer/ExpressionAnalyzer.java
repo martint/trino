@@ -281,7 +281,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -2768,7 +2768,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
+                type = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getType()));
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
@@ -3141,7 +3141,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
@@ -3293,7 +3293,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (declaredReturnedType.isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(declaredReturnedType.get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
@@ -3609,7 +3609,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
@@ -3719,7 +3719,7 @@ public class ExpressionAnalyzer
             Type returnedType = VARCHAR; // default
             if (node.getReturnedType().isPresent()) {
                 try {
-                    returnedType = plannerContext.getTypeManager().getType(toTypeSignature(node.getReturnedType().get()));
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());

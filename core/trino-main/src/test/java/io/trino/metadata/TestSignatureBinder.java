@@ -53,7 +53,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.JsonType.JSON;
@@ -1168,7 +1168,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableTo(TypeTemplates.fromTypeDescriptor(parseTypeSignature("variant")))
+                        .castableTo(TypeTemplates.fromTypeDescriptor(parseTypeDescriptor("variant")))
                         .build())
                 .build();
 
@@ -1204,7 +1204,7 @@ public class TestSignatureBinder
                 .argumentType(new TypeDescriptor("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
                         .rowType()
-                        .castableFrom(TypeTemplates.fromTypeDescriptor(parseTypeSignature("json")))
+                        .castableFrom(TypeTemplates.fromTypeDescriptor(parseTypeDescriptor("json")))
                         .build())
                 .build();
 

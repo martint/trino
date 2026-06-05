@@ -89,7 +89,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -707,7 +707,7 @@ public class ParametricScalarImplementation
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter typeParameter) {
-                    checkTypeParameters(parseTypeSignature(typeParameter.value()), constructorTypeParameterNames, method);
+                    checkTypeParameters(parseTypeDescriptor(typeParameter.value()), constructorTypeParameterNames, method);
                 }
                 constructorDependencies.add(createDependency(annotation, constructorTypeParameterNames, literalParameters, constructor.getParameterTypes()[i]));
             }

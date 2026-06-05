@@ -86,7 +86,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VariantType.VARIANT;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.ColorType.COLOR;
@@ -203,7 +203,7 @@ public final class TypeRegistry
     public Type fromSqlType(String sqlType)
     {
         try {
-            return sqlTypeCache.get(sqlType, () -> getType(toTypeSignature(SQL_PARSER.createType(sqlType))));
+            return sqlTypeCache.get(sqlType, () -> getType(toTypeDescriptor(SQL_PARSER.createType(sqlType))));
         }
         catch (ParsingException e) {
             throw new TypeNotFoundException(sqlType, e);

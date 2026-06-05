@@ -1226,11 +1226,11 @@ public class TestAnnotationEngineForAggregates
     private static List<TypeDescriptor> toTypeSignatures(List<TypeTemplate> templates)
     {
         return templates.stream()
-                .map(TestAnnotationEngineForAggregates::toTypeSignature)
+                .map(TestAnnotationEngineForAggregates::toTypeDescriptor)
                 .collect(toImmutableList());
     }
 
-    private static TypeDescriptor toTypeSignature(TypeTemplate template)
+    private static TypeDescriptor toTypeDescriptor(TypeTemplate template)
     {
         return switch (template) {
             case TypeTemplate.TypeVariable(String name) -> new TypeDescriptor(name);
@@ -1238,7 +1238,7 @@ public class TestAnnotationEngineForAggregates
                     base,
                     parameters.stream()
                             .map(parameter -> switch (parameter) {
-                                case io.trino.spi.type.TemplateParameter.TypeArgument(var name, var type) -> io.trino.spi.type.TypeParameter.typeParameter(name, toTypeSignature(type));
+                                case io.trino.spi.type.TemplateParameter.TypeArgument(var name, var type) -> io.trino.spi.type.TypeParameter.typeParameter(name, toTypeDescriptor(type));
                                 case io.trino.spi.type.TemplateParameter.NumericArgument(io.trino.spi.type.NumericExpression value) -> io.trino.spi.type.TypeParameter.numericParameter(((io.trino.spi.type.NumericExpression.Literal) value).value());
                             })
                             .collect(toImmutableList()));

@@ -1190,7 +1190,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeDescriptorTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 
@@ -1257,7 +1257,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeDescriptorTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 
@@ -1313,7 +1313,7 @@ public class TranslationMap
 
         // cast to requested returned type
         Type returnedType = node.getReturnedType()
-                .map(TypeDescriptorTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(plannerContext.getTypeManager()::getType)
                 .orElse(VARCHAR);
 

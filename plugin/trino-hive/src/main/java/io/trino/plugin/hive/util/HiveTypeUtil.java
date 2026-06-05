@@ -40,7 +40,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeDescriptor;
 
 public final class HiveTypeUtil
 {
@@ -57,7 +57,7 @@ public final class HiveTypeUtil
 
     public static TypeDescriptor getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
     {
-        return toTypeSignature(type.getTypeInfo(), timestampPrecision);
+        return toTypeDescriptor(type.getTypeInfo(), timestampPrecision);
     }
 
     public static Type getType(HiveType type, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)

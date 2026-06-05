@@ -255,7 +255,7 @@ public class LanguageFunctionManager
     {
         return parameters.stream()
                 .map(ParameterDeclaration::getType)
-                .map(TypeDescriptorTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(typeManager::getType)
                 .map(Type::getTypeId)
                 .map(TypeId::getId)

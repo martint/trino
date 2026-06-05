@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
@@ -135,7 +135,7 @@ class TypeDescriptorMapping
         }
         if (mapping.containsKey(typeSignature.getBase())) {
             checkArgument(typeSignature.getParameters().isEmpty(), "Type variable can not have type parameters: %s", typeSignature);
-            return parseTypeSignature(mapping.get(typeSignature.getBase()));
+            return parseTypeDescriptor(mapping.get(typeSignature.getBase()));
         }
         return new TypeDescriptor(
                 typeSignature.getBase(),

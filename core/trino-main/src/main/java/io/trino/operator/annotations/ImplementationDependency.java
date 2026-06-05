@@ -40,7 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 
 public interface ImplementationDependency
@@ -71,7 +71,7 @@ public interface ImplementationDependency
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
         if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
-            checkTypeParameters(parseTypeSignature(typeParameter.value()), typeParametersNames, element);
+            checkTypeParameters(parseTypeDescriptor(typeParameter.value()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter literalParameter) {
             checkArgument(literalParameters.contains(literalParameter.value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
