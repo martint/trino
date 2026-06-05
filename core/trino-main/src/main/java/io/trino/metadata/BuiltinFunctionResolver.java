@@ -26,7 +26,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -71,7 +71,7 @@ class BuiltinFunctionResolver
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
             return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
@@ -97,7 +97,7 @@ class BuiltinFunctionResolver
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
                                     .map(Type::getTypeSignature)
-                                    .map(TypeSignatureProvider::new)
+                                    .map(TypeDescriptorProvider::new)
                                     .collect(toImmutableList())));
         }
         catch (UncheckedExecutionException e) {
@@ -201,10 +201,10 @@ class BuiltinFunctionResolver
             requireNonNull(types, "types is null");
         }
 
-        public static FunctionCacheKey from(String name, List<TypeSignatureProvider> parameterTypes)
+        public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return new FunctionCacheKey(name, parameterTypes.stream()
-                    .map(TypeSignatureProvider::getTypeSignature)
+                    .map(TypeDescriptorProvider::getTypeSignature)
                     .collect(toImmutableList()));
         }
     }

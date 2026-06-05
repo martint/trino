@@ -56,7 +56,7 @@ import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;

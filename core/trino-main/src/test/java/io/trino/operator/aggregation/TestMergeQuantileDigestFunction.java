@@ -32,7 +32,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction

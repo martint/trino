@@ -77,7 +77,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.Reflection.methodHandle;

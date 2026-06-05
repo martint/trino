@@ -17,7 +17,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -85,7 +85,7 @@ public class BuiltinFunctionCallBuilder
 
     public Call build()
     {
-        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes));
+        ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, TypeDescriptorProvider.fromTypeSignatures(argumentTypes));
         return new Call(resolvedFunction, argumentValues);
     }
 }

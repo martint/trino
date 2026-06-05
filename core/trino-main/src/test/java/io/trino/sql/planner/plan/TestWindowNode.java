@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;

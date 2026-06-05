@@ -33,7 +33,7 @@ import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConcreteAggregationStateTypeParameters

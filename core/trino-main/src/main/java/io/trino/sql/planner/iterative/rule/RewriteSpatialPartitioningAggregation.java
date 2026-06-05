@@ -42,7 +42,7 @@ import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 

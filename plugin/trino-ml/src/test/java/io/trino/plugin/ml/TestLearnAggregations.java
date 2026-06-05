@@ -40,7 +40,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;

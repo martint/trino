@@ -24,7 +24,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -161,12 +161,12 @@ public class TestingFunctionResolution
     // legal, but works for tests
     //
 
-    public ResolvedFunction resolveFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return metadata.resolveBuiltinFunction(name, parameterTypes);
     }
 
-    public TestingAggregationFunction getAggregateFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public TestingAggregationFunction getAggregateFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return inTransaction(_ -> {
             ResolvedFunction resolvedFunction = metadata.resolveBuiltinFunction(name, parameterTypes);
@@ -228,7 +228,7 @@ public class TestingFunctionResolution
         public Call build()
         {
             return new Call(
-                    resolveFunction(name, TypeSignatureProvider.fromTypeSignatures(argumentTypes)),
+                    resolveFunction(name, TypeDescriptorProvider.fromTypeSignatures(argumentTypes)),
                     argumentValues);
         }
     }

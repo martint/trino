@@ -24,21 +24,21 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public final class TypeSignatureProvider
+public final class TypeDescriptorProvider
 {
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
     private final boolean hasDependency;
     private final Function<List<Type>, TypeDescriptor> typeSignatureResolver;
 
-    public TypeSignatureProvider(TypeDescriptor typeSignature)
+    public TypeDescriptorProvider(TypeDescriptor typeSignature)
     {
         this.hasDependency = false;
         requireNonNull(typeSignature, "typeSignature is null");
         this.typeSignatureResolver = _ -> typeSignature;
     }
 
-    public TypeSignatureProvider(Function<List<Type>, TypeDescriptor> typeSignatureResolver)
+    public TypeDescriptorProvider(Function<List<Type>, TypeDescriptor> typeSignatureResolver)
     {
         this.hasDependency = true;
         this.typeSignatureResolver = requireNonNull(typeSignatureResolver, "typeSignatureResolver is null");
@@ -61,28 +61,28 @@ public final class TypeSignatureProvider
         return typeSignatureResolver.apply(boundTypeParameters);
     }
 
-    public static List<TypeSignatureProvider> fromTypes(Type... types)
+    public static List<TypeDescriptorProvider> fromTypes(Type... types)
     {
         return fromTypes(ImmutableList.copyOf(types));
     }
 
-    public static List<TypeSignatureProvider> fromTypes(List<? extends Type> types)
+    public static List<TypeDescriptorProvider> fromTypes(List<? extends Type> types)
     {
         return types.stream()
                 .map(Type::getTypeSignature)
-                .map(TypeSignatureProvider::new)
+                .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(TypeDescriptor... typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeSignatures(TypeDescriptor... typeSignatures)
     {
         return fromTypeSignatures(ImmutableList.copyOf(typeSignatures));
     }
 
-    public static List<TypeSignatureProvider> fromTypeSignatures(List<? extends TypeDescriptor> typeSignatures)
+    public static List<TypeDescriptorProvider> fromTypeSignatures(List<? extends TypeDescriptor> typeSignatures)
     {
         return typeSignatures.stream()
-                .map(TypeSignatureProvider::new)
+                .map(TypeDescriptorProvider::new)
                 .collect(toImmutableList());
     }
 

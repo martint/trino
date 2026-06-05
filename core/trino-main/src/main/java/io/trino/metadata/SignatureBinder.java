@@ -37,7 +37,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -61,7 +61,7 @@ import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCI
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_TO;
 import static io.trino.metadata.SignatureBinder.RelationshipType.IMPLICIT_COERCION;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.type.TypeCoercion.isCovariantTypeBase;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -120,17 +120,17 @@ public class SignatureBinder
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, VariableDeclaration::name, VariableDeclaration.TypeVariable::constraint));
     }
 
-    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    public boolean canBind(List<? extends TypeDescriptorProvider> actualArgumentTypes)
     {
         return bindVariables(actualArgumentTypes).isPresent();
     }
 
-    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeDescriptor actualReturnType)
+    public boolean canBind(List<? extends TypeDescriptorProvider> actualArgumentTypes, TypeDescriptor actualReturnType)
     {
         return bindVariables(actualArgumentTypes, actualReturnType).isPresent();
     }
 
-    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    public Optional<Signature> bind(List<? extends TypeDescriptorProvider> actualArgumentTypes)
     {
         Optional<VariableBindings> boundVariables = bindVariables(actualArgumentTypes);
         if (boundVariables.isEmpty()) {
@@ -140,7 +140,7 @@ public class SignatureBinder
     }
 
     @VisibleForTesting
-    Optional<VariableBindings> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    Optional<VariableBindings> bindVariables(List<? extends TypeDescriptorProvider> actualArgumentTypes)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForArguments(constraintSolvers, actualArgumentTypes)) {
@@ -151,10 +151,10 @@ public class SignatureBinder
     }
 
     @VisibleForTesting
-    Optional<VariableBindings> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeDescriptor actualReturnType)
+    Optional<VariableBindings> bindVariables(List<? extends TypeDescriptorProvider> actualArgumentTypes, TypeDescriptor actualReturnType)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
-        if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeSignatureProvider(actualReturnType))) {
+        if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeDescriptorProvider(actualReturnType))) {
             return Optional.empty();
         }
         if (!appendConstraintSolversForArguments(constraintSolvers, actualArgumentTypes)) {
@@ -362,14 +362,14 @@ public class SignatureBinder
         }
     }
 
-    private boolean appendConstraintSolversForReturnValue(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, TypeSignatureProvider actualReturnType)
+    private boolean appendConstraintSolversForReturnValue(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, TypeDescriptorProvider actualReturnType)
     {
         TypeTemplate formalReturnType = declaredSignature.getReturnType();
         return appendTypeRelationshipConstraintSolver(resultBuilder, formalReturnType, actualReturnType, EXACT)
                 && appendConstraintSolvers(resultBuilder, formalReturnType, actualReturnType, false);
     }
 
-    private boolean appendConstraintSolversForArguments(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, List<? extends TypeSignatureProvider> actualTypes)
+    private boolean appendConstraintSolversForArguments(ImmutableList.Builder<TypeConstraintSolver> resultBuilder, List<? extends TypeDescriptorProvider> actualTypes)
     {
         boolean variableArity = declaredSignature.isVariableArity();
         List<TypeTemplate> formalTemplates = declaredSignature.getArgumentTypes();
@@ -396,7 +396,7 @@ public class SignatureBinder
     private boolean appendConstraintSolvers(
             ImmutableList.Builder<TypeConstraintSolver> resultBuilder,
             List<? extends TypeTemplate> formalTemplates,
-            List<? extends TypeSignatureProvider> actualTypes,
+            List<? extends TypeDescriptorProvider> actualTypes,
             boolean allowCoercion)
     {
         if (formalTemplates.size() != actualTypes.size()) {
@@ -423,7 +423,7 @@ public class SignatureBinder
     private boolean appendConstraintSolvers(
             ImmutableList.Builder<TypeConstraintSolver> resultBuilder,
             TypeTemplate formalTemplate,
-            TypeSignatureProvider actualTypeSignatureProvider,
+            TypeDescriptorProvider actualTypeSignatureProvider,
             boolean allowCoercion)
     {
         // formalTemplate can be categorized into one of the 5 cases below:
@@ -478,9 +478,9 @@ public class SignatureBinder
             return true;
         }
 
-        List<TypeSignatureProvider> actualTypeParametersTypeSignatureProvider;
+        List<TypeDescriptorProvider> actualTypeParametersTypeSignatureProvider;
         if (UNKNOWN.equals(actualType)) {
-            actualTypeParametersTypeSignatureProvider = Collections.nCopies(parameters.size(), new TypeSignatureProvider(UNKNOWN.getTypeSignature()));
+            actualTypeParametersTypeSignatureProvider = Collections.nCopies(parameters.size(), new TypeDescriptorProvider(UNKNOWN.getTypeSignature()));
         }
         else {
             actualTypeParametersTypeSignatureProvider = fromTypes(actualType.getTypeParameters());
@@ -927,12 +927,12 @@ public class SignatureBinder
     {
         private final List<TypeTemplate> formalLambdaArgumentTemplates;
         private final TypeTemplate formalLambdaReturnTemplate;
-        private final TypeSignatureProvider typeSignatureProvider;
+        private final TypeDescriptorProvider typeSignatureProvider;
 
         public FunctionSolver(
                 List<TypeTemplate> formalLambdaArgumentTemplates,
                 TypeTemplate formalLambdaReturnTemplate,
-                TypeSignatureProvider typeSignatureProvider)
+                TypeDescriptorProvider typeSignatureProvider)
         {
             this.formalLambdaArgumentTemplates = formalLambdaArgumentTemplates;
             this.formalLambdaReturnTemplate = formalLambdaReturnTemplate;
@@ -966,10 +966,10 @@ public class SignatureBinder
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
             // Coercion on function type is not supported yet.
-            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTemplate, new TypeSignatureProvider(actualReturnType.getTypeSignature()), EXACT)) {
+            if (!appendTypeRelationshipConstraintSolver(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeSignature()), EXACT)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTemplate, new TypeSignatureProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
+            if (!appendConstraintSolvers(constraintsBuilder, formalLambdaReturnTemplate, new TypeDescriptorProvider(actualReturnType.getTypeSignature()), allowCoercion)) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
@@ -1014,7 +1014,7 @@ public class SignatureBinder
     private boolean appendTypeRelationshipConstraintSolver(
             ImmutableList.Builder<TypeConstraintSolver> resultBuilder,
             TypeTemplate formalTemplate,
-            TypeSignatureProvider actualTypeSignatureProvider,
+            TypeDescriptorProvider actualTypeSignatureProvider,
             RelationshipType relationshipType)
     {
         if (actualTypeSignatureProvider.hasDependency()) {

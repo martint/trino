@@ -280,7 +280,7 @@ import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.
 import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -1412,7 +1412,7 @@ public class ExpressionAnalyzer
             }
 
             List<Expression> argumentValues = node.argumentValues();
-            List<TypeSignatureProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
+            List<TypeDescriptorProvider> rawTypes = getCallArgumentTypes(argumentValues, context);
             // rawTypes may be shorter than the AST argument count when a `label.*`
             // entry is consumed by getCallArgumentTypes; bind to rawTypes.size() so
             // identity-binding of positional calls still indexes safely.
@@ -1420,7 +1420,7 @@ public class ExpressionAnalyzer
             List<Integer> argumentBinding = hasNamedArguments
                     ? computeArgumentBinding(node)
                     : identityBinding(rawTypes.size());
-            List<TypeSignatureProvider> argumentTypes = argumentBinding.stream()
+            List<TypeDescriptorProvider> argumentTypes = argumentBinding.stream()
                     .map(rawTypes::get)
                     .collect(toImmutableList());
 
@@ -1732,8 +1732,8 @@ public class ExpressionAnalyzer
 
         private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
         {
-            List<TypeSignatureProvider> argumentTypes = ImmutableList.<TypeSignatureProvider>builder()
-                    .add(new TypeSignatureProvider(receiverType.getTypeSignature()))
+            List<TypeDescriptorProvider> argumentTypes = ImmutableList.<TypeDescriptorProvider>builder()
+                    .add(new TypeDescriptorProvider(receiverType.getTypeSignature()))
                     .addAll(getCallArgumentTypes(arguments, context))
                     .build();
             ResolvedFunction function = functionResolver.resolveInstanceMethod(
@@ -1778,7 +1778,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, signature.getReturnType());
         }
 
-        private record MethodResolution(ResolvedFunction function, List<TypeSignatureProvider> argumentTypes) {}
+        private record MethodResolution(ResolvedFunction function, List<TypeDescriptorProvider> argumentTypes) {}
 
         @Override
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
@@ -1789,7 +1789,7 @@ public class ExpressionAnalyzer
             }
             TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
 
-            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+            List<TypeDescriptorProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
             ResolvedFunction function;
             try {
@@ -2124,12 +2124,12 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
+        public List<TypeDescriptorProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
         {
-            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<TypeDescriptorProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression argument : arguments) {
                 if (argument instanceof LambdaExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                    argumentTypesBuilder.add(new TypeDescriptorProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         plannerContext,
@@ -2161,7 +2161,7 @@ public class ExpressionAnalyzer
                         labels.put(NodeRef.of(allRowsDereference), Optional.of(label));
                     }
                     else {
-                        argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                        argumentTypesBuilder.add(new TypeDescriptorProvider(process(argument, context).getTypeSignature()));
                     }
                 }
             }

@@ -98,7 +98,7 @@ import static io.trino.spi.type.TypeDescriptor.arrayType;
 import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.invoke.MethodType.methodType;

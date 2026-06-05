@@ -38,7 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeTemplates;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -62,7 +62,7 @@ import static io.trino.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionResolver
@@ -114,7 +114,7 @@ public class FunctionResolver
         return false;
     }
 
-    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes, AccessControl accessControl)
+    public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeDescriptorProvider> parameterTypes, AccessControl accessControl)
     {
         CatalogFunctionBinding catalogFunctionBinding = bindFunction(
                 session,
@@ -137,7 +137,7 @@ public class FunctionResolver
             Session session,
             TypeDescriptor receiverType,
             QualifiedName methodName,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             AccessControl accessControl)
     {
         String receiver = receiverType.getBase();
@@ -164,7 +164,7 @@ public class FunctionResolver
             Session session,
             TypeDescriptor receiverType,
             QualifiedName methodName,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             AccessControl accessControl)
     {
         String receiver = receiverType.getBase();
@@ -237,7 +237,7 @@ public class FunctionResolver
     private CatalogFunctionBinding bindFunction(
             Session session,
             QualifiedName name,
-            List<TypeSignatureProvider> parameterTypes,
+            List<TypeDescriptorProvider> parameterTypes,
             Function<CatalogSchemaFunctionName, Collection<CatalogFunctionMetadata>> candidateLoader,
             AccessControl accessControl)
     {
