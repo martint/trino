@@ -47,8 +47,9 @@ import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.anonymousField;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -69,8 +70,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForDecimal()
     {
-        TypeTemplate leftType = numericType("decimal", numericVariable("p1"), numericVariable("s1"));
-        TypeTemplate rightType = numericType("decimal", numericVariable("p2"), numericVariable("s2"));
+        TypeTemplate leftType = parametricType("decimal", numericArgument(numericVariable("p1")), numericArgument(numericVariable("s1")));
+        TypeTemplate rightType = parametricType("decimal", numericArgument(numericVariable("p2")), numericArgument(numericVariable("s2")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -93,7 +94,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(numericType("decimal", new NumericExpression.Literal(4), numericVariable("s")))
+                .argumentType(parametricType("decimal", numericArgument(new NumericExpression.Literal(4)), numericArgument(numericVariable("s"))))
                 .build();
 
         assertThat(function)
@@ -105,7 +106,7 @@ public class TestSignatureBinder
 
         function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(numericType("decimal", numericVariable("p"), new NumericExpression.Literal(1)))
+                .argumentType(parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(new NumericExpression.Literal(1))))
                 .build();
 
         assertThat(function)
@@ -132,8 +133,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForVarchar()
     {
-        TypeTemplate leftType = numericType("varchar", numericVariable("x"));
-        TypeTemplate rightType = numericType("varchar", numericVariable("y"));
+        TypeTemplate leftType = parametricType("varchar", numericArgument(numericVariable("x")));
+        TypeTemplate rightType = parametricType("varchar", numericArgument(numericVariable("y")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -160,8 +161,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarcharWithReturn()
     {
-        TypeTemplate leftType = numericType("varchar", numericVariable("x"));
-        TypeTemplate rightType = numericType("varchar", numericVariable("x"));
+        TypeTemplate leftType = parametricType("varchar", numericArgument(numericVariable("x")));
+        TypeTemplate rightType = parametricType("varchar", numericArgument(numericVariable("x")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -197,8 +198,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedDecimal()
     {
-        TypeTemplate leftType = numericType("decimal", numericVariable("p"), numericVariable("s"));
-        TypeTemplate rightType = numericType("decimal", numericVariable("p"), numericVariable("s"));
+        TypeTemplate leftType = parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(numericVariable("s")));
+        TypeTemplate rightType = parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(numericVariable("s")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -238,9 +239,9 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarchar()
     {
-        TypeTemplate leftType = numericType("varchar", numericVariable("x"));
-        TypeTemplate rightType = numericType("varchar", numericVariable("x"));
-        TypeTemplate returnType = numericType("varchar", numericVariable("x"));
+        TypeTemplate leftType = parametricType("varchar", numericArgument(numericVariable("x")));
+        TypeTemplate rightType = parametricType("varchar", numericArgument(numericVariable("x")));
+        TypeTemplate returnType = parametricType("varchar", numericArgument(numericVariable("x")));
 
         Signature function = functionSignature()
                 .returnType(returnType)
@@ -268,7 +269,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         assertThat(function)
@@ -288,7 +289,7 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .typeVariable("T")
                 .argumentType(arrayType(new TypeDescriptor("T")))
-                .argumentType(TypeTemplates.arrayType(numericType("decimal", numericVariable("p"), numericVariable("s"))))
+                .argumentType(TypeTemplates.arrayType(parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(numericVariable("s")))))
                 .build();
 
         assertThat(function)
@@ -304,7 +305,7 @@ public class TestSignatureBinder
     @Test
     public void testBindDifferentLiteralParameters()
     {
-        TypeTemplate argType = numericType("decimal", numericVariable("p"), numericVariable("s"));
+        TypeTemplate argType = parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(numericVariable("s")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -320,8 +321,8 @@ public class TestSignatureBinder
     @Test
     public void testNoVariableReuseAcrossTypes()
     {
-        TypeTemplate leftType = numericType("decimal", numericVariable("p1"), numericVariable("s"));
-        TypeTemplate rightType = numericType("decimal", numericVariable("p2"), numericVariable("s"));
+        TypeTemplate leftType = parametricType("decimal", numericArgument(numericVariable("p1")), numericArgument(numericVariable("s")));
+        TypeTemplate rightType = parametricType("decimal", numericArgument(numericVariable("p2")), numericArgument(numericVariable("s")));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -341,7 +342,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(numericType("decimal", numericVariable("p"), numericVariable("s")))
+                .argumentType(parametricType("decimal", numericArgument(numericVariable("p")), numericArgument(numericVariable("s"))))
                 .build();
 
         assertThat(function)
@@ -487,7 +488,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         assertThat(function)
@@ -1050,7 +1051,7 @@ public class TestSignatureBinder
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(VARCHAR)
-                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()), numericType("varchar", numericVariable("x"))))
+                .argumentType(TypeTemplates.functionType(TypeTemplates.fromTypeDescriptor(VARCHAR.getTypeDescriptor()), parametricType("varchar", numericArgument(numericVariable("x")))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()

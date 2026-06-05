@@ -95,8 +95,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
 import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -908,8 +909,8 @@ public class TestAnnotationEngineForAggregates
     public void testInjectLiteralAggregateParse()
     {
         Signature expectedSignature = Signature.builder()
-                .returnType(numericType("varchar", numericVariable("x")))
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .returnType(parametricType("varchar", numericArgument(numericVariable("x"))))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(InjectLiteralAggregateFunction.class));
@@ -974,9 +975,9 @@ public class TestAnnotationEngineForAggregates
     {
         Signature expectedSignature = Signature.builder()
                 .numericVariable("z", parseNumericExpression("x + y"))
-                .returnType(numericType("varchar", numericVariable("z")))
-                .argumentType(numericType("varchar", numericVariable("x")))
-                .argumentType(numericType("varchar", numericVariable("y")))
+                .returnType(parametricType("varchar", numericArgument(numericVariable("z"))))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("y"))))
                 .build();
 
         ParametricAggregation aggregation = getOnlyElement(parseFunctionDefinitions(LongConstraintAggregateFunction.class));

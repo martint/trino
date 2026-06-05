@@ -46,8 +46,9 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
@@ -60,7 +61,7 @@ public class TestPolymorphicScalarFunction
     private static final String FUNCTION_NAME = "foo";
     private static final Signature SIGNATURE = Signature.builder()
             .returnType(BIGINT)
-            .argumentType(numericType("varchar", numericVariable("x")))
+            .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
@@ -70,7 +71,7 @@ public class TestPolymorphicScalarFunction
             BIGINT,
             ImmutableList.of(createVarcharType(INPUT_VARCHAR_LENGTH)));
 
-    private static final TypeTemplate DECIMAL_SIGNATURE = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
+    private static final TypeTemplate DECIMAL_SIGNATURE = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
 
     private static final DecimalType LONG_DECIMAL_BOUND_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2);
 
@@ -176,8 +177,8 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .returnType(numericType("varchar", numericVariable("x")))
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .returnType(parametricType("varchar", numericArgument(numericVariable("x"))))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(FUNCTION_NAME, TestMethods.class)
@@ -235,8 +236,8 @@ public class TestPolymorphicScalarFunction
     public void testSetsHiddenToTrueForOperators()
     {
         Signature signature = Signature.builder()
-                .returnType(numericType("varchar", numericVariable("x")))
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .returnType(parametricType("varchar", numericArgument(numericVariable("x"))))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(ADD, TestMethods.class)

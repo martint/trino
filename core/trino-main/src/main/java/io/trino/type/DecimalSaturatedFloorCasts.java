@@ -31,8 +31,9 @@ import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static java.lang.Math.toIntExact;
 
 public final class DecimalSaturatedFloorCasts
@@ -41,8 +42,8 @@ public final class DecimalSaturatedFloorCasts
 
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
-                    .argumentType(numericType("decimal", numericVariable("source_precision"), numericVariable("source_scale")))
-                    .returnType(numericType("decimal", numericVariable("result_precision"), numericVariable("result_scale")))
+                    .argumentType(parametricType("decimal", numericArgument(numericVariable("source_precision")), numericArgument(numericVariable("source_scale"))))
+                    .returnType(parametricType("decimal", numericArgument(numericVariable("result_precision")), numericArgument(numericVariable("result_scale"))))
                     .build())
             .deterministic(true)
             .choice(choice -> choice
@@ -111,7 +112,7 @@ public final class DecimalSaturatedFloorCasts
     {
         return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .argumentType(numericType("decimal", numericVariable("source_precision"), numericVariable("source_scale")))
+                        .argumentType(parametricType("decimal", numericArgument(numericVariable("source_precision")), numericArgument(numericVariable("source_scale"))))
                         .returnType(type.getTypeDescriptor())
                         .build())
                 .deterministic(true)
@@ -163,7 +164,7 @@ public final class DecimalSaturatedFloorCasts
         return new PolymorphicScalarFunctionBuilder(SATURATED_FLOOR_CAST, DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
                         .argumentType(integerType)
-                        .returnType(numericType("decimal", numericVariable("result_precision"), numericVariable("result_scale")))
+                        .returnType(parametricType("decimal", numericArgument(numericVariable("result_precision")), numericArgument(numericVariable("result_scale"))))
                         .build())
                 .deterministic(true)
                 .choice(choice -> choice

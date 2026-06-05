@@ -47,8 +47,9 @@ import static io.trino.spi.type.Int128Math.negateExact;
 import static io.trino.spi.type.Int128Math.remainder;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.type.TypeCalculation.parseNumericExpression;
 import static java.lang.Integer.max;
 import static java.lang.Long.signum;
@@ -72,9 +73,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalAddOperator(boolean legacyTypeCalculation)
     {
-        TypeTemplate decimalLeftSignature = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
-        TypeTemplate decimalRightSignature = numericType("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
-        TypeTemplate decimalResultSignature = numericType("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
+        TypeTemplate decimalLeftSignature = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
+        TypeTemplate decimalRightSignature = parametricType("decimal", numericArgument(numericVariable("b_precision")), numericArgument(numericVariable("b_scale")));
+        TypeTemplate decimalResultSignature = parametricType("decimal", numericArgument(numericVariable("r_precision")), numericArgument(numericVariable("r_scale")));
 
         Signature.Builder signature = Signature.builder();
 
@@ -169,9 +170,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalSubtractOperator(boolean legacyTypeCalculation)
     {
-        TypeTemplate decimalLeftSignature = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
-        TypeTemplate decimalRightSignature = numericType("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
-        TypeTemplate decimalResultSignature = numericType("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
+        TypeTemplate decimalLeftSignature = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
+        TypeTemplate decimalRightSignature = parametricType("decimal", numericArgument(numericVariable("b_precision")), numericArgument(numericVariable("b_scale")));
+        TypeTemplate decimalResultSignature = parametricType("decimal", numericArgument(numericVariable("r_precision")), numericArgument(numericVariable("r_scale")));
 
         Signature.Builder signature = Signature.builder();
 
@@ -264,9 +265,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalMultiplyOperator(boolean legacyTypeCalculation)
     {
-        TypeTemplate decimalLeftSignature = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
-        TypeTemplate decimalRightSignature = numericType("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
-        TypeTemplate decimalResultSignature = numericType("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
+        TypeTemplate decimalLeftSignature = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
+        TypeTemplate decimalRightSignature = parametricType("decimal", numericArgument(numericVariable("b_precision")), numericArgument(numericVariable("b_scale")));
+        TypeTemplate decimalResultSignature = parametricType("decimal", numericArgument(numericVariable("r_precision")), numericArgument(numericVariable("r_scale")));
 
         Signature.Builder signature = Signature.builder();
 
@@ -368,9 +369,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction decimalDivideOperator(boolean legacyTypeCalculation)
     {
-        TypeTemplate decimalLeftSignature = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
-        TypeTemplate decimalRightSignature = numericType("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
-        TypeTemplate decimalResultSignature = numericType("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
+        TypeTemplate decimalLeftSignature = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
+        TypeTemplate decimalRightSignature = parametricType("decimal", numericArgument(numericVariable("b_precision")), numericArgument(numericVariable("b_scale")));
+        TypeTemplate decimalResultSignature = parametricType("decimal", numericArgument(numericVariable("r_precision")), numericArgument(numericVariable("r_scale")));
 
         Signature.Builder signature = Signature.builder();
 
@@ -554,9 +555,9 @@ public final class DecimalOperators
 
     private static SqlScalarFunction moduloScalarFunction(PolymorphicScalarFunctionBuilder builder)
     {
-        TypeTemplate decimalLeftSignature = numericType("decimal", numericVariable("a_precision"), numericVariable("a_scale"));
-        TypeTemplate decimalRightSignature = numericType("decimal", numericVariable("b_precision"), numericVariable("b_scale"));
-        TypeTemplate decimalResultSignature = numericType("decimal", numericVariable("r_precision"), numericVariable("r_scale"));
+        TypeTemplate decimalLeftSignature = parametricType("decimal", numericArgument(numericVariable("a_precision")), numericArgument(numericVariable("a_scale")));
+        TypeTemplate decimalRightSignature = parametricType("decimal", numericArgument(numericVariable("b_precision")), numericArgument(numericVariable("b_scale")));
+        TypeTemplate decimalResultSignature = parametricType("decimal", numericArgument(numericVariable("r_precision")), numericArgument(numericVariable("r_scale")));
 
         Signature signature = Signature.builder()
                 .numericVariable("r_precision", parseNumericExpression("min(b_precision - b_scale, a_precision - a_scale) + max(a_scale, b_scale)"))

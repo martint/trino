@@ -170,20 +170,26 @@ public final class TypeTemplates
         return new NumericExpression.Variable(name);
     }
 
+    public static TemplateParameter typeArgument(TypeTemplate type)
+    {
+        return new TypeArgument(Optional.empty(), type);
+    }
+
+    public static TemplateParameter numericArgument(NumericExpression value)
+    {
+        return new NumericArgument(value);
+    }
+
+    public static TypeTemplate parametricType(String base, TemplateParameter... arguments)
+    {
+        return new TypeApplication(base, List.of(arguments));
+    }
+
     public static TypeTemplate parametricType(String base, TypeTemplate... typeArguments)
     {
         List<TemplateParameter> parameters = new ArrayList<>(typeArguments.length);
         for (TypeTemplate argument : typeArguments) {
-            parameters.add(new TypeArgument(Optional.empty(), argument));
-        }
-        return new TypeApplication(base, parameters);
-    }
-
-    public static TypeTemplate numericType(String base, NumericExpression... values)
-    {
-        List<TemplateParameter> parameters = new ArrayList<>(values.length);
-        for (NumericExpression value : values) {
-            parameters.add(new NumericArgument(value));
+            parameters.add(typeArgument(argument));
         }
         return new TypeApplication(base, parameters);
     }

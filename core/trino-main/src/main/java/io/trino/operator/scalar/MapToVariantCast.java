@@ -31,8 +31,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeTemplates.mapType;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.util.Failures.checkCondition;
@@ -61,7 +62,7 @@ public class MapToVariantCast
                         .numericVariable("N")
                         .castableToTypeParameter("V", VARIANT.getTypeDescriptor())
                         .returnType(VARIANT)
-                        .argumentType(mapType(numericType("varchar", numericVariable("N")), typeVariable("V")))
+                        .argumentType(mapType(parametricType("varchar", numericArgument(numericVariable("N"))), typeVariable("V")))
                         .build())
                 .build());
     }

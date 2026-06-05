@@ -55,8 +55,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeTemplates.numericType;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.parametricType;
+import static io.trino.spi.type.TypeTemplates.numericArgument;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -378,7 +379,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BOOLEAN)
-                .argumentType(TypeTemplates.arrayType(numericType("varchar", numericVariable("x"))))
+                .argumentType(TypeTemplates.arrayType(parametricType("varchar", numericArgument(numericVariable("x")))))
                 .build();
 
         Signature exactSignature = Signature.builder()
@@ -418,7 +419,7 @@ public class TestAnnotationEngineForScalars
     {
         Signature expectedSignature = Signature.builder()
                 .returnType(BIGINT)
-                .argumentType(numericType("varchar", numericVariable("x")))
+                .argumentType(parametricType("varchar", numericArgument(numericVariable("x"))))
                 .build();
 
         List<SqlScalarFunction> functions = ScalarFromAnnotationsParser.parseFunctionDefinition(SimpleInjectionScalarFunction.class);
