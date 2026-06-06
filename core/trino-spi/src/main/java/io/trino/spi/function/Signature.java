@@ -13,56 +13,57 @@
  */
 package io.trino.spi.function;
 
+import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Stream.concat;
 
 public class Signature
 {
-    public record Argument(TypeSignature type, Optional<String> name)
+    public record Argument(TypeTemplate type, Optional<String> name)
     {
-        public static Argument of(TypeSignature type)
+        public static Argument of(TypeTemplate type)
         {
             return new Argument(type, Optional.empty());
         }
 
-        public static Argument of(TypeSignature type, String name)
+        public static Argument of(TypeTemplate type, String name)
         {
             return new Argument(type, Optional.of(name));
         }
     }
 
-    private final List<TypeVariableConstraint> typeVariableConstraints;
-    private final List<LongVariableConstraint> longVariableConstraints;
-    private final TypeSignature returnType;
+    private final List<VariableDeclaration> variables;
+    private final TypeTemplate returnType;
     private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
+            List<VariableDeclaration> variables,
+            TypeTemplate returnType,
             List<Argument> arguments,
             boolean variableArity)
     {
-        this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
-        this.longVariableConstraints = List.copyOf(longVariableConstraints);
+        this.variables = List.copyOf(variables);
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = List.copyOf(arguments);
         this.variableArity = variableArity;
     }
 
-    public TypeSignature getReturnType()
+    public TypeTemplate getReturnType()
     {
         return returnType;
     }
@@ -72,7 +73,7 @@ public class Signature
         return arguments;
     }
 
-    public List<TypeSignature> getArgumentTypes()
+    public List<TypeTemplate> getArgumentTypes()
     {
         return arguments.stream()
                 .map(Argument::type)
@@ -89,23 +90,32 @@ public class Signature
      */
     public boolean isGeneric()
     {
-        return !typeVariableConstraints.isEmpty();
+        return variables.stream().anyMatch(VariableDeclaration.TypeVariable.class::isInstance);
     }
 
+    /**
+     * The type and numeric variables declared by this signature.
+     */
+    public List<VariableDeclaration> getVariables()
+    {
+        return variables;
+    }
+
+    /**
+     * The type-variable constraints, as a view over {@link #getVariables()}.
+     */
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
-        return typeVariableConstraints;
-    }
-
-    public List<LongVariableConstraint> getLongVariableConstraints()
-    {
-        return longVariableConstraints;
+        return variables.stream()
+                .filter(VariableDeclaration.TypeVariable.class::isInstance)
+                .map(variable -> ((VariableDeclaration.TypeVariable) variable).constraint())
+                .collect(toUnmodifiableList());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
+        return Objects.hash(variables, returnType, arguments, variableArity);
     }
 
     @Override
@@ -117,8 +127,7 @@ public class Signature
         if (!(obj instanceof Signature other)) {
             return false;
         }
-        return Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
-                Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
+        return Objects.equals(this.variables, other.variables) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.arguments, other.arguments) &&
                 this.variableArity == other.variableArity;
@@ -127,14 +136,16 @@ public class Signature
     @Override
     public String toString()
     {
-        List<String> allConstraints = concat(
-                typeVariableConstraints.stream().map(TypeVariableConstraint::toString),
-                longVariableConstraints.stream().map(LongVariableConstraint::toString))
-                .collect(Collectors.toList());
+        String constraints = variables.stream()
+                .map(variable -> switch (variable) {
+                    case VariableDeclaration.TypeVariable typeVariable -> typeVariable.constraint().toString();
+                    case VariableDeclaration.NumericVariable numericVariable -> numericVariable.constraint().toString();
+                })
+                .collect(joining(",", "<", ">"));
 
-        return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
-                arguments.stream().map(Argument::type).map(Objects::toString).collect(joining(",", "(", ")")) +
-                ":" + returnType;
+        return (variables.isEmpty() ? "" : constraints) +
+                arguments.stream().map(Argument::type).map(TypeTemplates::render).collect(joining(",", "(", ")")) +
+                ":" + TypeTemplates.render(returnType);
     }
 
     public static Builder builder()
@@ -145,8 +156,7 @@ public class Signature
     public static Builder builder(Signature base)
     {
         Builder builder = new Builder()
-                .typeVariableConstraints(base.typeVariableConstraints)
-                .longVariableConstraints(base.longVariableConstraints)
+                .variables(base.variables)
                 .returnType(base.returnType)
                 .arguments(base.arguments);
         if (base.variableArity) {
@@ -157,9 +167,8 @@ public class Signature
 
     public static final class Builder
     {
-        private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
-        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
-        private TypeSignature returnType;
+        private final List<VariableDeclaration> variables = new ArrayList<>();
+        private TypeTemplate returnType;
         private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
 
@@ -167,116 +176,147 @@ public class Signature
 
         public Builder typeVariable(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name).build());
-            return this;
+            return typeVariableConstraint(TypeVariableConstraint.builder(name).build());
         }
 
         public Builder comparableTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .comparableRequired()
                     .build());
-            return this;
         }
 
         public Builder orderableTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .orderableRequired()
                     .build());
-            return this;
         }
 
-        public Builder castableToTypeParameter(String name, TypeSignature toType)
+        public Builder castableToTypeParameter(String name, TypeTemplate toType)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableTo(toType)
                     .build());
-            return this;
         }
 
-        public Builder castableFromTypeParameter(String name, TypeSignature fromType)
+        public Builder castableToTypeParameter(String name, TypeDescriptor toType)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return castableToTypeParameter(name, TypeTemplates.fromTypeDescriptor(toType));
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeTemplate fromType)
+        {
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .castableFrom(fromType)
                     .build());
-            return this;
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeDescriptor fromType)
+        {
+            return castableFromTypeParameter(name, TypeTemplates.fromTypeDescriptor(fromType));
         }
 
         public Builder rowTypeParameter(String name)
         {
-            typeVariableConstraints.add(TypeVariableConstraint.builder(name)
+            return typeVariableConstraint(TypeVariableConstraint.builder(name)
                     .rowType()
                     .build());
-            return this;
         }
 
         public Builder typeVariableConstraint(TypeVariableConstraint typeVariableConstraint)
         {
-            this.typeVariableConstraints.add(requireNonNull(typeVariableConstraint, "typeVariableConstraint is null"));
+            variables.add(new VariableDeclaration.TypeVariable(requireNonNull(typeVariableConstraint, "typeVariableConstraint is null")));
             return this;
         }
 
         public Builder typeVariableConstraints(List<TypeVariableConstraint> typeVariableConstraints)
         {
-            this.typeVariableConstraints.addAll(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
+            requireNonNull(typeVariableConstraints, "typeVariableConstraints is null").forEach(this::typeVariableConstraint);
             return this;
         }
 
-        public Builder returnType(Type returnType)
-        {
-            return returnType(returnType.getTypeSignature());
-        }
-
-        public Builder returnType(TypeSignature returnType)
+        public Builder returnType(TypeTemplate returnType)
         {
             this.returnType = requireNonNull(returnType, "returnType is null");
             return this;
         }
 
-        public Builder longVariable(String name, String expression)
+        public Builder returnType(TypeDescriptor returnType)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
+            return returnType(TypeTemplates.fromTypeDescriptor(returnType));
+        }
+
+        public Builder returnType(Type returnType)
+        {
+            return returnType(returnType.getTypeDescriptor());
+        }
+
+        public Builder numericVariable(String name, NumericExpression expression)
+        {
+            variables.add(new VariableDeclaration.NumericVariable(new NumericVariableConstraint(name, expression)));
             return this;
         }
 
-        public Builder longVariable(String name)
+        public Builder numericVariable(String name)
         {
-            this.longVariableConstraints.add(new LongVariableConstraint(name, name));
+            return numericVariable(name, new NumericExpression.Variable(name));
+        }
+
+        public Builder numericVariableConstraints(List<NumericVariableConstraint> numericVariableConstraints)
+        {
+            requireNonNull(numericVariableConstraints, "numericVariableConstraints is null")
+                    .forEach(constraint -> variables.add(new VariableDeclaration.NumericVariable(constraint)));
             return this;
         }
 
-        public Builder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
+        public Builder variable(VariableDeclaration variable)
         {
-            this.longVariableConstraints.addAll(longVariableConstraints);
+            variables.add(requireNonNull(variable, "variable is null"));
             return this;
         }
 
-        public Builder argumentType(Type type)
+        public Builder variables(List<VariableDeclaration> variables)
         {
-            return argumentType(type.getTypeSignature());
+            this.variables.addAll(requireNonNull(variables, "variables is null"));
+            return this;
         }
 
-        public Builder argumentType(TypeSignature type)
+        public Builder argumentType(TypeTemplate type)
         {
             arguments.add(Argument.of(type));
             return this;
         }
 
-        public Builder argumentType(TypeSignature type, String name)
+        public Builder argumentType(TypeTemplate type, String name)
         {
             arguments.add(Argument.of(type, name));
             return this;
         }
 
-        public Builder argumentType(Type type, String name)
+        public Builder argumentType(TypeDescriptor type)
         {
-            return argumentType(type.getTypeSignature(), name);
+            return argumentType(TypeTemplates.fromTypeDescriptor(type));
         }
 
-        public Builder argumentTypes(List<TypeSignature> argumentTypes)
+        public Builder argumentType(TypeDescriptor type, String name)
         {
-            for (TypeSignature argumentType : argumentTypes) {
+            return argumentType(TypeTemplates.fromTypeDescriptor(type), name);
+        }
+
+        public Builder argumentType(Type type)
+        {
+            return argumentType(type.getTypeDescriptor());
+        }
+
+        public Builder argumentType(Type type, String name)
+        {
+            return argumentType(type.getTypeDescriptor(), name);
+        }
+
+        public Builder argumentTypes(List<TypeDescriptor> argumentTypes)
+        {
+            for (TypeDescriptor argumentType : argumentTypes) {
                 argumentType(argumentType);
             }
             return this;
@@ -297,7 +337,24 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
+            // Order type variables before numeric variables so toString and equality do not depend on the
+            // order the builder methods were called in.
+            List<VariableDeclaration> orderedVariables = concat(
+                    variables.stream().filter(VariableDeclaration.TypeVariable.class::isInstance),
+                    variables.stream().filter(VariableDeclaration.NumericVariable.class::isInstance))
+                    .collect(toUnmodifiableList());
+
+            // Normalize base-string type variables (as the TypeDescriptor-based builder methods produce) into
+            // first-class TypeVariable nodes, so a programmatically-built signature equals the parsed one.
+            Set<String> typeVariableNames = orderedVariables.stream()
+                    .filter(VariableDeclaration.TypeVariable.class::isInstance)
+                    .map(VariableDeclaration::name)
+                    .collect(toSet());
+            TypeTemplate canonicalReturnType = TypeTemplates.canonicalizeTypeVariables(returnType, typeVariableNames);
+            List<Argument> canonicalArguments = arguments.stream()
+                    .map(argument -> new Argument(TypeTemplates.canonicalizeTypeVariables(argument.type(), typeVariableNames), argument.name()))
+                    .collect(toUnmodifiableList());
+            return new Signature(orderedVariables, canonicalReturnType, canonicalArguments, variableArity);
         }
     }
 }

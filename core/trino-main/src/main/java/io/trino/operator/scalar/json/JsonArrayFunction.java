@@ -30,7 +30,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.type.Json2016Type;
 
 import java.lang.invoke.MethodHandle;
@@ -44,6 +44,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
@@ -61,8 +62,9 @@ public class JsonArrayFunction
         super(FunctionMetadata.scalarBuilder(JSON_ARRAY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(new TypeSignature(JSON_2016))
-                        .argumentTypes(ImmutableList.of(new TypeSignature("E"), new TypeSignature(BOOLEAN)))
+                        .returnType(new TypeDescriptor(JSON_2016))
+                        .argumentType(typeVariable("E"))
+                        .argumentType(new TypeDescriptor(BOOLEAN))
                         .build())
                 .argumentNullability(true, false)
                 .hidden()

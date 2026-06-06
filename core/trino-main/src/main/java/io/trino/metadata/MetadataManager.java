@@ -123,7 +123,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
@@ -2676,9 +2676,15 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         return functionResolver.resolveBuiltinFunction(name, parameterTypes);
+    }
+
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return functionResolver.resolveBuiltinFunctionUncached(name, parameterTypes);
     }
 
     @Override
@@ -2790,7 +2796,7 @@ public final class MetadataManager
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
             aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
+                    .map(typeTemplate -> applyBoundVariables(typeTemplate, functionBinding.variables()))
                     .forEach(builder::intermediateType);
         }
 

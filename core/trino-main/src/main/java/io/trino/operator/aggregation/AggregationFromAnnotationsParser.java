@@ -39,7 +39,9 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowAccumulator;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeTemplate;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessFlag;
@@ -71,7 +73,7 @@ import static io.trino.operator.annotations.FunctionsParserHelper.parseDescripti
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.validateImplementationDependencyAnnotation;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -162,8 +164,8 @@ public final class AggregationFromAnnotationsParser
     private static boolean isGenericOrCalculated(Signature signature)
     {
         return !signature.isGeneric()
-                && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                && !signature.getReturnType().isCalculated();
+                && signature.getArgumentTypes().stream().noneMatch(TypeTemplates::isCalculated)
+                && !TypeTemplates.isCalculated(signature.getReturnType());
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition, AnnotatedElement outputFunction)
@@ -388,10 +390,10 @@ public final class AggregationFromAnnotationsParser
     {
         StateMetadata metadata = StateMetadata.create(getMetadataAnnotation(stateClass));
         // Generic state classes have their own type variables, that must be mapped to the aggregation's type variables
-        TypeSignatureMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
+        TypeDescriptorMapping typeParameterMapping = getTypeParameterMapping(stateClass, declaredTypeParameters, metadata);
 
         if (stateClass.equals(InOut.class)) {
-            String typeVariable = typeParameterMapping.mapTypeSignature(new TypeSignature("T")).toString();
+            String typeVariable = typeParameterMapping.mapTypeDescriptor(new TypeDescriptor("T")).toString();
             @SuppressWarnings("unchecked") AccumulatorStateDetails<T> stateDetails = (AccumulatorStateDetails<T>) getInOutAccumulatorStateDetails(typeVariable);
             return stateDetails;
         }
@@ -411,16 +413,16 @@ public final class AggregationFromAnnotationsParser
             serializerGenerator = (_, _) -> serializer;
         }
 
-        TypeSignature serializedType;
+        TypeTemplate serializedType;
         if (metadata.serializedType().isPresent()) {
-            serializedType = typeParameterMapping.mapTypeSignature(parseTypeSignature(metadata.serializedType().get(), ImmutableSet.of()));
+            serializedType = typeParameterMapping.mapTypeTemplate(parseTypeTemplate(metadata.serializedType().get(), typeParameterMapping.getTypeParameters(), Set.of()));
         }
         else {
             // serialized type is not explicit declared, so we must construct it to get the
             // type, but this will only work if there are no dependencies
             checkArgument(allDependencies.isEmpty(), "serializedType must be set for state %s with dependencies", stateClass);
             AccumulatorStateSerializer<T> serializer = serializerGenerator.apply(null, null);
-            serializedType = serializer.getSerializedType().getTypeSignature();
+            serializedType = TypeTemplates.fromTypeDescriptor(serializer.getSerializedType().getTypeDescriptor());
             // since there are no dependencies, the same serializer can be used for all
             serializerGenerator = (_, _) -> serializer;
         }
@@ -456,21 +458,21 @@ public final class AggregationFromAnnotationsParser
 
     private static AccumulatorStateDetails<InOut> getInOutAccumulatorStateDetails(String typeVariable)
     {
-        TypeSignature serializedType = parseTypeSignature(typeVariable, ImmutableSet.of());
+        TypeTemplate serializedType = TypeTemplates.typeVariable(typeVariable);
         return new AccumulatorStateDetails<>(
                 InOut.class,
                 ImmutableList.of(typeVariable),
                 serializedType,
                 (functionBinding, _) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
                 (functionBinding, _) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
-                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                ImmutableList.of(new TypeImplementationDependency(TypeTemplates.typeVariable(typeVariable))));
     }
 
-    private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)
+    private static TypeDescriptorMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)
     {
         List<String> expectedTypeParameters = metadata.typeParameters();
         if (expectedTypeParameters.isEmpty()) {
-            return new TypeSignatureMapping(ImmutableMap.of());
+            return new TypeDescriptorMapping(ImmutableMap.of());
         }
         checkArgument(declaredTypeParameters.size() == expectedTypeParameters.size(), "AggregationState %s requires %s type parameters", stateClass, expectedTypeParameters.size());
 
@@ -480,10 +482,10 @@ public final class AggregationFromAnnotationsParser
             String expectedTypeParameter = expectedTypeParameters.get(parameterIndex);
             mapping.put(expectedTypeParameter, declaredTypeParameter);
         }
-        return new TypeSignatureMapping(mapping.buildOrThrow());
+        return new TypeDescriptorMapping(mapping.buildOrThrow());
     }
 
-    private static List<ImplementationDependency> parseImplementationDependencies(TypeSignatureMapping typeSignatureMapping, Executable inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(TypeDescriptorMapping typeDescriptorMapping, Executable inputFunction)
     {
         ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
 
@@ -493,10 +495,10 @@ public final class AggregationFromAnnotationsParser
                 validateImplementationDependencyAnnotation(
                         inputFunction,
                         annotation,
-                        typeSignatureMapping.getTypeParameters(),
+                        typeDescriptorMapping.getTypeParameters(),
                         ImmutableSet.of());
-                ImplementationDependency dependency = createDependency(annotation, ImmutableSet.of(), parameter.getType());
-                dependency = typeSignatureMapping.mapTypes(dependency);
+                ImplementationDependency dependency = createDependency(annotation, typeDescriptorMapping.getTypeParameters(), ImmutableSet.of(), parameter.getType());
+                dependency = typeDescriptorMapping.mapTypes(dependency);
                 builder.add(dependency);
             });
         }
@@ -534,7 +536,7 @@ public final class AggregationFromAnnotationsParser
     {
         private final Class<T> stateClass;
         private final List<String> typeParameters;
-        private final TypeSignature serializedType;
+        private final TypeTemplate serializedType;
         private final BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator;
         private final BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator;
         private final List<ImplementationDependency> dependencies;
@@ -542,7 +544,7 @@ public final class AggregationFromAnnotationsParser
         public AccumulatorStateDetails(
                 Class<T> stateClass,
                 List<String> typeParameters,
-                TypeSignature serializedType,
+                TypeTemplate serializedType,
                 BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateSerializer<T>> serializerGenerator,
                 BiFunction<FunctionBinding, FunctionDependencies, AccumulatorStateFactory<T>> factoryGenerator,
                 List<ImplementationDependency> dependencies)
@@ -560,7 +562,7 @@ public final class AggregationFromAnnotationsParser
             return stateClass;
         }
 
-        public TypeSignature getSerializedType()
+        public TypeTemplate getSerializedType()
         {
             return serializedType;
         }

@@ -13,23 +13,25 @@
  */
 package io.trino.operator.scalar.annotations;
 
-import com.google.common.base.Joiner;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TemplateParameter;
+import io.trino.spi.type.TypeTemplate;
 import io.trino.type.UnknownType;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.TypeTemplates.baseName;
+import static io.trino.spi.type.TypeTemplates.render;
+import static java.util.stream.Collectors.joining;
 
 public final class OperatorValidator
 {
     private OperatorValidator() {}
 
     @SuppressWarnings("RedundantLabeledSwitchRuleCodeBlock")
-    public static void validateOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public static void validateOperator(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes)
     {
         switch (operatorType) {
             case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO -> {
@@ -44,15 +46,15 @@ public final class OperatorValidator
             }
             case SUBSCRIPT -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP) || argumentTypes.get(0).getBase().equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
-                switch (argumentTypes.get(0).getBase()) {
+                checkArgument(baseName(argumentTypes.get(0)).equals(StandardTypes.ARRAY) || baseName(argumentTypes.get(0)).equals(StandardTypes.MAP) || baseName(argumentTypes.get(0)).equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
+                switch (baseName(argumentTypes.get(0))) {
                     case StandardTypes.ARRAY -> {
-                        checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
-                        TypeSignature elementType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(0)).type();
+                        checkArgument(baseName(argumentTypes.get(1)).equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
+                        TypeTemplate elementType = ((TemplateParameter.TypeArgument) ((TypeTemplate.TypeApplication) argumentTypes.get(0)).parameters().get(0)).type();
                         checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
                     }
                     case StandardTypes.MAP -> {
-                        TypeSignature valueType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(1)).type();
+                        TypeTemplate valueType = ((TemplateParameter.TypeArgument) ((TypeTemplate.TypeApplication) argumentTypes.get(0)).parameters().get(1)).type();
                         checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
                     }
                     default -> {}
@@ -60,7 +62,7 @@ public final class OperatorValidator
             }
             case HASH_CODE -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                checkArgument(returnType.getBase().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+                checkArgument(baseName(returnType).equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
             }
             case IDENTICAL, XX_HASH_64, INDETERMINATE, READ_VALUE -> {
                 // TODO
@@ -68,21 +70,21 @@ public final class OperatorValidator
         }
     }
 
-    private static void validateOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
+    private static void validateOperatorSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes, int expectedArgumentCount)
     {
         String signature = formatSignature(operatorType, returnType, argumentTypes);
-        checkArgument(!returnType.getBase().equals(UnknownType.NAME), "%s operator return type cannot be NULL: %s", operatorType, signature);
+        checkArgument(!baseName(returnType).equals(UnknownType.NAME), "%s operator return type cannot be NULL: %s", operatorType, signature);
         checkArgument(argumentTypes.size() == expectedArgumentCount, "%s operator must have exactly %s argument: %s", operatorType, expectedArgumentCount, signature);
     }
 
-    private static void validateComparisonOperatorSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes, int expectedArgumentCount)
+    private static void validateComparisonOperatorSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes, int expectedArgumentCount)
     {
         validateOperatorSignature(operatorType, returnType, argumentTypes, expectedArgumentCount);
-        checkArgument(returnType.getBase().equals(StandardTypes.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
+        checkArgument(baseName(returnType).equals(StandardTypes.BOOLEAN), "%s operator must return a BOOLEAN: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
     }
 
-    private static String formatSignature(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    private static String formatSignature(OperatorType operatorType, TypeTemplate returnType, List<TypeTemplate> argumentTypes)
     {
-        return operatorType + "(" + Joiner.on(", ").join(argumentTypes) + ")::" + returnType;
+        return operatorType + "(" + argumentTypes.stream().map(type -> render(type)).collect(joining(", ")) + ")::" + render(returnType);
     }
 }

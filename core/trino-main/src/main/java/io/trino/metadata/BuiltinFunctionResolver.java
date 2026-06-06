@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -24,9 +25,9 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -71,14 +72,13 @@ class BuiltinFunctionResolver
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
-                    () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                        return resolveBuiltin(functionBinding);
-                    });
+            return uncheckedCacheGet(
+                    functionCache,
+                    FunctionCacheKey.from(name, parameterTypes),
+                    () -> resolveBuiltinFunctionUncached(name, parameterTypes));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -86,6 +86,18 @@ class BuiltinFunctionResolver
             }
             throw e;
         }
+    }
+
+    /**
+     * Resolve a builtin function without consulting or populating the resolution cache, performing
+     * the full candidate binding and dependency wiring every time. Exposed for benchmarking the cost
+     * of a cache miss; the cached {@link #resolveBuiltinFunction} delegates here on a miss.
+     */
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+        return resolveBuiltin(functionBinding);
     }
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -96,8 +108,8 @@ class BuiltinFunctionResolver
                     () -> resolveBuiltinFunction(
                             mangleOperatorName(operatorType),
                             argumentTypes.stream()
-                                    .map(Type::getTypeSignature)
-                                    .map(TypeSignatureProvider::new)
+                                    .map(Type::getTypeDescriptor)
+                                    .map(TypeDescriptorProvider::new)
                                     .collect(toImmutableList())));
         }
         catch (UncheckedExecutionException e) {
@@ -193,7 +205,7 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record FunctionCacheKey(String name, List<? extends TypeSignature> types)
+    private record FunctionCacheKey(String name, List<? extends TypeDescriptor> types)
     {
         private FunctionCacheKey
         {
@@ -201,10 +213,10 @@ class BuiltinFunctionResolver
             requireNonNull(types, "types is null");
         }
 
-        public static FunctionCacheKey from(String name, List<TypeSignatureProvider> parameterTypes)
+        public static FunctionCacheKey from(String name, List<TypeDescriptorProvider> parameterTypes)
         {
             return new FunctionCacheKey(name, parameterTypes.stream()
-                    .map(TypeSignatureProvider::getTypeSignature)
+                    .map(TypeDescriptorProvider::getTypeDescriptor)
                     .collect(toImmutableList()));
         }
     }

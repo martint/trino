@@ -32,8 +32,9 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -55,8 +56,8 @@ import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -94,10 +95,11 @@ public class TestGlobalFunctionCatalog
             if (function.getSignature().isGeneric()) {
                 continue;
             }
-            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
+            if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeTemplates::isCalculated)) {
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
+                    .map(TypeTemplates::toTypeDescriptor)
                     .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
             BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).signature();
@@ -319,13 +321,14 @@ public class TestGlobalFunctionCatalog
     private static Signature.Builder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
         Set<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
-        List<TypeSignature> argumentSignatures = arguments.stream()
-                .map(signature -> parseTypeSignature(signature, literalParameters))
-                .collect(toImmutableList());
-        return Signature.builder()
-                .returnType(parseTypeSignature(returnType, literalParameters))
-                .argumentTypes(argumentSignatures)
+        Set<String> typeVariables = typeVariableConstraints.stream()
+                .map(TypeVariableConstraint::getName)
+                .collect(toImmutableSet());
+        Signature.Builder builder = Signature.builder()
+                .returnType(parseTypeTemplate(returnType, typeVariables, literalParameters))
                 .typeVariableConstraints(typeVariableConstraints);
+        arguments.forEach(argument -> builder.argumentType(parseTypeTemplate(argument, typeVariables, literalParameters)));
+        return builder;
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()
@@ -338,7 +341,7 @@ public class TestGlobalFunctionCatalog
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
         private List<Signature.Builder> functionSignatures = ImmutableList.of();
-        private List<TypeSignature> parameterTypes = ImmutableList.of();
+        private List<TypeDescriptor> parameterTypes = ImmutableList.of();
 
         public ResolveFunctionAssertion among(Signature.Builder... functionSignatures)
         {
@@ -348,7 +351,7 @@ public class TestGlobalFunctionCatalog
 
         public ResolveFunctionAssertion forParameters(Type... parameters)
         {
-            this.parameterTypes = parseTypeSignatures(parameters);
+            this.parameterTypes = parseTypeDescriptors(parameters);
             return this;
         }
 
@@ -371,7 +374,7 @@ public class TestGlobalFunctionCatalog
         private BoundSignature resolveSignature()
         {
             return new TestingFunctionResolution(createFunctionsFromSignatures())
-                    .resolveFunction(TEST_FUNCTION_NAME, fromTypeSignatures(parameterTypes))
+                    .resolveFunction(TEST_FUNCTION_NAME, fromTypeDescriptors(parameterTypes))
                     .signature();
         }
 
@@ -400,11 +403,11 @@ public class TestGlobalFunctionCatalog
             return new InternalFunctionBundle(functions.build());
         }
 
-        private static List<TypeSignature> parseTypeSignatures(Type... signatures)
+        private static List<TypeDescriptor> parseTypeDescriptors(Type... signatures)
         {
             return ImmutableList.copyOf(signatures)
                     .stream()
-                    .map(Type::getTypeSignature)
+                    .map(Type::getTypeDescriptor)
                     .collect(toList());
         }
     }

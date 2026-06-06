@@ -28,7 +28,7 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeTemplates;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -42,8 +42,9 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -72,9 +73,9 @@ public final class MapConstructor
                 .signature(Signature.builder()
                         .comparableTypeParameter("K")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .argumentType(arrayType(new TypeSignature("K")))
-                        .argumentType(arrayType(new TypeSignature("V")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V")))
+                        .argumentType(arrayType(typeVariable("K")))
+                        .argumentType(arrayType(typeVariable("V")))
                         .build())
                 .description(DESCRIPTION)
                 .build());
@@ -84,9 +85,9 @@ public final class MapConstructor
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(HASH_CODE, ImmutableList.of(new TypeSignature("K")))
-                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
-                .addOperatorSignature(INDETERMINATE, ImmutableList.of(new TypeSignature("K")))
+                .addOperatorSignature(HASH_CODE, ImmutableList.of(TypeTemplates.typeVariable("K")))
+                .addOperatorSignature(EQUAL, ImmutableList.of(TypeTemplates.typeVariable("K"), TypeTemplates.typeVariable("K")))
+                .addOperatorSignature(INDETERMINATE, ImmutableList.of(TypeTemplates.typeVariable("K")))
                 .build();
     }
 
