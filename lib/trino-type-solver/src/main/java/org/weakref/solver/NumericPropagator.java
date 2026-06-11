@@ -219,9 +219,9 @@ final class NumericPropagator
                     yield OptionalInt.empty();
                 }
                 yield switch (operator) {
-                    case ADD -> OptionalInt.of(leftValue.getAsInt() + rightValue.getAsInt());
-                    case SUBTRACT -> OptionalInt.of(leftValue.getAsInt() - rightValue.getAsInt());
-                    case MULTIPLY -> OptionalInt.of(leftValue.getAsInt() * rightValue.getAsInt());
+                    case ADD -> OptionalInt.of(Expression.saturateToInt((long) leftValue.getAsInt() + rightValue.getAsInt()));
+                    case SUBTRACT -> OptionalInt.of(Expression.saturateToInt((long) leftValue.getAsInt() - rightValue.getAsInt()));
+                    case MULTIPLY -> OptionalInt.of(Expression.saturateToInt((long) leftValue.getAsInt() * rightValue.getAsInt()));
                     case DIVIDE -> rightValue.getAsInt() == 0 ? OptionalInt.empty() : OptionalInt.of(leftValue.getAsInt() / rightValue.getAsInt());
                     case MIN -> OptionalInt.of(Math.min(leftValue.getAsInt(), rightValue.getAsInt()));
                     case MAX -> OptionalInt.of(Math.max(leftValue.getAsInt(), rightValue.getAsInt()));
@@ -374,10 +374,12 @@ final class NumericPropagator
                 if (leftValue.isEmpty() || rightValue.isEmpty()) {
                     yield OptionalInt.empty();
                 }
+                // Saturating like Expression.evaluate, so wrapped arithmetic cannot fail
+                // a calculated varchar length's validation
                 yield OptionalInt.of(switch (operator) {
-                    case ADD -> leftValue.getAsInt() + rightValue.getAsInt();
-                    case SUBTRACT -> leftValue.getAsInt() - rightValue.getAsInt();
-                    case MULTIPLY -> leftValue.getAsInt() * rightValue.getAsInt();
+                    case ADD -> Expression.saturateToInt((long) leftValue.getAsInt() + rightValue.getAsInt());
+                    case SUBTRACT -> Expression.saturateToInt((long) leftValue.getAsInt() - rightValue.getAsInt());
+                    case MULTIPLY -> Expression.saturateToInt((long) leftValue.getAsInt() * rightValue.getAsInt());
                     case DIVIDE -> leftValue.getAsInt() / rightValue.getAsInt();
                     case MIN -> Math.min(leftValue.getAsInt(), rightValue.getAsInt());
                     case MAX -> Math.max(leftValue.getAsInt(), rightValue.getAsInt());
