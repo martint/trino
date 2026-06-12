@@ -24,12 +24,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalysis;
+import io.trino.sql.analyzer.SolverExpressionTypeChecker;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
+import org.weakref.solver.TypeLibrary;
 
 import java.util.List;
 import java.util.Map;
@@ -40,13 +42,13 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
+import static io.trino.sql.analyzer.SolverExpressionTypeChecker.TypeCheckFailure.Kind.BOOLEAN_REQUIRED;
+import static io.trino.sql.analyzer.SolverExpressionTypeChecker.TypeCheckFailure.Kind.NO_COMMON_TYPE;
+import static io.trino.sql.analyzer.SolverExpressionTypeChecker.TypeCheckFailure.Kind.NO_MATCH;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.typesolver.verifier.SolverExpressionTypeChecker.TypeCheckFailure.Kind.BOOLEAN_REQUIRED;
-import static io.trino.typesolver.verifier.SolverExpressionTypeChecker.TypeCheckFailure.Kind.NO_COMMON_TYPE;
-import static io.trino.typesolver.verifier.SolverExpressionTypeChecker.TypeCheckFailure.Kind.NO_MATCH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -179,8 +181,11 @@ class TestSolverExpressionDifferential
             new AllowAllAccessControl(),
             new TablePropertyManager(CatalogServiceProvider.fail()),
             new AnalyzePropertyManager(CatalogServiceProvider.fail()));
+    private final TypeLibrary library = CatalogLibrary.fromCatalog(inTransaction(session -> plannerContext.getMetadata().listGlobalFunctions(session)));
     private final SolverExpressionTypeChecker checker = new SolverExpressionTypeChecker(
-            CatalogLibrary.fromCatalog(inTransaction(session -> plannerContext.getMetadata().listGlobalFunctions(session))),
+            library.typeSystem(),
+            library.resolver(),
+            library::functions,
             plannerContext.getTypeManager());
 
     private <T> T inTransaction(Function<Session, T> callback)

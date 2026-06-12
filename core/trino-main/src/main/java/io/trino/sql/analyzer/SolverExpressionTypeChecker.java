@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.typesolver.verifier;
+package io.trino.sql.analyzer;
 
 import io.trino.lib.TypeBridge;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.BetweenPredicate;
@@ -37,6 +37,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -52,33 +53,34 @@ import org.weakref.solver.Expression;
 import org.weakref.solver.FunctionResolver;
 import org.weakref.solver.RequireComparable;
 import org.weakref.solver.RequireOrderable;
-import org.weakref.solver.TypeLibrary;
 import org.weakref.solver.TypeScheme;
+import org.weakref.solver.TypeSystem;
 import org.weakref.solver.VariableAllocator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 import static org.weakref.solver.Expression.function;
 import static org.weakref.solver.Expression.variable;
 
-/// Stage-1 prototype of solver-based expression type checking: types a scalar expression tree
-/// against a solver [TypeLibrary] instead of the bespoke `ExpressionAnalyzer`.
+/// Solver-based expression type checking: types a scalar expression tree against a solver
+/// [TypeSystem] and [FunctionSchemes] catalog instead of the bespoke `ExpressionAnalyzer`.
 ///
 /// Each call is one constraint problem. A lambda argument enters the solve as a function type over
 /// fresh variables — there is no eager/deferred argument split (no `TypeDescriptorProvider`): the
@@ -86,18 +88,49 @@ import static org.weakref.solver.Expression.variable;
 /// scheme. The one irreducible analyzer obligation — typing the lambda *body* once its parameter
 /// types are determined — is discharged between the probing solve and the final solve, which then
 /// runs with all arguments ground so full overload dominance applies.
-final class SolverExpressionTypeChecker
+public final class SolverExpressionTypeChecker
 {
-    private final TypeLibrary library;
+    /// Supplies the candidate schemes of a function name — a registered library, or a live
+    /// catalog lookup. Implementations signal a name they cannot fully express (a candidate
+    /// outside the bridgeable surface) with [UnsupportedOperationException], which callers
+    /// treat as "this expression is out of the checker's scope", never as a rejection.
+    public interface FunctionSchemes
+    {
+        List<TypeScheme> functions(String name);
+    }
+
+    private final TypeSystem typeSystem;
+    private final FunctionResolver resolver;
+    private final FunctionSchemes functions;
     private final TypeManager typeManager;
+    private final Function<io.trino.sql.tree.Expression, Optional<Type>> leafTypes;
     private final VariableAllocator allocator = new VariableAllocator();
     private final Map<NodeRef<io.trino.sql.tree.Expression>, Type> types = new HashMap<>();
     private final Map<NodeRef<io.trino.sql.tree.Expression>, Type> coercions = new HashMap<>();
+    private final Set<NodeRef<io.trino.sql.tree.Expression>> unverifiedCoercions = new HashSet<>();
 
-    SolverExpressionTypeChecker(TypeLibrary library, TypeManager typeManager)
+    public SolverExpressionTypeChecker(TypeSystem typeSystem, FunctionResolver resolver, FunctionSchemes functions, TypeManager typeManager)
     {
-        this.library = requireNonNull(library, "library is null");
+        this(typeSystem, resolver, functions, typeManager, _ -> Optional.empty());
+    }
+
+    /// The five-argument form takes a leaf-type oracle: when a node's form is outside the
+    /// checker (a column reference, a subquery, an aggregate call), the node's type is taken
+    /// from the oracle as given — its subtree goes unverified, but every enclosing call,
+    /// special form, and coercion around it still is. Without an oracle entry the unsupported
+    /// form propagates and the whole expression is out of scope.
+    public SolverExpressionTypeChecker(
+            TypeSystem typeSystem,
+            FunctionResolver resolver,
+            FunctionSchemes functions,
+            TypeManager typeManager,
+            Function<io.trino.sql.tree.Expression, Optional<Type>> leafTypes)
+    {
+        this.typeSystem = requireNonNull(typeSystem, "typeSystem is null");
+        this.resolver = requireNonNull(resolver, "resolver is null");
+        this.functions = requireNonNull(functions, "functions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.leafTypes = requireNonNull(leafTypes, "leafTypes is null");
         // Keep the checker's fresh variables visibly distinct from scheme-instantiation variables
         allocator.reserveThrough(1_000_000);
     }
@@ -114,14 +147,19 @@ final class SolverExpressionTypeChecker
     {
         types.clear();
         coercions.clear();
+        unverifiedCoercions.clear();
         Type type = typeOf(expression, Map.of());
-        return new Analysis(type, Map.copyOf(types), Map.copyOf(coercions));
+        return new Analysis(type, Map.copyOf(types), Map.copyOf(coercions), Set.copyOf(unverifiedCoercions));
     }
 
+    /// The `unverifiedCoercions` set holds the descendants of oracle-typed nodes: a parent the
+    /// checker could not resolve decides its children's coercions, so those decisions cannot be
+    /// re-derived — the nodes' types still verify, their coercion entries do not.
     public record Analysis(
             Type type,
             Map<NodeRef<io.trino.sql.tree.Expression>, Type> types,
-            Map<NodeRef<io.trino.sql.tree.Expression>, Type> coercions) {}
+            Map<NodeRef<io.trino.sql.tree.Expression>, Type> coercions,
+            Set<NodeRef<io.trino.sql.tree.Expression>> unverifiedCoercions) {}
 
     /// A rejected expression, categorized — the checker's counterpart of the analyzer's
     /// `TYPE_MISMATCH` / `FUNCTION_NOT_FOUND` semantic exceptions, so negative-path differential
@@ -157,9 +195,30 @@ final class SolverExpressionTypeChecker
 
     private Type typeOf(io.trino.sql.tree.Expression node, Map<String, Type> scope)
     {
-        Type type = uncachedTypeOf(node, scope);
+        Type type;
+        try {
+            type = uncachedTypeOf(node, scope);
+        }
+        catch (UnsupportedOperationException e) {
+            // A form the checker cannot derive: take the supplied type when the oracle has one,
+            // so the surrounding expression still verifies; otherwise stay out of scope. The
+            // unresolved form decided its descendants' coercions (an aggregate coerces its
+            // arguments the way any call does), so those entries become unverifiable
+            type = leafTypes.apply(node).orElseThrow(() -> e);
+            markDescendantCoercionsUnverified(node);
+        }
         types.put(NodeRef.of(node), type);
         return type;
+    }
+
+    private void markDescendantCoercionsUnverified(Node node)
+    {
+        for (Node child : node.getChildren()) {
+            if (child instanceof io.trino.sql.tree.Expression expression) {
+                unverifiedCoercions.add(NodeRef.of(expression));
+            }
+            markDescendantCoercionsUnverified(child);
+        }
     }
 
     private Type uncachedTypeOf(io.trino.sql.tree.Expression node, Map<String, Type> scope)
@@ -169,14 +228,37 @@ final class SolverExpressionTypeChecker
             case DecimalLiteral literal -> Decimals.parse(literal.getValue()).getType();
             case DoubleLiteral _ -> DOUBLE;
             case BooleanLiteral _ -> BOOLEAN;
-            case StringLiteral literal -> createVarcharType(literal.getValue().length());
-            case Identifier identifier -> requireNonNull(scope.get(identifier.getValue()), () -> "Unbound identifier: " + identifier.getValue());
-            case Cast cast -> typeManager.getType(toTypeDescriptor(cast.getType()));
+            // varchar length counts code points, not UTF-16 units, matching the engine's literal typing
+            case StringLiteral literal -> createVarcharType(literal.getValue().codePointCount(0, literal.getValue().length()));
+            case Identifier identifier -> {
+                Type bound = scope.get(identifier.getValue());
+                if (bound == null) {
+                    // Not a lambda parameter: a column or other scoped reference the checker
+                    // does not resolve — out of scope, not a rejection
+                    throw new UnsupportedOperationException("Unsupported identifier: " + identifier.getValue());
+                }
+                yield bound;
+            }
+            case Cast cast -> typeManager.getType(TypeDescriptorTranslator.toTypeDescriptor(cast.getType()));
             case NullLiteral _ -> UNKNOWN;
             case ArithmeticBinaryExpression operation -> resolveCall(operation.getOperator().getValue(), List.of(operation.getLeft(), operation.getRight()), scope);
             case ComparisonExpression comparison -> resolveCall(comparison.getOperator().getValue(), List.of(comparison.getLeft(), comparison.getRight()), scope);
-            case FunctionCall call -> resolveCall(call.getName().getSuffix(), call.getArguments().stream().map(CallArgument::getValue).toList(), scope);
-            case SubscriptExpression subscript -> resolveCall("[]", List.of(subscript.getBase(), subscript.getIndex()), scope);
+            case FunctionCall call -> {
+                // A qualified name is a catalog/schema-qualified call or a method invocation on a
+                // receiver — resolution the checker does not model
+                if (call.getName().getPrefix().isPresent()) {
+                    throw new UnsupportedOperationException("Unsupported qualified call: " + call.getName());
+                }
+                yield resolveCall(call.getName().getSuffix(), call.getArguments().stream().map(CallArgument::getValue).toList(), scope);
+            }
+            case SubscriptExpression subscript -> {
+                // Row subscript is field access, special-cased in the analyzer — only the
+                // array/map subscript operator is a resolvable call
+                if (typeOf(subscript.getBase(), scope) instanceof RowType) {
+                    throw new UnsupportedOperationException("Unsupported subscript on a row type: " + subscript);
+                }
+                yield resolveCall("[]", List.of(subscript.getBase(), subscript.getIndex()), scope);
+            }
             // The constructs below are special-cased in ExpressionAnalyzer; here each is the same
             // constraint shape a generic signature produces — branches flowing into one type
             // variable — plus the boolean obligations the syntax carries
@@ -201,8 +283,9 @@ final class SolverExpressionTypeChecker
                 yield BOOLEAN;
             }
             case InPredicate in -> {
-                checkState(in.getValueList() instanceof InListExpression, "Only IN with a value list is supported: %s", in);
-                InListExpression list = (InListExpression) in.getValueList();
+                if (!(in.getValueList() instanceof InListExpression list)) {
+                    throw new UnsupportedOperationException("Unsupported IN form: " + in);
+                }
                 List<io.trino.sql.tree.Expression> values = new ArrayList<>();
                 values.add(in.getValue());
                 values.addAll(list.getValues());
@@ -238,8 +321,9 @@ final class SolverExpressionTypeChecker
                 Expression.RowField[] fields = row.getFields().stream()
                         .map(field -> {
                             Expression type = TypeBridge.toExpression(typeOf(field.getExpression(), scope));
+                            // Unquoted identifiers canonicalize, exactly as the analyzer names row fields
                             return field.getName()
-                                    .map(name -> Expression.field(name.getValue(), type))
+                                    .map(name -> Expression.field(name.getCanonicalValue(), type))
                                     .orElseGet(() -> Expression.anonymousField(type));
                         })
                         .toArray(Expression.RowField[]::new);
@@ -260,9 +344,16 @@ final class SolverExpressionTypeChecker
     private void requireBoolean(io.trino.sql.tree.Expression node, Map<String, Type> scope, String role)
     {
         Type type = typeOf(node, scope);
-        if (!type.equals(BOOLEAN)) {
-            throw new TypeCheckFailure(TypeCheckFailure.Kind.BOOLEAN_REQUIRED, "%s must be boolean, found %s: %s".formatted(role, type, node));
+        if (type.equals(BOOLEAN)) {
+            return;
         }
+        // The analyzer coerces a boolean-position operand when it can (a null's unknown type),
+        // recording the coercion — only an incoercible type is a rejection
+        if (typeSystem.coercionPlan(TypeBridge.toExpression(type), Expression.symbol("boolean")).isPresent()) {
+            coercions.put(NodeRef.of(node), BOOLEAN);
+            return;
+        }
+        throw new TypeCheckFailure(TypeCheckFailure.Kind.BOOLEAN_REQUIRED, "%s must be boolean, found %s: %s".formatted(role, type, node));
     }
 
     /// The least common supertype of the given expressions' types: every branch flows into a single
@@ -282,7 +373,7 @@ final class SolverExpressionTypeChecker
                 List.of(variable("@t")),
                 constraints,
                 function(List.copyOf(nCopies(arguments.size(), variable("@t"))), variable("@t")));
-        if (!(scheme.matchFunctionCallOutcome(arguments, library.typeSystem()) instanceof TypeScheme.Satisfied satisfied)) {
+        if (!(scheme.matchFunctionCallOutcome(arguments, typeSystem) instanceof TypeScheme.Satisfied satisfied)) {
             throw new TypeCheckFailure(TypeCheckFailure.Kind.NO_COMMON_TYPE, "No common supertype for %s".formatted(arguments));
         }
         Type common = toType(satisfied.result().returnType());
@@ -296,10 +387,10 @@ final class SolverExpressionTypeChecker
         return common;
     }
 
+    private record PendingLambda(int index, LambdaExpression lambda, List<String> parameterVariables) {}
+
     private Type resolveCall(String name, List<io.trino.sql.tree.Expression> argumentNodes, Map<String, Type> scope)
     {
-        record PendingLambda(int index, LambdaExpression lambda, List<String> parameterVariables) {}
-
         List<Expression> arguments = new ArrayList<>();
         List<PendingLambda> pendingLambdas = new ArrayList<>();
         for (int index = 0; index < argumentNodes.size(); index++) {
@@ -330,17 +421,21 @@ final class SolverExpressionTypeChecker
 
         Set<Type> results = new LinkedHashSet<>();
         for (List<List<Expression>> assignment : assignments) {
-            List<Expression> completed = new ArrayList<>(arguments);
-            for (int lambdaOrdinal = 0; lambdaOrdinal < pendingLambdas.size(); lambdaOrdinal++) {
-                PendingLambda pending = pendingLambdas.get(lambdaOrdinal);
-                List<Expression> parameterTypes = assignment.get(lambdaOrdinal);
-                Map<String, Type> lambdaScope = new HashMap<>(scope);
-                for (int parameter = 0; parameter < parameterTypes.size(); parameter++) {
-                    lambdaScope.put(pending.lambda().getArguments().get(parameter).getName().getValue(), toType(parameterTypes.get(parameter)));
+            // The probe's assignment is the candidate's minimal binding; the final resolution can
+            // widen a shared variable (reduce's state flows through the lambda's return back into
+            // its parameters), and the engine types the lambda at the widened formal — so
+            // re-discharge the bodies at the resolved formal's parameter types until stable
+            List<Expression> completed;
+            for (int attempt = 0; ; attempt++) {
+                completed = withLambdasDischarged(arguments, pendingLambdas, assignment, scope);
+                List<List<Expression>> refined = refineAssignment(name, completed, pendingLambdas, assignment);
+                if (refined.equals(assignment)) {
+                    break;
                 }
-                // The analyzer obligation: type the lambda body with its parameter types in scope
-                Type bodyType = typeOf(pending.lambda().getBody(), lambdaScope);
-                completed.set(pending.index(), function(parameterTypes, TypeBridge.toExpression(bodyType)));
+                if (attempt >= 4) {
+                    throw new UnsupportedOperationException("Lambda parameter types do not converge for '%s'".formatted(name));
+                }
+                assignment = refined;
             }
             // Final solve with every argument ground: full overload dominance applies. With
             // several surviving assignments the last one's coercions win; the ambiguity check
@@ -354,14 +449,77 @@ final class SolverExpressionTypeChecker
         return results.iterator().next();
     }
 
+    /// Types each lambda body with the assignment's parameter types in scope — the analyzer
+    /// obligation — and completes the argument list with the resulting ground function types.
+    /// Bookkeeping under a body is cleared first: a re-discharge at widened parameter types must
+    /// not leave entries from the narrower pass behind.
+    private List<Expression> withLambdasDischarged(
+            List<Expression> arguments,
+            List<PendingLambda> pendingLambdas,
+            List<List<Expression>> assignment,
+            Map<String, Type> scope)
+    {
+        List<Expression> completed = new ArrayList<>(arguments);
+        for (int lambdaOrdinal = 0; lambdaOrdinal < pendingLambdas.size(); lambdaOrdinal++) {
+            PendingLambda pending = pendingLambdas.get(lambdaOrdinal);
+            List<Expression> parameterTypes = assignment.get(lambdaOrdinal);
+            Map<String, Type> lambdaScope = new HashMap<>(scope);
+            for (int parameter = 0; parameter < parameterTypes.size(); parameter++) {
+                lambdaScope.put(pending.lambda().getArguments().get(parameter).getName().getValue(), toType(parameterTypes.get(parameter)));
+            }
+            clearBookkeeping(pending.lambda().getBody());
+            Type bodyType = typeOf(pending.lambda().getBody(), lambdaScope);
+            completed.set(pending.index(), function(parameterTypes, TypeBridge.toExpression(bodyType)));
+        }
+        return completed;
+    }
+
+    /// The lambda parameter types the final resolution actually settled on. When resolution
+    /// widens them past the probe's assignment, the engine would have typed the lambda at the
+    /// wider formal — the caller re-discharges until this is a fixpoint.
+    private List<List<Expression>> refineAssignment(String name, List<Expression> completed, List<PendingLambda> pendingLambdas, List<List<Expression>> assignment)
+    {
+        if (!(resolver.resolveOutcome(functions.functions(name), completed) instanceof FunctionResolver.Resolved resolved)) {
+            return assignment;
+        }
+        Map<Integer, Expression> formals = new HashMap<>();
+        for (FunctionResolver.ArgumentCoercion coercion : resolved.resolution().argumentCoercions()) {
+            formals.put(coercion.index(), coercion.formalType());
+        }
+        List<List<Expression>> refined = new ArrayList<>();
+        for (int lambdaOrdinal = 0; lambdaOrdinal < pendingLambdas.size(); lambdaOrdinal++) {
+            Expression formal = formals.get(pendingLambdas.get(lambdaOrdinal).index());
+            if (formal instanceof Expression.FunctionType functionType && functionType.parameterTypes().stream().allMatch(Expression::isGround)) {
+                refined.add(List.copyOf(functionType.parameterTypes()));
+            }
+            else {
+                refined.add(assignment.get(lambdaOrdinal));
+            }
+        }
+        return refined;
+    }
+
+    private void clearBookkeeping(Node node)
+    {
+        if (node instanceof io.trino.sql.tree.Expression expression) {
+            NodeRef<io.trino.sql.tree.Expression> reference = NodeRef.of(expression);
+            types.remove(reference);
+            coercions.remove(reference);
+            unverifiedCoercions.remove(reference);
+        }
+        for (Node child : node.getChildren()) {
+            clearBookkeeping(child);
+        }
+    }
+
     /// Probes every candidate and returns the distinct ground parameter-type assignments for the
     /// lambda arguments: one entry per assignment, holding the parameter types of each lambda in
     /// order. Candidates that do not determine all lambda parameter types are skipped.
     private Set<List<List<Expression>>> probe(String name, List<Expression> arguments, List<Integer> lambdaIndexes)
     {
         Set<List<List<Expression>>> assignments = new LinkedHashSet<>();
-        for (TypeScheme candidate : library.functions(name)) {
-            if (!(candidate.matchFunctionCallOutcome(arguments, library.typeSystem()) instanceof TypeScheme.Satisfied satisfied)) {
+        for (TypeScheme candidate : functions.functions(name)) {
+            if (!(candidate.matchFunctionCallOutcome(arguments, typeSystem) instanceof TypeScheme.Satisfied satisfied)) {
                 continue;
             }
             List<List<Expression>> assignment = new ArrayList<>();
@@ -390,6 +548,18 @@ final class SolverExpressionTypeChecker
     /// not change the Trino type (e.g. unbounded varchar re-encoded as its length sentinel)
     private Type resolveRecordingCoercions(String name, List<io.trino.sql.tree.Expression> argumentNodes, List<Expression> arguments)
     {
+        if (resolver.resolveOutcome(functions.functions(name), arguments) instanceof FunctionResolver.Ambiguous ambiguous) {
+            // The engine treats candidates that agree on the return type as semantically the
+            // same and picks one arbitrarily (FunctionBinder's unknown-argument tie-break).
+            // The pick decides the formals, so the arguments' coercions are unverifiable
+            Set<Expression> returnTypes = ambiguous.candidates().stream()
+                    .map(FunctionResolver.Resolution::returnType)
+                    .collect(toSet());
+            if (returnTypes.size() == 1) {
+                argumentNodes.forEach(node -> unverifiedCoercions.add(NodeRef.of(node)));
+                return toType(returnTypes.iterator().next());
+            }
+        }
         FunctionResolver.Resolution resolution = resolve(name, arguments);
         for (FunctionResolver.ArgumentCoercion coercion : resolution.argumentCoercions()) {
             if (coercion.coercionNeeded()) {
@@ -404,7 +574,7 @@ final class SolverExpressionTypeChecker
 
     private FunctionResolver.Resolution resolve(String name, List<Expression> arguments)
     {
-        return switch (library.resolveFunction(name, arguments)) {
+        return switch (resolver.resolveOutcome(functions.functions(name), arguments)) {
             case FunctionResolver.Resolved resolved -> resolved.resolution();
             case FunctionResolver.Ambiguous ambiguous -> throw new TypeCheckFailure(TypeCheckFailure.Kind.AMBIGUOUS, "Ambiguous call to '%s': %s candidates".formatted(name, ambiguous.candidates().size()));
             // Incomplete means no candidate fully bound, but some could not be refuted either —
@@ -418,6 +588,6 @@ final class SolverExpressionTypeChecker
 
     private Type toType(Expression expression)
     {
-        return typeManager.getType(TypeId.of(TypeBridge.render(expression)));
+        return typeManager.getType(TypeBridge.toTypeDescriptor(expression));
     }
 }
