@@ -4117,6 +4117,9 @@ public class ExpressionAnalyzer
                     Scope.builder()
                             .withRelationType(RelationId.anonymous(), new RelationType())
                             .build());
+            if (SolverExpressionShadow.isEnabled()) {
+                SolverExpressionShadow.verifyAnalysis(session, plannerContext, expression, analyzer.getResolvedFunctions(), analyzer.getExpressionTypes(), analyzer.getExpressionCoercions());
+            }
         }
 
         return new ExpressionAnalysis(
@@ -4143,6 +4146,9 @@ public class ExpressionAnalyzer
     {
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
+        if (SolverExpressionShadow.isEnabled()) {
+            SolverExpressionShadow.verifyAnalysis(session, plannerContext, expression, analyzer.getResolvedFunctions(), analyzer.getExpressionTypes(), analyzer.getExpressionCoercions());
+        }
 
         updateAnalysis(analysis, analyzer, session, accessControl);
         analysis.addExpressionFields(expression, analyzer.getSourceFields());
