@@ -13,6 +13,7 @@
  */
 package io.trino.block;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -48,11 +49,13 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.forEachPair;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -65,7 +68,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -97,34 +99,27 @@ public final class BlockAssertions
         return type.getObjectValue(block, 0);
     }
 
-    public static List<Object> toValues(Type type, Iterable<Block> blocks)
-    {
-        List<Object> values = new ArrayList<>();
-        for (Block block : blocks) {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(block, position));
-            }
-        }
-        return unmodifiableList(values);
-    }
-
-    public static List<Object> toValues(Type type, Block block)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(block, position));
-        }
-        return unmodifiableList(values);
-    }
-
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(actual, position))
-                    .describedAs("position " + position)
-                    .isEqualTo(type.getObjectValue(expected, position));
+            assertValueEquals(type, actual, position, expected, position);
         }
+    }
+
+    public static void assertSameDataInOrder(Type type, List<Block> actual, ImmutableList<Block> expected)
+    {
+        assertThat(actual.stream().mapToInt(Block::getPositionCount).sum()).as("actual position count (sum)")
+                .isEqualTo(expected.stream().mapToInt(Block::getPositionCount).sum());
+        forEachPair(positions(actual), positions(expected), (actualValue, expectedValue) ->
+                assertValueEquals(type, actualValue.block, actualValue.position, expectedValue.block, expectedValue.position));
+    }
+
+    private static void assertValueEquals(Type type, Block actual, int actualPosition, Block expected, int expectedPosition)
+    {
+        assertThat(type.getObjectValue(actual, actualPosition))
+                .describedAs("position " + actualPosition)
+                .isEqualTo(type.getObjectValue(expected, expectedPosition));
     }
 
     public static Block createRandomDictionaryBlock(Block dictionary, int positionCount)
@@ -726,15 +721,6 @@ public final class BlockAssertions
         return builder.buildValueBlock();
     }
 
-    public static ValueBlock createTimestampsWithTimeZoneMillisBlock(Long... values)
-    {
-        BlockBuilder builder = TIMESTAMP_TZ_MILLIS.createFixedSizeBlockBuilder(values.length);
-        for (long value : values) {
-            TIMESTAMP_TZ_MILLIS.writeLong(builder, value);
-        }
-        return builder.buildValueBlock();
-    }
-
     public static ValueBlock createBooleanSequenceBlock(int start, int end)
     {
         BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(end - start);
@@ -954,4 +940,13 @@ public final class BlockAssertions
     {
         return new Random(RANDOM_SEED);
     }
+
+    private static Stream<BlockPosition> positions(List<Block> blocks)
+    {
+        return blocks.stream()
+                .flatMap(block -> IntStream.range(0, block.getPositionCount())
+                        .mapToObj(position -> new BlockPosition(block, position)));
+    }
+
+    private record BlockPosition(Block block, int position) {}
 }
