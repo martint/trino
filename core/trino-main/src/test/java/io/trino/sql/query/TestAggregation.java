@@ -149,4 +149,41 @@ public class TestAggregation
         assertThat(assertions.query("SELECT count(DISTINCT 'x'), count(*) FROM (VALUES 1, 2, 3)"))
                 .matches("VALUES (BIGINT '1', BIGINT '3')");
     }
+
+    @Test
+    public void testCountConstant()
+    {
+        // count over a constant (non-null) argument is equivalent to count(*); count over null is always 0
+        assertThat(assertions.query("SELECT count(*), count(42), count(42 + 42), count(null) FROM (VALUES 1, 2, 3) t(x)"))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '3', BIGINT '0')");
+    }
+
+    @Test
+    public void testCountColumn()
+    {
+        // count(column) ignores nulls, including nulls introduced by NULLIF and explicit null casts
+        assertThat(assertions.query(
+                "SELECT count(x), count(nullif(x, 2)), count(NULL), count(CAST(NULL AS bigint)) " +
+                        "FROM (VALUES 1, CAST(NULL AS integer), 2) t(x)"))
+                .matches("VALUES (BIGINT '2', BIGINT '1', BIGINT '0', BIGINT '0')");
+    }
+
+    @Test
+    public void testRepeatedAggregation()
+    {
+        // two identical aggregations are computed once and projected twice
+        assertThat(assertions.query("SELECT sum(x), sum(x) FROM (VALUES 1, 2, 3) t(x)"))
+                .matches("VALUES (BIGINT '6', BIGINT '6')");
+    }
+
+    @Test
+    public void testMinMaxOverUnknownInGroupBy()
+    {
+        // min/max over an all-null (unknown-typed) column returns null for every group
+        assertThat(assertions.query(
+                "SELECT k, min(v), max(v), min(u), max(u) " +
+                        "FROM (VALUES (1, 10, null), (1, 20, null), (2, 5, null)) t(k, v, u) " +
+                        "GROUP BY k"))
+                .matches("VALUES (1, 10, 20, null, null), (2, 5, 5, null, null)");
+    }
 }
