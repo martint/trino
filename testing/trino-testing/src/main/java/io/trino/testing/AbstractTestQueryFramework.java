@@ -101,6 +101,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class AbstractTestQueryFramework
 {
+    // No-op marker to establish a CI timing baseline: this touches trino-testing so the incremental
+    // builder selects the same impacted-module test matrix as the sql-test-cleanup PR, run against the
+    // unmodified test suites. This branch is for measurement only and is not meant to be merged.
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private AutoCloseableCloser afterClassCloser;
