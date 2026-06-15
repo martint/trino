@@ -89,7 +89,7 @@ public class IrExpressionEvaluator
     {
         metadata = context.getMetadata();
         functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
-        typeCoercion = new TypeCoercion(context.getTypeManager()::getType);
+        typeCoercion = new TypeCoercion(context.getTypeManager()::getType, context.isLegacyVarcharToCharCoercion());
     }
 
     public Object evaluate(Expression expression, Session session, Map<String, Object> bindings)

@@ -46,7 +46,7 @@ public class EvaluateNullIf
     public EvaluateNullIf(PlannerContext plannerContext)
     {
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion());
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }
 

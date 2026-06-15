@@ -71,6 +71,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
@@ -193,6 +194,10 @@ public class UnwrapCastInComparison
             if (targetType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
                 rightValue = withTimeZone(timestampWithTimeZoneType, rightValue, session.getTimeZoneKey());
+            }
+
+            if (sourceType instanceof CharType charType && targetType instanceof VarcharType varcharType) {
+                return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue).orElse(expression);
             }
 
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
@@ -346,6 +351,55 @@ public class UnwrapCastInComparison
             return new Comparison(operator, cast.expression(), new Constant(sourceType, literalInSourceType));
         }
 
+        private Optional<Expression> unwrapCharToVarcharCast(CharType charType, VarcharType varcharType, Comparison.Operator operator, Expression charExpression, Slice value)
+        {
+            // CHAR -> VARCHAR trims trailing spaces, and CHAR comparison is PAD SPACE while VARCHAR comparison is
+            // NO PAD, so an ordering comparison does not translate to a CHAR comparison. Only the equality family is
+            // safe to unwrap; leave ordering comparisons as a residual filter.
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+
+            // CHAR -> VARCHAR(y) with y shorter than the char length is not injective on the source: distinct char
+            // values that share their first y characters collapse to the same varchar, so a single char equality
+            // cannot represent the comparison. The implicit coercion is always CHAR(n) -> VARCHAR(n) (y == n), so this
+            // only guards explicit narrowing casts.
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() < charType.getLength()) {
+                return Optional.empty();
+            }
+
+            ResolvedFunction varcharToChar;
+            ResolvedFunction charToVarchar;
+            try {
+                varcharToChar = plannerContext.getMetadata().getCoercion(varcharType, charType);
+                charToVarchar = plannerContext.getMetadata().getCoercion(charType, varcharType);
+            }
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
+
+            Object literalInChar;
+            try {
+                literalInChar = coerce(value, varcharToChar);
+            }
+            catch (TrinoException e) {
+                return Optional.empty();
+            }
+
+            // The literal round-trips through char(n) unchanged exactly when it has no trailing spaces and fits in
+            // char(n). In that case CAST(c AS varchar) = v is equivalent to c = CAST(v AS char(n)); otherwise no char
+            // value's (trimmed) varchar form can equal the literal, so the equality is unsatisfiable.
+            if (value.equals(coerce(literalInChar, charToVarchar))) {
+                return Optional.of(new Comparison(operator, charExpression, new Constant(charType, literalInChar)));
+            }
+            return Optional.of(switch (operator) {
+                case EQUAL -> falseIfNotNull(charExpression);
+                case NOT_EQUAL -> trueIfNotNull(charExpression);
+                case IDENTICAL -> FALSE;
+                default -> throw new IllegalStateException("Unexpected operator: " + operator);
+            });
+        }
+
         private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, Comparison.Operator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
@@ -446,7 +500,7 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
+            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, plannerContext.isLegacyVarcharToCharCoercion()).canCoerce(source, target);
             if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
                 if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
                     // Truncation, not injective.
