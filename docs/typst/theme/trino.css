@@ -1,0 +1,92 @@
+/* Trino docs theme — hand-written, since Typst HTML export emits no CSS.
+   Approximates the sphinx_material layout: fixed left nav + content column. */
+
+:root {
+  --trino-blue: #2196f3;
+  --trino-dark: #1b1f23;
+  --border: #e1e4e8;
+  --code-bg: #f6f8fa;
+  --note-bg: #e7f3fe;
+  --note-border: #2196f3;
+  --warn-bg: #fff8e1;
+  --warn-border: #ff9800;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #24292e;
+  line-height: 1.6;
+}
+
+.layout { display: flex; min-height: 100vh; }
+
+/* --- sidebar nav --- */
+.sidebar {
+  width: 280px;
+  flex: 0 0 280px;
+  background: var(--trino-dark);
+  color: #cdd9e5;
+  padding: 1.2rem 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar .brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+  padding: 0 1.2rem 1rem;
+  border-bottom: 1px solid #30363d;
+  margin-bottom: .6rem;
+}
+.sidebar ul { list-style: none; margin: 0; padding: 0; }
+.sidebar li a {
+  display: block;
+  padding: .4rem 1.2rem;
+  color: #cdd9e5;
+  text-decoration: none;
+}
+.sidebar li a:hover { background: #30363d; color: #fff; }
+.sidebar li.current a { background: var(--trino-blue); color: #fff; font-weight: 600; }
+.sidebar li.unbuilt span { display: block; padding: .4rem 1.2rem; color: #6a737d; }
+
+/* --- content --- */
+.content {
+  flex: 1 1 auto;
+  max-width: 860px;
+  padding: 2rem 3rem;
+}
+.content h2 { font-size: 1.9rem; border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+.content h3 { font-size: 1.4rem; margin-top: 2rem; }
+.content a { color: var(--trino-blue); text-decoration: none; }
+.content a:hover { text-decoration: underline; }
+
+/* --- code --- */
+code { background: var(--code-bg); padding: .15em .35em; border-radius: 4px; font-size: .9em; }
+pre.highlight { background: var(--code-bg); padding: 1rem; border-radius: 6px; overflow-x: auto; }
+pre.highlight code { background: none; padding: 0; }
+
+/* --- admonitions --- */
+.admonition { border-left: 4px solid; border-radius: 4px; padding: .6rem 1rem; margin: 1.2rem 0; }
+.admonition-title { font-weight: 700; margin: 0 0 .3rem; }
+.admonition.note { background: var(--note-bg); border-color: var(--note-border); }
+.admonition.warning, .admonition.caution { background: var(--warn-bg); border-color: var(--warn-border); }
+.admonition.important { background: #fde7e9; border-color: #d73a49; }
+
+/* --- function definitions --- */
+.function { border: 1px solid var(--border); border-radius: 6px; margin: 1.2rem 0; padding: .8rem 1rem; }
+.function-sig { margin: 0 0 .5rem; }
+.function-name { background: none; font-size: 1rem; font-weight: 600; }
+.function-ret { color: #6a737d; }
+.function-body { margin-top: .4rem; }
+
+/* --- tables --- */
+table.list-table { border-collapse: collapse; width: 100%; margin: 1.2rem 0; }
+table.list-table th, table.list-table td { border: 1px solid var(--border); padding: .5rem .7rem; text-align: left; }
+table.list-table thead th { background: var(--code-bg); }
+
+kbd { background: #fafbfc; border: 1px solid #d1d5da; border-radius: 4px; padding: .1em .4em; font-size: .85em; }
