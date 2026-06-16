@@ -1,0 +1,18 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-release-release-0-118")
+= Release 0.118
+
+== General
+
+- Fix planning error for #raw("UNION") queries that require implicit coercions.
+- Fix null pointer exception when using #link(label("fn-checksum"), raw("checksum")).
+- Fix completion condition for #raw("SqlTask") that can cause queries to be blocked.
+
+== Authorization
+
+We've added experimental support for authorization of SQL queries in Presto. This is currently only supported by the Hive connector. You can enable Hive checks by setting the #raw("hive.security") property to #raw("none"), #raw("read-only"), or #raw("sql-standard").
+
+#note[
+The authentication support is experimental and only lightly tested. We are actively working on this feature, so expect backwards incompatible changes. See the #raw("ConnectorAccessControl") interface the SPI for details.
+]

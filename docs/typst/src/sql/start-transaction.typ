@@ -1,0 +1,29 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-sql-start-transaction")
+= START TRANSACTION
+
+== Synopsis
+
+#code-block("text", "START TRANSACTION [ mode [, ...] ]")
+
+where #raw("mode") is one of
+
+#code-block("text", "ISOLATION LEVEL { READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE }
+READ { ONLY | WRITE }")
+
+== Description
+
+Start a new transaction for the current session.
+
+== Examples
+
+#code-block("sql", "START TRANSACTION;
+START TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+START TRANSACTION READ WRITE;
+START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY;
+START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE;")
+
+== See also
+
+commit, rollback

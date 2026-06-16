@@ -1,0 +1,10 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-functions-system")
+= System information
+
+Functions providing information about the Trino cluster system environment. More information is available by querying the various schemas and tables exposed by the #link(label("doc-connector-system"))[System connector].
+
+#function-def("fn-version", "version()", "varchar")[
+Returns the Trino version used on the cluster. Equivalent to the value of the #raw("node_version") column in the #raw("system.runtime.nodes") table.
+]

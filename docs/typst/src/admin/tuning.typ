@@ -1,0 +1,16 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-admin-tuning")
+= Tuning Trino
+
+The default Trino settings should work well for most workloads. The following information may help you, if your cluster is facing a specific performance problem.
+
+== Config properties
+
+See #link(label("doc-admin-properties"))[Properties reference].
+
+== JVM settings
+
+The following can be helpful for diagnosing garbage collection \(GC\) issues:
+
+#code-block("text", "-Xlog:gc*,safepoint::time,level,tags,tid")

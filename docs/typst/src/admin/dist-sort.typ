@@ -1,0 +1,8 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-admin-dist-sort")
+= Distributed sort
+
+Distributed sort allows to sort data, which exceeds #raw("query.max-memory-per-node"). Distributed sort is enabled via the #raw("distributed_sort") session property, or #raw("distributed-sort") configuration property set in #raw("etc/config.properties") of the coordinator. Distributed sort is enabled by default.
+
+When distributed sort is enabled, the sort operator executes in parallel on multiple nodes in the cluster. Partially sorted data from each Trino worker node is then streamed to a single worker node for a final merge. This technique allows to utilize memory of multiple Trino worker nodes for sorting. The primary purpose of distributed sort is to allow for sorting of data sets which don't normally fit into single node memory. Performance improvement can be expected, but it won't scale linearly with the number of nodes, since the data needs to be merged by a single node.

@@ -1,0 +1,47 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-connector")
+= Connectors
+
+This section describes the connectors available in Trino to access data from different #link(label("ref-trino-concept-data-source"))[data sources] by configuring #link(label("ref-trino-concept-catalog"))[catalogs] with the connector-specific properties in #link(label("ref-catalog-properties"))[catalog properties files].
+
+- #link(label("doc-connector-bigquery"))[BigQuery connector]
+- #link(label("doc-connector-blackhole"))[Black Hole connector]
+- #link(label("doc-connector-cassandra"))[Cassandra connector]
+- #link(label("doc-connector-clickhouse"))[ClickHouse connector]
+- #link(label("doc-connector-delta-lake"))[Delta Lake connector]
+- #link(label("doc-connector-druid"))[Druid connector]
+- #link(label("doc-connector-duckdb"))[DuckDB connector]
+- #link(label("doc-connector-elasticsearch"))[Elasticsearch connector]
+- #link(label("doc-connector-exasol"))[Exasol connector]
+- #link(label("doc-connector-faker"))[Faker connector]
+- #link(label("doc-connector-googlesheets"))[Google Sheets connector]
+- #link(label("doc-connector-hive"))[Hive connector]
+- #link(label("doc-connector-hudi"))[Hudi connector]
+- #link(label("doc-connector-iceberg"))[Iceberg connector]
+- #link(label("doc-connector-ignite"))[Ignite connector]
+- #link(label("doc-connector-jmx"))[JMX connector]
+- #link(label("doc-connector-kafka"))[Kafka connector]
+  - #link(label("doc-connector-kafka-tutorial"))[Kafka connector tutorial]
+- #link(label("doc-connector-lakehouse"))[Lakehouse connector]
+- #link(label("doc-connector-loki"))[Loki connector]
+- #link(label("doc-connector-mariadb"))[MariaDB connector]
+- #link(label("doc-connector-memory"))[Memory connector]
+- #link(label("doc-connector-mongodb"))[MongoDB connector]
+- #link(label("doc-connector-mysql"))[MySQL connector]
+- #link(label("doc-connector-opensearch"))[OpenSearch connector]
+- #link(label("doc-connector-oracle"))[Oracle connector]
+- #link(label("doc-connector-pinot"))[Pinot connector]
+- #link(label("doc-connector-postgresql"))[PostgreSQL connector]
+- #link(label("doc-connector-prometheus"))[Prometheus connector]
+- #link(label("doc-connector-redis"))[Redis connector]
+- #link(label("doc-connector-redshift"))[Redshift connector]
+- #link(label("doc-connector-singlestore"))[SingleStore connector]
+- #link(label("doc-connector-snowflake"))[Snowflake connector]
+- #link(label("doc-connector-sqlserver"))[SQL Server connector]
+- #link(label("doc-connector-system"))[System connector]
+- #link(label("doc-connector-thrift"))[Thrift connector]
+- #link(label("doc-connector-tpcds"))[TPC-DS connector]
+- #link(label("doc-connector-tpch"))[TPC-H connector]
+
+- #link(label("doc-connector-removed"))[404 - Connector removed]

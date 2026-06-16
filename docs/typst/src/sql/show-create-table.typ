@@ -1,0 +1,36 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-sql-show-create-table")
+= SHOW CREATE TABLE
+
+== Synopsis
+
+#code-block("text", "SHOW CREATE TABLE table_name")
+
+== Description
+
+Show the SQL statement that creates the specified table.
+
+== Examples
+
+Show the SQL that can be run to create the #raw("orders") table:
+
+#code-block(none, "SHOW CREATE TABLE sf1.orders;")
+
+#code-block("text", "              Create Table
+-----------------------------------------
+ CREATE TABLE tpch.sf1.orders (
+    orderkey bigint,
+    orderstatus varchar,
+    totalprice double,
+    orderdate varchar
+ )
+ WITH (
+    format = 'ORC',
+    partitioned_by = ARRAY['orderdate']
+ )
+(1 row)")
+
+== See also
+
+create-table

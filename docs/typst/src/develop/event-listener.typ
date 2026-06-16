@@ -1,0 +1,39 @@
+#import "/lib/trino-docs.typ": *
+
+#anchor("doc-develop-event-listener")
+= Event listener
+
+Trino supports custom event listeners that are invoked for the following events:
+
+- Query creation
+- Query completion \(success or failure\)
+
+Event details include session, query execution, resource utilization, timeline, and more.
+
+This functionality enables development of custom logging, debugging and performance analysis plugins.
+
+== Implementation
+
+#raw("EventListenerFactory") is responsible for creating an #raw("EventListener") instance. It also defines an #raw("EventListener") name which is used by the administrator in a Trino configuration. Implementations of #raw("EventListener") implement methods for the event types they are interested in handling.
+
+The implementation of #raw("EventListener") and #raw("EventListenerFactory") must be wrapped as a plugin and installed on the Trino cluster.
+
+== Configuration
+
+After a plugin that implements #raw("EventListener") and #raw("EventListenerFactory") has been installed on the coordinator, it is configured using an #raw("etc/event-listener.properties") file. All the properties other than #raw("event-listener.name") are specific to the #raw("EventListener") implementation.
+
+The #raw("event-listener.name") property is used by Trino to find a registered #raw("EventListenerFactory") based on the name returned by #raw("EventListenerFactory.getName()"). The remaining properties are passed as a map to #raw("EventListenerFactory.create()").
+
+Example configuration file:
+
+#code-block("text", "event-listener.name=custom-event-listener
+custom-property1=custom-value1
+custom-property2=custom-value2")
+
+#anchor("ref-multiple-listeners")
+
+== Multiple event listeners
+
+Trino supports multiple instances of the same or different event listeners. Install and configure multiple instances by setting #raw("event-listener.config-files") in #link(label("ref-config-properties"))[config-properties] to a comma-separated list of the event listener configuration files:
+
+#code-block("text", "event-listener.config-files=etc/event-listener.properties,etc/event-listener-second.properties")
