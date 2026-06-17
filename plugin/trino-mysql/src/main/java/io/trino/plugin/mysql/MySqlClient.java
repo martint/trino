@@ -45,6 +45,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PredicatePushdownController;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -79,7 +80,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -251,23 +251,24 @@ public class MySqlClient
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     private static final PredicatePushdownController MYSQL_CHARACTER_PUSHDOWN = (session, domain) -> {
-        if (domain.isNullableSingleValue()) {
+        // MySQL compares char and varchar with PAD SPACE semantics: trailing spaces are not significant, so a pushed
+        // comparison can match more rows than Trino's NO PAD comparison. Push equality / IN down only as a superset
+        // pre-filter and keep the engine filter to re-apply the exact comparison; disable inequality and range
+        // pushdown, which cannot be expressed as a safe superset.
+        if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (!domain.getValues().isDiscreteSet()) {
+            return DISABLE_PUSHDOWN.apply(session, domain);
         }
 
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
         if (!simplifiedDomain.getValues().isDiscreteSet()) {
-            // Push down inequality predicate
-            ValueSet complement = simplifiedDomain.getValues().complement();
-            if (complement.isDiscreteSet()) {
-                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
-            }
             // Domain#simplify can turn a discrete set into a range predicate
-            // Push down of range predicate for varchar/char types could lead to incorrect results
-            // when the remote database is case insensitive
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
-        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+        return new DomainPushdownResult(simplifiedDomain, domain);
     };
 
     @Inject

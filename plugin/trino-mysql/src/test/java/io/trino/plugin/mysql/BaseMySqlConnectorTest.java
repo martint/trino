@@ -576,11 +576,14 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar inequality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
-                .isFullyPushedDown();
+                // MySQL compares char/varchar with PAD SPACE semantics, so inequality cannot be expressed as a safe
+                // superset and is not pushed down; the engine re-applies the predicate
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
-                .isFullyPushedDown();
+                // equality is pushed only as a superset pre-filter; the engine keeps a filter to re-apply NO PAD semantics
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
@@ -590,7 +593,9 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar NOT IN
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
-                .isFullyPushedDown();
+                // NOT IN is the complement of a discrete set (a range), which cannot be pushed as a safe superset under
+                // PAD SPACE semantics; the engine re-applies the predicate
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN with small compaction threshold
         assertThat(query(
@@ -613,7 +618,8 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
-                .isFullyPushedDown();
+                // IN is pushed only as a superset pre-filter; the engine keeps a filter to re-apply NO PAD semantics
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN with small compaction threshold
         assertThat(query(
@@ -636,7 +642,8 @@ public abstract class BaseMySqlConnectorTest
         // varchar different case
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
                 .returnsEmptyResult()
-                .isFullyPushedDown();
+                // equality is pushed only as a superset pre-filter; the engine keeps a filter to re-apply NO PAD semantics
+                .isNotFullyPushedDown(FilterNode.class);
 
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         // join on varchar columns
