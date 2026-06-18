@@ -34,6 +34,7 @@ import java.util.OptionalInt;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
 import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -50,6 +51,9 @@ public abstract class BaseSqlServerConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_JOIN_PUSHDOWN -> true;
+            // Equality predicates over varchar are pushed only as a superset pre-filter (PAD SPACE), so this derived
+            // behavior is off; a column-to-column join is unaffected, so re-enable the join behavior it would cascade off.
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
@@ -66,6 +70,9 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
+                 // varchar equality/inequality are pushed only as a superset pre-filter (or not at all) under SQL Server's
+                 // PAD SPACE comparison, with the exact predicate re-applied by the engine, so neither is fully pushed
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
@@ -155,16 +162,32 @@ public abstract class BaseSqlServerConnectorTest
     }
 
     @Test
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        // SQL Server compares varchar with PAD SPACE semantics: trailing spaces are not significant, so 'a' = 'a '
+        // on the remote. Trino compares varchar with NO PAD, so 'a' and 'a ' are distinct. When the equality
+        // predicate is pushed to SQL Server as the only filter, the remote also returns the trailing-space row,
+        // producing more rows than Trino's comparison would. (No fix in this change yet; this test demonstrates the bug.)
+        try (TestTable table = newTrinoTable("test_varchar_pad_space", "(v varchar(5))", ImmutableList.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         // varchar inequality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name != 'ROMANIA' AND name != 'ALGERIA'"))
-                .isFullyPushedDown();
+                // SQL Server's varchar comparison is PAD SPACE, so inequality cannot be pushed down as a safe superset
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
-                .isFullyPushedDown();
+                // SQL Server's varchar comparison is PAD SPACE, so equality is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
@@ -174,7 +197,8 @@ public abstract class BaseSqlServerConnectorTest
 
         // varchar NOT IN
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
-                .isFullyPushedDown();
+                // SQL Server's varchar comparison is PAD SPACE, so the negated set cannot be pushed down as a safe superset
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN with small compaction threshold
         assertThat(query(
@@ -197,7 +221,8 @@ public abstract class BaseSqlServerConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
-                .isFullyPushedDown();
+                // SQL Server's varchar comparison is PAD SPACE, so the IN list is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN with small compaction threshold
         assertThat(query(
@@ -221,14 +246,16 @@ public abstract class BaseSqlServerConnectorTest
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
                 .returnsEmptyResult()
-                .isFullyPushedDown();
+                // SQL Server's varchar comparison is PAD SPACE, so equality is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar predicate over join
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
-                .isFullyPushedDown();
+                // the varchar equality predicate leaves a residual filter that prevents full pushdown
+                .isNotFullyPushedDown(FilterNode.class);
 
-        // join on varchar columns
+        // join on varchar columns is unaffected: a column-to-column join is not pushed via the domain pushdown path
         assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
                 .isFullyPushedDown();
 
@@ -372,12 +399,11 @@ public abstract class BaseSqlServerConnectorTest
     @Test
     public void testDeleteWithVarcharInequalityPredicate()
     {
-        // Override this because by enabling this flag SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-        // we assume that we also support range pushdowns, but for now we only support 'not equal' pushdown,
-        // so cannot enable this flag for now
+        // SQL Server compares varchar with PAD SPACE semantics, so the inequality predicate cannot be pushed down as an
+        // exact filter. Without pushdown the delete falls back to a row-level merge, which this connector does not
+        // support, so the statement fails instead of deleting rows.
         try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -847,10 +873,11 @@ public abstract class BaseSqlServerConnectorTest
     @Override
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
-        // Sql Server supports push down predicate for not equal operator
+        // SQL Server compares varchar with PAD SPACE semantics, so the inequality predicate cannot be pushed down as an
+        // exact filter. Without pushdown the update falls back to a row-level merge, which this connector does not
+        // support, so the statement fails instead of updating rows.
         try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+            assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
         }
     }
 

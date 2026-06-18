@@ -479,6 +479,26 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        // MySQL's legacy collations are PAD SPACE: trailing spaces are not significant, so 'a' = 'a ' on the remote.
+        // Trino compares varchar with NO PAD, so 'a' and 'a ' are distinct. A case-sensitive column (latin1_general_cs)
+        // uses full predicate pushdown, so the equality predicate is pushed as the only filter and the remote also
+        // returns the trailing-space row, producing more rows than Trino's comparison would. (The default
+        // utf8mb4_0900_ai_ci collation does NOT exhibit this: it is NO PAD and case-insensitive, so the predicate is
+        // re-applied in the engine.) No fix in this change yet; this test demonstrates the bug.
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_varchar_pad_space",
+                "(v varchar(5) CHARACTER SET latin1 COLLATE latin1_general_cs)",
+                List.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         // varchar like
@@ -576,11 +596,13 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar inequality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
-                .isFullyPushedDown();
+                // MySQL's varchar comparison is PAD SPACE, so inequality cannot be pushed down as a safe superset
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
-                .isFullyPushedDown();
+                // MySQL's varchar comparison is PAD SPACE, so equality is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
@@ -590,7 +612,8 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar NOT IN
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
-                .isFullyPushedDown();
+                // MySQL's varchar comparison is PAD SPACE, so the negated set cannot be pushed down as a safe superset
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN with small compaction threshold
         assertThat(query(
@@ -613,7 +636,8 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
-                .isFullyPushedDown();
+                // MySQL's varchar comparison is PAD SPACE, so the IN list is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN with small compaction threshold
         assertThat(query(
@@ -636,7 +660,8 @@ public abstract class BaseMySqlConnectorTest
         // varchar different case
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
                 .returnsEmptyResult()
-                .isFullyPushedDown();
+                // MySQL's varchar comparison is PAD SPACE, so equality is pushed only as a superset pre-filter
+                .isNotFullyPushedDown(FilterNode.class);
 
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         // join on varchar columns
