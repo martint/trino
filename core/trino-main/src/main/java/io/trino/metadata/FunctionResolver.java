@@ -77,13 +77,14 @@ public class FunctionResolver
             Metadata metadata,
             TypeManager typeManager,
             LanguageFunctionManager languageFunctionManager,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean legacyVarcharToCharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionBinder = new FunctionBinder(metadata, typeManager, legacyVarcharToCharCoercion);
     }
 
     /**
@@ -210,7 +211,7 @@ public class FunctionResolver
                     resolvedFunctionId,
                     functionBinding.boundFunctionMetadata().getKind(),
                     functionBinding.boundFunctionMetadata().isDeterministic(),
-                    functionBinding.boundFunctionMetadata().isNeverFails(),
+                    functionBinding.boundFunctionMetadata().getNeverFails().test(functionBinding.functionBinding().getBoundSignature()),
                     functionBinding.boundFunctionMetadata().getFunctionNullability(),
                     ImmutableMap.of(),
                     ImmutableSet.of());
@@ -230,7 +231,9 @@ public class FunctionResolver
                 functionBinding.functionBinding(),
                 functionBinding.boundFunctionMetadata(),
                 dependencies,
-                catalogSchemaFunctionName -> metadata.getFunctions(session, catalogSchemaFunctionName),
+                catalogSchemaFunctionName -> filterCandidates(
+                        metadata.getFunctions(session, catalogSchemaFunctionName),
+                        candidate -> !candidate.functionMetadata().isMethod()),
                 catalogFunctionBinding -> resolve(session, catalogFunctionBinding, accessControl));
     }
 
@@ -327,7 +330,7 @@ public class FunctionResolver
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
                 functionMetadata.isDeterministic(),
-                functionMetadata.isNeverFails(),
+                functionMetadata.getNeverFails().test(functionBinding.getBoundSignature()),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());

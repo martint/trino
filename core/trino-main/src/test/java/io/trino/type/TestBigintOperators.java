@@ -208,6 +208,14 @@ public class TestBigintOperators
 
         assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
                 .isEqualTo(true);
+
+        assertThat(assertions.expression("a = b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
+
+        assertThat(assertions.operator(EQUAL, "100000000017", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -250,8 +258,12 @@ public class TestBigintOperators
                 .isEqualTo(false);
 
         assertThat(assertions.operator(LESS_THAN, "100000000017", "100000000017"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
+
+        assertThat(assertions.expression("a < b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -270,8 +282,12 @@ public class TestBigintOperators
                 .isEqualTo(true);
 
         assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "100000000017", "100000000017"))
-                // TODO (https://github.com/trinodb/trino/issues/29891) this should be recognized infallible
-                .couldFail();
+                .neverFails();
+
+        assertThat(assertions.expression("a <= b")
+                .binding("a", "100000000017")
+                .binding("b", "100000000017"))
+                .neverFails();
     }
 
     @Test
@@ -493,11 +509,50 @@ public class TestBigintOperators
     }
 
     @Test
+    public void testCastToInteger()
+    {
+        assertThat(assertions.expression("cast(a as integer)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo(37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for integer: 9223372036854775807");
+    }
+
+    @Test
+    public void testCastToSmallint()
+    {
+        assertThat(assertions.expression("cast(a as smallint)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo((short) 37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for smallint: 9223372036854775807");
+    }
+
+    @Test
+    public void testCastToTinyint()
+    {
+        assertThat(assertions.expression("cast(a as tinyint)")
+                .binding("a", "BIGINT '37'"))
+                .isEqualTo((byte) 37);
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
+                .binding("a", "BIGINT '" + Long.MAX_VALUE + "'")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Out of range for tinyint: 9223372036854775807");
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         assertThat(assertions.expression("cast(a as boolean)")
                 .binding("a", "BIGINT '37'"))
-                .couldFail()
+                .neverFails()
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as boolean)")

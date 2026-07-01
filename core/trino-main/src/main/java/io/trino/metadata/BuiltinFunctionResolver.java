@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -59,12 +60,12 @@ class BuiltinFunctionResolver
     private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
     private final NonEvictableCache<FunctionCacheKey, ResolvedFunction> functionCache;
 
-    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog)
+    public BuiltinFunctionResolver(Metadata metadata, TypeManager typeManager, GlobalFunctionCatalog globalFunctionCatalog, boolean legacyVarcharToCharCoercion)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
-        this.functionBinder = new FunctionBinder(metadata, typeManager);
+        this.functionBinder = new FunctionBinder(metadata, typeManager, legacyVarcharToCharCoercion);
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
@@ -74,11 +75,10 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
-                    () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                        return resolveBuiltin(functionBinding);
-                    });
+            return uncheckedCacheGet(
+                    functionCache,
+                    FunctionCacheKey.from(name, parameterTypes),
+                    () -> resolveBuiltinFunctionUncached(name, parameterTypes));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -86,6 +86,18 @@ class BuiltinFunctionResolver
             }
             throw e;
         }
+    }
+
+    /**
+     * Resolve a builtin function without consulting or populating the resolution cache, performing
+     * the full candidate binding and dependency wiring every time. Exposed for benchmarking the cost
+     * of a cache miss; the cached {@link #resolveBuiltinFunction} delegates here on a miss.
+     */
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+        return resolveBuiltin(functionBinding);
     }
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -167,6 +179,7 @@ class BuiltinFunctionResolver
     private Collection<CatalogFunctionMetadata> getBuiltinFunctions(String functionName)
     {
         return globalFunctionCatalog.getBuiltInFunctions(functionName).stream()
+                .filter(function -> !function.isMethod())
                 .map(function -> new CatalogFunctionMetadata(GlobalSystemConnector.CATALOG_HANDLE, BUILTIN_SCHEMA, function))
                 .collect(toImmutableList());
     }
