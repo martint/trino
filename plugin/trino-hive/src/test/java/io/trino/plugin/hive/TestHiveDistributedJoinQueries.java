@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.testing.AbstractTestJoinQueries;
+import io.trino.testing.AbstractTestConnectorJoinQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering disabled
  */
 public class TestHiveDistributedJoinQueries
-        extends AbstractTestJoinQueries
+        extends AbstractTestConnectorJoinQueries
 {
     @Override
     protected QueryRunner createQueryRunner()

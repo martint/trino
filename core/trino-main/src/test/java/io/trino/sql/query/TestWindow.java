@@ -343,4 +343,21 @@ public class TestWindow
                             (2, ARRAY[3, 2, 1])
                         """);
     }
+
+    @Test
+    public void testWindowWithHavingAndTopN()
+    {
+        // window function over the result of GROUP BY + HAVING, with an outer ORDER BY ... LIMIT (TopN)
+        assertThat(assertions.query(
+                """
+                SELECT sum(x), row_number() OVER (ORDER BY x)
+                FROM (VALUES 1, 2, 3, 4, 5, 6, 7) t(x)
+                GROUP BY x
+                HAVING sum(x) >= 3
+                ORDER BY x DESC
+                LIMIT 3
+                """))
+                .ordered()
+                .matches("VALUES (BIGINT '7', BIGINT '5'), (BIGINT '6', BIGINT '4'), (BIGINT '5', BIGINT '3')");
+    }
 }

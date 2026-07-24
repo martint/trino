@@ -327,4 +327,14 @@ public class TestDistinctAggregations
                 ")"))
                 .matches("VALUES (TRUE, BIGINT '1')");
     }
+
+    @Test
+    public void testHavingOnDistinctAggregation()
+    {
+        // a distinct aggregation used in a HAVING clause filters groups by their distinct count
+        assertThat(assertions.query(
+                "SELECT count(DISTINCT x) FROM (VALUES (1, 'a'), (1, 'b'), (2, 'a')) t(k, x) " +
+                        "GROUP BY k HAVING count(DISTINCT x) > 1"))
+                .matches("VALUES BIGINT '2'");
+    }
 }

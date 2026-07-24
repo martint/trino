@@ -495,4 +495,20 @@ public class TestSetOperations
         assertThat(assertions.query("SELECT 1 AS x INTERSECT CORRESPONDING SELECT 2"))
                 .failure().hasMessage("line 1:15: Anonymous columns are not allowed in set operations with CORRESPONDING");
     }
+
+    @Test
+    public void testPredicateThroughUnionAllWithLimitBranch()
+    {
+        // an outer predicate is pushed through a UNION ALL whose branches include a LIMIT-bearing branch
+        assertThat(assertions.query(
+                "SELECT a FROM (" +
+                        "    SELECT x + 1 AS a FROM (VALUES 5, 200) t(x) UNION ALL " +
+                        "    SELECT x FROM (VALUES 10, 50) u(x) UNION ALL " +
+                        "    (SELECT x FROM (VALUES 150, 8, 30) w(x) ORDER BY x LIMIT 2)" +
+                        ") " +
+                        "WHERE a < 20 OR a > 100 " +
+                        "ORDER BY a"))
+                .ordered()
+                .matches("VALUES 6, 8, 10, 201");
+    }
 }
