@@ -1613,6 +1613,18 @@ public class ExpressionAnalyzer
             resolvedFunctions.put(NodeRef.of(node), function);
             argumentBindings.put(NodeRef.<Expression>of(node), argumentBinding);
 
+            if (SolverShadow.isEnabled()) {
+                ImmutableList.Builder<Type> actualTypes = ImmutableList.builder();
+                for (int i = 0; i < argumentTypes.size(); i++) {
+                    // A lambda was typed against the chosen formal, so its actual IS the formal;
+                    // every other argument carries its pre-coercion type
+                    actualTypes.add(argumentTypes.get(i).hasDependency()
+                            ? signature.getArgumentTypes().get(i)
+                            : plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor()));
+                }
+                SolverShadow.verifyResolution(session, plannerContext.getMetadata(), function, actualTypes.build());
+            }
+
             // must run after arguments are processed and labels are recorded
             if (context.isPatternRecognition() && isAggregation) {
                 analyzePatternAggregation(node, function);
@@ -1983,6 +1995,20 @@ public class ExpressionAnalyzer
                 }
             }
             resolvedFunctions.put(NodeRef.of(node), resolution.function());
+
+            if (SolverShadow.isEnabled()) {
+                // Slot 0 is the receiver (self); every argument carries its pre-coercion type, and a
+                // lambda is at its resolved formal — the same actuals the free-function shadow uses
+                ImmutableList.Builder<Type> actualTypes = ImmutableList.builder();
+                List<TypeDescriptorProvider> argumentTypes = resolution.argumentTypes();
+                for (int i = 0; i < argumentTypes.size(); i++) {
+                    actualTypes.add(argumentTypes.get(i).hasDependency()
+                            ? signature.getArgumentTypes().get(i)
+                            : plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor()));
+                }
+                SolverShadow.verifyInstanceMethodResolution(session, plannerContext.getMetadata(), resolution.function(), receiverType.getTypeDescriptor().getBase(), actualTypes.build());
+            }
+
             return setExpressionType(node, signature.getReturnType());
         }
 
@@ -2050,6 +2076,19 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
             argumentBindings.put(NodeRef.<Expression>of(node), binding);
+
+            if (SolverShadow.isEnabled()) {
+                // The receiver type is only a selector here, not an argument: the actuals are exactly
+                // the call's arguments, each at its pre-coercion type (a lambda at its resolved formal)
+                ImmutableList.Builder<Type> actualTypes = ImmutableList.builder();
+                for (int i = 0; i < argumentTypes.size(); i++) {
+                    actualTypes.add(argumentTypes.get(i).hasDependency()
+                            ? signature.getArgumentTypes().get(i)
+                            : plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeDescriptor()));
+                }
+                SolverShadow.verifyStaticMethodResolution(session, plannerContext.getMetadata(), function, receiverSignature.getBase(), actualTypes.build());
+            }
+
             return setExpressionType(node, signature.getReturnType());
         }
 
@@ -4367,6 +4406,9 @@ public class ExpressionAnalyzer
                     Scope.builder()
                             .withRelationType(RelationId.anonymous(), new RelationType())
                             .build());
+            if (SolverExpressionShadow.isEnabled()) {
+                SolverExpressionShadow.verifyAnalysis(session, plannerContext, expression, analyzer.getResolvedFunctions(), analyzer.getExpressionTypes(), analyzer.getExpressionCoercions());
+            }
         }
 
         return new ExpressionAnalysis(
@@ -4395,6 +4437,9 @@ public class ExpressionAnalyzer
     {
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
+        if (SolverExpressionShadow.isEnabled()) {
+            SolverExpressionShadow.verifyAnalysis(session, plannerContext, expression, analyzer.getResolvedFunctions(), analyzer.getExpressionTypes(), analyzer.getExpressionCoercions());
+        }
 
         updateAnalysis(analysis, analyzer, session, accessControl);
         analysis.addExpressionFields(expression, analyzer.getSourceFields());

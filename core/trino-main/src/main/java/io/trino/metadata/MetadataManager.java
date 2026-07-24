@@ -2684,6 +2684,12 @@ public final class MetadataManager
         return functionResolver.resolveBuiltinFunction(name, parameterTypes);
     }
 
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        return functionResolver.resolveBuiltinFunctionUncached(name, parameterTypes);
+    }
+
     @Override
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException

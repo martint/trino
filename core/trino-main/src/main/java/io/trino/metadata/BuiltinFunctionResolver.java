@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -74,11 +75,10 @@ class BuiltinFunctionResolver
     ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
-                    () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                        return resolveBuiltin(functionBinding);
-                    });
+            return uncheckedCacheGet(
+                    functionCache,
+                    FunctionCacheKey.from(name, parameterTypes),
+                    () -> resolveBuiltinFunctionUncached(name, parameterTypes));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -86,6 +86,18 @@ class BuiltinFunctionResolver
             }
             throw e;
         }
+    }
+
+    /**
+     * Resolve a builtin function without consulting or populating the resolution cache, performing
+     * the full candidate binding and dependency wiring every time. Exposed for benchmarking the cost
+     * of a cache miss; the cached {@link #resolveBuiltinFunction} delegates here on a miss.
+     */
+    @VisibleForTesting
+    ResolvedFunction resolveBuiltinFunctionUncached(String name, List<TypeDescriptorProvider> parameterTypes)
+    {
+        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+        return resolveBuiltin(functionBinding);
     }
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
