@@ -120,7 +120,6 @@ public final class PushProjectionThroughJoin
                 joinNode.getFilter(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters(),
                 joinNode.getReorderJoinStatsAndCost()));
     }
 

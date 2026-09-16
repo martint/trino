@@ -47,7 +47,6 @@ import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
@@ -379,7 +378,6 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(FailTaskRequest.class);
-        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
 

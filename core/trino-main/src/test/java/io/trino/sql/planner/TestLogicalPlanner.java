@@ -388,13 +388,7 @@ public class TestLogicalPlanner
                                         filter(
                                                 comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                                 join(INNER, builder -> builder
-                                                        .addDynamicFilter("DF", "O_ORDERKEY")
-                                                        .left(
-                                                                filter(
-                                                                        TRUE,
-                                                                        dynamicFilters -> dynamicFilters
-                                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
-                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                                        .left(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))
                                                         .right(any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
@@ -408,9 +402,9 @@ public class TestLogicalPlanner
                                                 .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
                                                 .filter(comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")))
                                                 .left(
-                                                        anyTree(tableScan("orders", ImmutableMap.of(
+                                                        tableScan("orders", ImmutableMap.of(
                                                                 "O_SHIPPRIORITY", "shippriority",
-                                                                "O_ORDERKEY", "orderkey"))))
+                                                                "O_ORDERKEY", "orderkey")))
                                                 .right(
                                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                                 "L_LINENUMBER", "linenumber",
@@ -541,13 +535,7 @@ public class TestLogicalPlanner
                         filter(
                                 comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                 join(INNER, builder -> builder
-                                        .addDynamicFilter("DF", "O_ORDERKEY")
-                                        .left(
-                                                filter(
-                                                        TRUE,
-                                                        dynamicFilters -> dynamicFilters
-                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
-                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
+                                        .left(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))
                                         .right(any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
     }
 
@@ -560,18 +548,11 @@ public class TestLogicalPlanner
                                 join(INNER, builder -> builder
                                         .equiCriteria("L_LINENUMBER", "O_SHIPPRIORITY")
                                         .filter(comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")))
-                                        .addDynamicFilter("DF_SHIPPRIORITY", "O_SHIPPRIORITY")
-                                        .addDynamicFilter("DF_ORDERKEY", "O_ORDERKEY")
                                         .left(
-                                                filter(
-                                                        TRUE,
-                                                        dynamicFilters -> dynamicFilters
-                                                                .addConsumer(consumer -> consumer.alias("DF_SHIPPRIORITY").expression(INTEGER, "L_LINENUMBER"))
-                                                                .addConsumer(consumer -> consumer.alias("DF_ORDERKEY").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
-                                                        tableScan("lineitem",
-                                                                ImmutableMap.of(
-                                                                        "L_LINENUMBER", "linenumber",
-                                                                        "L_ORDERKEY", "orderkey"))))
+                                                tableScan("lineitem",
+                                                        ImmutableMap.of(
+                                                                "L_LINENUMBER", "linenumber",
+                                                                "L_ORDERKEY", "orderkey")))
                                         .right(
                                                 anyTree(
                                                         tableScan("orders",
@@ -604,9 +585,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                .left(
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
+                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
@@ -619,9 +598,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                .left(
-                                        anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
+                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
@@ -686,9 +663,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("X", "Y")
-                                .left(
-                                        filter(TRUE,
-                                                tableScan("orders", ImmutableMap.of("X", "orderkey"))))
+                                .left(tableScan("orders", ImmutableMap.of("X", "orderkey")))
                                 .right(
                                         node(EnforceSingleRowNode.class,
                                                 anyTree(
@@ -702,8 +677,7 @@ public class TestLogicalPlanner
                                 semiJoin("X",
                                         "Y",
                                         "S",
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                        tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         anyTree(
                                                 tableScan("lineitem", ImmutableMap.of("Y", "orderkey")))))));
 
@@ -882,9 +856,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("REGIONKEY_LEFT", "REGIONKEY_RIGHT")
-                                .left(
-                                        anyTree(
-                                                tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))))
+                                .left(tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey")))
                                 .right(
                                         anyTree(
                                                 tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))))
@@ -1014,7 +986,7 @@ public class TestLogicalPlanner
                                                 .distributionType(REPLICATED)
                                                 .left(assignUniqueId(
                                                         "nearest_left_row",
-                                                        any(tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))
                                                 .right(exchange(
                                                         LOCAL,
                                                         filter(
@@ -1195,9 +1167,7 @@ public class TestLogicalPlanner
                                 SINGLE,
                                 join(INNER, builder -> builder
                                         .equiCriteria("l_orderkey", "o_orderkey")
-                                        .left(
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))
+                                        .left(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))
                                         .right(
                                                 anyTree(
                                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))))));
@@ -1329,15 +1299,10 @@ public class TestLogicalPlanner
                                                 .maySkipOutputDuplicates(true)
                                                 .equiCriteria("L_ORDERKEY", "R_ORDERKEY")
                                                 .filter(comparison(NOT_EQUAL, new Reference(BIGINT, "R_SUPPKEY"), new Reference(BIGINT, "L_SUPPKEY")))
-                                                .addDynamicFilter("DF", "R_ORDERKEY")
                                                 .left(
                                                         assignUniqueId(
                                                                 "UNIQUE",
-                                                                filter(
-                                                                        TRUE,
-                                                                        dynamicFilters -> dynamicFilters
-                                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY")),
-                                                                        tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey")))))
+                                                                tableScan("lineitem", ImmutableMap.of("L_SUPPKEY", "suppkey", "L_ORDERKEY", "orderkey"))))
                                                 .right(
                                                         exchange(
                                                                 tableScan("lineitem", ImmutableMap.of("R_SUPPKEY", "suppkey", "R_ORDERKEY", "orderkey")))))))));
@@ -1778,9 +1743,7 @@ public class TestLogicalPlanner
                 any(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDER_CUSTKEY", "CUSTOMER_CUSTKEY")
-                                .left(
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))
+                                .left(tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey")))
                                 .right(
                                         aggregation(
                                                 singleGroupingSet("CUSTOMER_CUSTKEY"),
@@ -1812,18 +1775,10 @@ public class TestLogicalPlanner
                                                 filter(
                                                         new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "region_regionkey")), comparison(EQUAL, new Reference(BIGINT, "region_regionkey"), new Reference(BIGINT, "nation_regionkey")), new IsNull(new Reference(BIGINT, "nation_regionkey")))), comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")))),
                                                         join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "region_name")
                                                                 .left(
-                                                                        filter(
-                                                                                not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "nation_regionkey"))),
-                                                                                dynamicFilters -> dynamicFilters
-                                                                                        .addConsumer(consumer -> consumer
-                                                                                                .alias("DF")
-                                                                                                .expression(VARCHAR, "nation_name")
-                                                                                                .operator(LESS_THAN)),
-                                                                                tableScan("nation", ImmutableMap.of(
-                                                                                        "nation_name", "name",
-                                                                                        "nation_regionkey", "regionkey"))))
+                                                                        filter(not(getPlanTester().getPlannerContext().getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "nation_regionkey"))), tableScan("nation", ImmutableMap.of(
+                                                                                "nation_name", "name",
+                                                                                "nation_regionkey", "regionkey"))))
                                                                 .right(
                                                                         any(
                                                                                 assignUniqueId(
@@ -1851,16 +1806,7 @@ public class TestLogicalPlanner
                                                 filter(
                                                         comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")),
                                                         join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "region_name")
-                                                                .left(
-                                                                        filter(
-                                                                                TRUE,
-                                                                                dynamicFilters -> dynamicFilters
-                                                                                        .addConsumer(consumer -> consumer
-                                                                                                .alias("DF")
-                                                                                                .expression(VARCHAR, "nation_name")
-                                                                                                .operator(LESS_THAN)),
-                                                                                tableScan("nation", ImmutableMap.of("nation_name", "name"))))
+                                                                .left(tableScan("nation", ImmutableMap.of("nation_name", "name")))
                                                                 .right(
                                                                         any(
                                                                                 assignUniqueId(
@@ -2155,11 +2101,10 @@ public class TestLogicalPlanner
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDER_STATUS", "expr")
                                 .left(
-                                        filter(TRUE,
-                                                strictConstrainedTableScan(
-                                                        "orders",
-                                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
+                                        strictConstrainedTableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))
                                 .right(
                                         values(
                                                 ImmutableList.of("expr"),
@@ -2256,11 +2201,10 @@ public class TestLogicalPlanner
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDER_STATUS", "expr")
                                 .left(
-                                        filter(TRUE,
-                                                strictConstrainedTableScan(
-                                                        "orders",
-                                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
+                                        strictConstrainedTableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))
                                 .right(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.

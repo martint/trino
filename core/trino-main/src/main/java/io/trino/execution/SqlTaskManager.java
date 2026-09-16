@@ -35,7 +35,6 @@ import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.ConnectorServicesProvider.PrunableState;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
@@ -54,12 +53,10 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -465,15 +462,6 @@ public class SqlTaskManager
         return sqlTask.getTaskStatus(currentVersion);
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion)
-    {
-        requireNonNull(taskId, "taskId is null");
-
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
-        sqlTask.recordHeartbeat();
-        return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
-    }
-
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
         Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
@@ -499,11 +487,10 @@ public class SqlTaskManager
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
             boolean speculative)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, speculative)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -520,7 +507,6 @@ public class SqlTaskManager
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
             boolean speculative)
     {
         requireNonNull(session, "session is null");
@@ -565,7 +551,7 @@ public class SqlTaskManager
                 .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);
+        return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, speculative);
     }
 
     /**

@@ -255,7 +255,7 @@ public class SqlQueryExecution
             return;
         }
 
-        dynamicFilterService.registerQuery(getSession(), getQueryPlan().orElseThrow().getRoot(), plan.getRoot());
+        dynamicFilterService.registerQuery(getSession(), plan.getRoot());
         stateMachine.setDynamicFiltersStatsSupplier(
                 () -> dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId()));
     }
@@ -418,8 +418,7 @@ public class SqlQueryExecution
                 try {
                     CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
-                    // DynamicFilterService needs plan for query to be registered.
-                    // Query should be registered before dynamic filter suppliers are requested in distribution planning.
+                    // Register query statistics before distribution planning.
                     registerDynamicFilteringQuery(plan);
                     planDistribution(plan, tableStatsProvider);
                 }

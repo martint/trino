@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
@@ -91,7 +90,6 @@ public class TransformCorrelatedJoinToJoin
                 filter.equals(TRUE) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty()));
     }
 }

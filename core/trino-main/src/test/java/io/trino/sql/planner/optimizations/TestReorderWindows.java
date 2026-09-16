@@ -344,7 +344,6 @@ public class TestReorderWindows
                 new UnaliasSymbolReferences(),
                 new PredicatePushDown(
                         getPlanTester().getPlannerContext(),
-                        false,
                         false),
                 new IterativeOptimizer(
                         "TestReorderWindows",

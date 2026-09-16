@@ -17,7 +17,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -383,7 +382,6 @@ public class ReorderJoins
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of(),
                     Optional.empty()));
         }
 

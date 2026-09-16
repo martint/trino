@@ -55,7 +55,6 @@ import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Cast.Kind.CONVERT;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
@@ -517,7 +516,7 @@ public final class IrExpressions
     private static boolean mayFail(Call call)
     {
         ResolvedFunction function = call.function();
-        if (function.neverFails() || isDynamicFilterFunction(function.name())) {
+        if (function.neverFails()) {
             return false;
         }
         List<Expression> arguments = call.arguments();

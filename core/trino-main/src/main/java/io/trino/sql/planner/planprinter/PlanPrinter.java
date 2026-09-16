@@ -57,7 +57,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.type.Type;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -78,7 +77,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -166,9 +164,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.IrUtils.combineConjunctsWithDuplicates;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -194,7 +190,6 @@ public class PlanPrinter
 
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
-    private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final Map<PlanNodeId, Long> getSplitsTotalTimeNanos;
     private final Map<PlanNodeId, Metrics> splitSourceMetrics;
     private final ValuePrinter valuePrinter;
@@ -224,7 +219,6 @@ public class PlanPrinter
         requireNonNull(anonymizer, "anonymizer is null");
 
         this.tableInfoSupplier = tableInfoSupplier;
-        this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
         this.getSplitsTotalTimeNanos = ImmutableMap.copyOf(getSplitsTotalTimeNanos);
         this.splitSourceMetrics = ImmutableMap.copyOf(splitSourceMetrics);
         this.valuePrinter = valuePrinter;
@@ -745,9 +739,6 @@ public class PlanPrinter
             if (node.isMaySkipOutputDuplicates()) {
                 nodeOutput.appendDetails("maySkipOutputDuplicates = %s", node.isMaySkipOutputDuplicates());
             }
-            if (!node.getDynamicFilters().isEmpty()) {
-                nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
-            }
             node.getLeft().accept(this, new Context(context.isInitialPlan()));
             node.getRight().accept(this, new Context(context.isInitialPlan()));
 
@@ -780,21 +771,9 @@ public class PlanPrinter
                             "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol())),
                     context);
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
-            node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetails("dynamicFilterId: %s", dynamicFilterId));
             node.getSource().accept(this, new Context(context.isInitialPlan()));
             node.getFilteringSource().accept(this, new Context(context.isInitialPlan()));
 
-            return null;
-        }
-
-        @Override
-        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Context context)
-        {
-            addNode(node,
-                    "DynamicFilterSource",
-                    ImmutableMap.of("dynamicFilterAssignments", printDynamicFilterAssignments(node.getDynamicFilters())),
-                    context);
-            node.getSource().accept(this, new Context(context.isInitialPlan()));
             return null;
         }
 
@@ -1300,16 +1279,10 @@ public class PlanPrinter
                 descriptor.put("table", anonymizer.anonymize(scanNode.get().getTable(), tableInfoSupplier.apply(scanNode.get())));
             }
 
-            List<DynamicFilters.Descriptor> dynamicFilters = ImmutableList.of();
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 Expression predicate = filterNode.get().getPredicate();
-                DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
-                descriptor.put("filterPredicate", formatFilter(combineConjunctsWithDuplicates(extractResult.getStaticConjuncts())));
-                if (!extractResult.getDynamicConjuncts().isEmpty()) {
-                    dynamicFilters = extractResult.getDynamicConjuncts();
-                    descriptor.put("dynamicFilters", printDynamicFilters(dynamicFilters));
-                }
+                descriptor.put("filterPredicate", formatFilter(predicate));
             }
 
             if (projectNode.isPresent()) {
@@ -1354,27 +1327,6 @@ public class PlanPrinter
                     addSplits(scanNode.get().getId(), nodeStats, inputDetailBuilder, argsBuilder);
                     appendDetailsFromBuilder(nodeOutput, inputDetailBuilder, argsBuilder);
                 }
-                List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
-                        .map(DynamicFilters.Descriptor::getId)
-                        .map(dynamicFilterDomainStats::get)
-                        .filter(Objects::nonNull)
-                        .collect(toImmutableList());
-                if (!collectedDomainStats.isEmpty()) {
-                    nodeOutput.appendDetails("Dynamic filters: ");
-                    if (anonymizer instanceof NoOpAnonymizer) {
-                        collectedDomainStats.forEach(stats -> nodeOutput.appendDetails(
-                                "    - %s, %s, collection time=%s",
-                                stats.getDynamicFilterId(),
-                                stats.getSimplifiedDomain(),
-                                stats.getCollectionDuration().map(Duration::toString).orElse("uncollected")));
-                    }
-                    else {
-                        collectedDomainStats.forEach(stats -> nodeOutput.appendDetails(
-                                "    - %s, collection time=%s",
-                                stats.getDynamicFilterId(),
-                                stats.getCollectionDuration().map(Duration::toString).orElse("uncollected")));
-                    }
-                }
                 return null;
             }
 
@@ -1414,20 +1366,6 @@ public class PlanPrinter
         private void appendDetailsFromBuilder(NodeRepresentation nodeOutput, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
         {
             nodeOutput.appendDetails(inputDetailBuilder.toString(), argsBuilder.build().toArray());
-        }
-
-        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
-        {
-            return filters.stream()
-                    .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId())
-                    .collect(joining(", ", "{", "}"));
-        }
-
-        private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
-        {
-            return filters.entrySet().stream()
-                    .map(filter -> anonymizer.anonymize(filter.getValue()) + " -> #" + filter.getKey())
-                    .collect(joining(", ", "{", "}"));
         }
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, TableInfo tableInfo)

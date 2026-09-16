@@ -61,7 +61,6 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
@@ -379,10 +378,7 @@ public class FilterStatsCalculator
                 return estimateComparison(comparison.operator(), comparison.left(), comparison.right());
             }
 
-            if (isDynamicFilter(node)) {
-                return process(Booleans.TRUE, context);
-            }
-            else if (node.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
+            if (node.function().name().equals(builtinFunctionName(NOT_FUNCTION_NAME))) {
                 Expression argument = node.arguments().getFirst();
                 if (argument instanceof IsNull inner) {
                     if (inner.value() instanceof Reference) {

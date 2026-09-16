@@ -21,9 +21,7 @@ import io.trino.SessionRepresentation;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -44,7 +42,6 @@ public record TaskUpdateRequest(
         Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
         List<SplitAssignment> splitAssignments,
         OutputBuffers outputIds,
-        Map<DynamicFilterId, Domain> dynamicFilterDomains,
         Optional<Slice> exchangeEncryptionKey,
         boolean speculative)
 {
@@ -57,7 +54,6 @@ public record TaskUpdateRequest(
         tableCredentials = ImmutableMap.copyOf(tableCredentials);
         splitAssignments = ImmutableList.copyOf(splitAssignments);
         requireNonNull(outputIds, "outputIds is null");
-        dynamicFilterDomains = ImmutableMap.copyOf(dynamicFilterDomains);
         requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
     }
 
@@ -70,7 +66,6 @@ public record TaskUpdateRequest(
                 .add("fragment", fragment)
                 .add("splitAssignments", splitAssignments)
                 .add("outputIds", outputIds)
-                .add("dynamicFilterDomains", dynamicFilterDomains)
                 .add("exchangeEncryptionKey", exchangeEncryptionKey.map(_ -> "[REDACTED]"))
                 .add("speculative", speculative)
                 .toString();

@@ -21,7 +21,6 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.StatsAndCosts;
-import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.NodeTaskMap;
@@ -50,14 +49,10 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.ConnectorAwareSplitSource;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -87,26 +82,20 @@ import java.util.function.Supplier;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.NODE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.STAGE;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
-import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
-import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -127,7 +116,6 @@ public class TestSourcePartitionedScheduler
 {
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("plan_id");
     private static final QueryId QUERY_ID = new QueryId("query");
-    private static final DynamicFilterId DYNAMIC_FILTER_ID = new DynamicFilterId("filter1");
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
@@ -380,7 +368,7 @@ public class TestSourcePartitionedScheduler
                     new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(20, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                     2,
-                    new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                    new DynamicFilterService(),
                     new TableExecuteContextManager(),
                     () -> false);
             scheduler.schedule();
@@ -518,7 +506,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(4 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 4 * 300,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(),
                 new TableExecuteContextManager(),
                 () -> false);
 
@@ -561,7 +549,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(3 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 3 * 300,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(),
                 new TableExecuteContextManager(),
                 () -> true);
 
@@ -580,54 +568,6 @@ public class TestSourcePartitionedScheduler
         scheduleResult = scheduler.schedule();
         assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL);
         assertThat(scheduleResult.getNewTasks()).isEmpty();
-        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
-    }
-
-    @Test
-    public void testDynamicFiltersUnblockedOnBlockedBuildSource()
-    {
-        PlanFragment plan = createFragment();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        StageExecution stage = createStageExecution(plan, nodeTaskMap);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig())));
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
-        dynamicFilterService.registerQuery(
-                QUERY_ID,
-                TEST_SESSION,
-                ImmutableSet.of(DYNAMIC_FILTER_ID),
-                ImmutableSet.of(DYNAMIC_FILTER_ID),
-                ImmutableSet.of(DYNAMIC_FILTER_ID));
-        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
-                stage,
-                TABLE_SCAN_NODE_ID,
-                new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createBlockedSplitSource(), DynamicFilter.EMPTY),
-                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
-                2,
-                dynamicFilterService,
-                new TableExecuteContextManager(),
-                () -> true);
-
-        SymbolAllocator symbolAllocator = emptySymbolAllocator();
-        Symbol symbol = symbolAllocator.newSymbol("DF_SYMBOL1", BIGINT);
-        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
-                QUERY_ID,
-                ImmutableList.of(new DynamicFilters.Descriptor(DYNAMIC_FILTER_ID, symbol.toSymbolReference())),
-                ImmutableMap.of(symbol, new TestingColumnHandle("probeColumnA")));
-
-        // make sure dynamic filtering collecting task was created immediately
-        assertThat(stage.getState()).isEqualTo(PLANNED);
-        scheduler.start();
-        assertThat(stage.getAllTasks()).hasSize(1);
-        assertThat(stage.getState()).isEqualTo(SCHEDULING);
-
-        // make sure dynamic filter is initially blocked
-        assertThat(dynamicFilter.isBlocked().isDone()).isFalse();
-
-        // make sure dynamic filter is unblocked due to build side source tasks being blocked
-        ScheduleResult scheduleResult = scheduler.schedule();
-        assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
-
-        // no new probe splits should be scheduled
         assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
@@ -673,7 +613,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, splitSource, DynamicFilter.EMPTY),
                 placementPolicy,
                 splitBatchSize,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(),
                 new TableExecuteContextManager(),
                 () -> false);
     }
@@ -693,18 +633,13 @@ public class TestSourcePartitionedScheduler
                 Optional.empty(),
                 false,
                 Optional.empty());
-        FilterNode filterNode = new FilterNode(
-                new PlanNodeId("filter_node_id"),
-                tableScan,
-                createDynamicFilterExpression(createTestingMetadataManager(), getCharVarcharCoercion(TEST_SESSION), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
-
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), REPLICATE, RetryPolicy.NONE);
         return new PlanFragment(
                 new PlanFragmentId("plan_id"),
                 new JoinNode(
                         new PlanNodeId("join_id"),
                         INNER,
-                        filterNode,
+                        tableScan,
                         remote,
                         ImmutableList.of(),
                         tableScan.getOutputSymbols(),
@@ -713,7 +648,6 @@ public class TestSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableMap.of(DYNAMIC_FILTER_ID, buildSymbol),
                         Optional.empty()),
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,

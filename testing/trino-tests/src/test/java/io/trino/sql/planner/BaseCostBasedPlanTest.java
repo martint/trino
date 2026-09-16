@@ -24,8 +24,6 @@ import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.sql.DynamicFilters;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -63,7 +61,6 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -348,15 +345,6 @@ public abstract class BaseCostBasedPlanTest
         @Override
         public Void visitFilter(FilterNode node, Integer indent)
         {
-            DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
-            String inputs = filters.getDynamicConjuncts().stream()
-                    .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
-                    .collect(joining(", "));
-
-            if (!inputs.isEmpty()) {
-                output(indent, "dynamic filter (%s)", inputs);
-                indent = indent + 1;
-            }
             return visitPlan(node, indent);
         }
 

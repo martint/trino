@@ -294,7 +294,6 @@ public abstract class BaseTestSqlTaskManager
                     ImmutableMap.of(),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    ImmutableMap.of(),
                     false);
             assertThat(reducesLimitsContext.isMemoryLimitsInitialized()).isTrue();
             assertThat(reducesLimitsContext.getMaxUserMemory()).isEqualTo(1);
@@ -310,7 +309,6 @@ public abstract class BaseTestSqlTaskManager
                     ImmutableMap.of(),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    ImmutableMap.of(),
                     false);
             assertThat(attemptsIncreaseContext.isMemoryLimitsInitialized()).isTrue();
             assertThat(attemptsIncreaseContext.getMaxUserMemory()).isEqualTo(memoryConfig.getMaxQueryMemoryPerNode().toBytes());
@@ -353,7 +351,6 @@ public abstract class BaseTestSqlTaskManager
                 ImmutableMap.of(),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                ImmutableMap.of(),
                 false);
     }
 
@@ -369,7 +366,6 @@ public abstract class BaseTestSqlTaskManager
                 ImmutableMap.of(),
                 ImmutableList.of(),
                 outputBuffers,
-                ImmutableMap.of(),
                 false);
     }
 

@@ -121,11 +121,6 @@ public final class PlanNodeStatsSummarizer
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
                     continue;
                 }
-                // Skip DynamicFilterSourceOperator as input operator as for join build side HashBuilderOperator metrics
-                // should be reported
-                if (operatorStats.getOperatorType().equals("DynamicFilterSourceOperator")) {
-                    continue;
-                }
                 if (processedNodes.contains(planNodeId)) {
                     continue;
                 }

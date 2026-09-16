@@ -226,8 +226,7 @@ public class LimitPushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getDistributionType(),
-                        node.getDynamicFilterId());
+                        node.getDistributionType());
             }
             return node;
         }

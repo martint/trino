@@ -31,13 +31,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
-import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -85,9 +83,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.IrUtils.filterConjuncts;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -166,36 +162,19 @@ public class SplitSourceFactory
 
         private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
         {
-            List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
-                    .map(DynamicFilters::extractDynamicFilters)
-                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
-                    .orElse(ImmutableList.of());
-
-            DynamicFilter dynamicFilter = EMPTY;
-            if (!dynamicFilters.isEmpty()) {
-                log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments);
-            }
-
-            Expression nonDynamicFilter = filterConjuncts(filterPredicate.orElse(TRUE), expression -> !DynamicFilters.isDynamicFilter(expression));
+            Expression predicate = filterPredicate.orElse(TRUE);
             Map<String, ColumnHandle> columnHandlesByName = assignments.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
             ConnectorExpression expression = ConnectorExpressions.and(
-                    ConnectorExpressionTranslator.translateConjuncts(session, nonDynamicFilter, columnHandlesByName.keySet()).connectorExpression(),
-                    EngineExpressions.buildEngineExpression(nonDynamicFilter, serializer));
+                    ConnectorExpressionTranslator.translateConjuncts(session, predicate, columnHandlesByName.keySet()).connectorExpression(),
+                    EngineExpressions.buildEngineExpression(predicate, serializer));
             // we are interested only in functional predicate here, so we set the summary to ALL.
             Constraint constraint = new Constraint(
                     TupleDomain.all(),
                     expression,
                     columnHandlesByName);
 
-            // get dataSource for table
-            return splitManager.getSplits(
-                    session,
-                    stageSpan,
-                    table,
-                    dynamicFilter,
-                    constraint);
+            return splitManager.getSplits(session, stageSpan, table, DynamicFilter.EMPTY, constraint);
         }
 
         @Override
@@ -235,12 +214,6 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Void context)
         {
             return node.getProbeSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
         }
 
         @Override

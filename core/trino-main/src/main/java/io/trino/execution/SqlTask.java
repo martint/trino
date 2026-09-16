@@ -30,7 +30,6 @@ import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
@@ -44,9 +43,7 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
@@ -68,13 +65,10 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.FAILING;
 import static io.trino.execution.TaskState.FINISHED;
@@ -211,8 +205,7 @@ public class SqlTask
                         if (!taskHolder.isFinished()) {
                             TaskHolder newHolder = new TaskHolder(
                                     createTaskInfo(taskHolder),
-                                    taskHolder.getIoStats(),
-                                    taskHolder.getDynamicFilterDomains());
+                                    taskHolder.getIoStats());
                             checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
                             finished = true;
                         }
@@ -326,11 +319,6 @@ public class SqlTask
         catalogsLoaded.set(true);
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
-    {
-        return taskHolderReference.get().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
-    }
-
     private synchronized void notifyStatusChanged()
     {
         taskStatusVersion.incrementAndGet();
@@ -363,7 +351,6 @@ public class SqlTask
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
         long fullGcCount = 0;
         Duration fullGcTime = succinctDuration(0, MILLISECONDS);
-        long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.stats();
@@ -380,7 +367,6 @@ public class SqlTask
             outputDataSize = taskStats.outputDataSize();
             fullGcCount = taskStats.fullGcCount();
             fullGcTime = taskStats.fullGcTime();
-            dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -402,12 +388,11 @@ public class SqlTask
             outputDataSize = DataSize.ofBytes(taskContext.getOutputDataSize().getTotalCount());
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
-            dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
         else if (state == FINISHED) {
             // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
             // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
-            // task information (e.g. missing proper dynamicFiltersVersion as final).
+            // task information (e.g. final task statistics).
             // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
             // so it will not add any noticable delays.
             state = RUNNING;
@@ -434,7 +419,6 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion,
                 queuedPartitionedSplitsWeight,
                 runningPartitionedSplitsWeight);
     }
@@ -515,7 +499,6 @@ public class SqlTask
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains,
             boolean speculative)
     {
         try {
@@ -540,7 +523,6 @@ public class SqlTask
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
                 taskExecution.addSplitAssignments(splitAssignments);
             }
 
@@ -665,14 +647,12 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
-        private final VersionedDynamicFilterDomains finalDynamicFilterDomains;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
-            this.finalDynamicFilterDomains = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -680,15 +660,13 @@ public class SqlTask
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
             this.finalTaskInfo = null;
             this.finalIoStats = null;
-            this.finalDynamicFilterDomains = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats, VersionedDynamicFilterDomains finalDynamicFilterDomains)
+        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
-            this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
         }
 
         public boolean isFinished()
@@ -721,42 +699,6 @@ public class SqlTask
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
             return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
-        }
-
-        public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersSummaryVersion)
-        {
-            // if we are finished, return the final VersionedDynamicFilterDomains
-            if (finalDynamicFilterDomains != null) {
-                return finalDynamicFilterDomains;
-            }
-            // if we haven't started yet, return an empty VersionedDynamicFilterDomains
-            if (taskExecution == null) {
-                return INITIAL_DYNAMIC_FILTER_DOMAINS;
-            }
-            // get VersionedDynamicFilterDomains from the current task execution
-            TaskContext taskContext = taskExecution.getTaskContext();
-            return taskContext.acknowledgeAndGetNewDynamicFilterDomains(callersSummaryVersion);
-        }
-
-        public long getDynamicFiltersVersion()
-        {
-            // if we are finished, return the version of the final VersionedDynamicFilterDomains
-            if (finalDynamicFilterDomains != null) {
-                return finalDynamicFilterDomains.getVersion();
-            }
-            requireNonNull(taskExecution, "taskExecution is null");
-            return taskExecution.getTaskContext().getDynamicFiltersVersion();
-        }
-
-        public VersionedDynamicFilterDomains getDynamicFilterDomains()
-        {
-            verify(finalDynamicFilterDomains == null, "finalDynamicFilterDomains has already been set");
-            // Task was aborted or failed before taskExecution was created, return an empty VersionedDynamicFilterDomains
-            if (taskExecution == null) {
-                return INITIAL_DYNAMIC_FILTER_DOMAINS;
-            }
-            // get VersionedDynamicFilterDomains from the current task execution
-            return taskExecution.getTaskContext().getCurrentDynamicFilterDomains();
         }
     }
 

@@ -260,7 +260,6 @@ public class ExpressionRewriteRuleSet
                         filter,
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
-                        joinNode.getDynamicFilters(),
                         joinNode.getReorderJoinStatsAndCost()));
             }
             return Result.empty();

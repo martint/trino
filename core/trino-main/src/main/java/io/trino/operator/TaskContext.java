@@ -26,8 +26,6 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
@@ -36,9 +34,6 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.predicate.Domain;
-import io.trino.sql.planner.LocalDynamicFiltersCollector;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.time.Instant;
@@ -108,12 +103,6 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
-    private final DynamicFiltersCollector dynamicFiltersCollector;
-
-    // The collector is shared for dynamic filters collected from coordinator
-    // as well as from local build-side of replicated joins. It is also shared
-    // with multiple table scans (e.g. co-located joins).
-    private final LocalDynamicFiltersCollector localDynamicFiltersCollector;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -169,8 +158,6 @@ public class TaskContext
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-        this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
-        this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
@@ -431,26 +418,6 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
-    public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
-    {
-        dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
-    }
-
-    public long getDynamicFiltersVersion()
-    {
-        return dynamicFiltersCollector.getDynamicFiltersVersion();
-    }
-
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
-    {
-        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
-    }
-
-    public VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
-    {
-        return dynamicFiltersCollector.getCurrentDynamicFilterDomains();
-    }
-
     public TaskStats getTaskStats()
     {
         // check for end state to avoid callback ordering problems
@@ -659,16 +626,6 @@ public class TaskContext
     public DataSize getQueryMemoryReservation()
     {
         return DataSize.ofBytes(queryContext.getUserMemoryReservation());
-    }
-
-    public LocalDynamicFiltersCollector getLocalDynamicFiltersCollector()
-    {
-        return localDynamicFiltersCollector;
-    }
-
-    public void addDynamicFilter(Map<DynamicFilterId, Domain> dynamicFilterDomains)
-    {
-        localDynamicFiltersCollector.collectDynamicFilterDomains(dynamicFilterDomains);
     }
 
     public void sourceTaskFailed(TaskId taskId, Throwable failure)

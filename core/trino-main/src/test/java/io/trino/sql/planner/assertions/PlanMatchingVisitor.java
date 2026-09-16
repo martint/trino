@@ -69,7 +69,7 @@ final class PlanMatchingVisitor
             newAliases = newAliases.updateAssignments(assignments.build());
         }
 
-        return match(newAliases, result.getDynamicFilters());
+        return match(newAliases);
     }
 
     @Override
@@ -81,7 +81,7 @@ final class PlanMatchingVisitor
             return result;
         }
 
-        return match(result.getAliases().replaceAssignments(node.getAssignments()), result.getDynamicFilters());
+        return match(result.getAliases().replaceAssignments(node.getAssignments()));
     }
 
     @Override
@@ -120,11 +120,10 @@ final class PlanMatchingVisitor
 
             // Try upMatching this node with the aliases gathered from the source nodes.
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
-            MatchingDynamicFilters allSourceDynamicFilters = sourcesMatch.getDynamicFilters();
-            MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, allSourceAliases, allSourceDynamicFilters);
+            MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, "Ambiguous match on node %s", node);
-                result = match(allSourceAliases.withNewAliases(matchResult.getAliases()), matchResult.getDynamicFilters().merge(allSourceDynamicFilters));
+                result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
             }
         }
         return result;
@@ -146,7 +145,7 @@ final class PlanMatchingVisitor
              * 2) Collect the aliases from the source nodes so we can add them to
              *    SymbolAliases. They'll be needed further up.
              */
-            MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, new SymbolAliases(), new MatchingDynamicFilters());
+            MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, "Ambiguous match on leaf node %s", node);
                 result = matchResult;
@@ -180,7 +179,6 @@ final class PlanMatchingVisitor
 
         int i = 0;
         SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
-        MatchingDynamicFilters.Builder allSourceDynamicFilters = MatchingDynamicFilters.builder();
 
         for (PlanNode source : node.getSources()) {
             // Match sources to patterns 1:1
@@ -192,9 +190,8 @@ final class PlanMatchingVisitor
 
             // Add the per-source aliases to the per-state aliases.
             allSourceAliases.putAll(matchResult.getAliases());
-            allSourceDynamicFilters.addAll(matchResult.getDynamicFilters());
         }
 
-        return match(allSourceAliases.build(), allSourceDynamicFilters.build());
+        return match(allSourceAliases.build());
     }
 }

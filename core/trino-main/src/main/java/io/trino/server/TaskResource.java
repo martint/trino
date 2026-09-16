@@ -168,7 +168,6 @@ public class TaskResource
                 taskUpdateRequest.tableCredentials(),
                 taskUpdateRequest.splitAssignments(),
                 taskUpdateRequest.outputIds(),
-                taskUpdateRequest.dynamicFilterDomains(),
                 taskUpdateRequest.speculative());
 
         if (shouldSummarize(uriInfo)) {
@@ -268,27 +267,6 @@ public class TaskResource
 
         ListenableFuture<Response> response = Futures.transform(futureTaskStatus, taskStatus -> Response.ok(taskStatus).build(), directExecutor());
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
-    }
-
-    @GET
-    @Path("{taskId}/dynamicfilters")
-    @Produces(MediaType.APPLICATION_JSON)
-    public void acknowledgeAndGetNewDynamicFilterDomains(
-            @PathParam("taskId") TaskId taskId,
-            @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Suspended AsyncResponse asyncResponse)
-    {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
-        if (failRequestIfInvalid(asyncResponse)) {
-            return;
-        }
-
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
-            return;
-        }
-
-        asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
     @DELETE

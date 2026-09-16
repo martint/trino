@@ -1031,7 +1031,6 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         if (type != INNER) {
@@ -1074,7 +1073,6 @@ class RelationPlanner
                             .collect(Collectors.toList()))),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of(),
                     Optional.empty());
         }
 
@@ -1185,7 +1183,6 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         // Add a projection to produce the outputs of the columns in the USING clause,
@@ -1338,7 +1335,6 @@ class RelationPlanner
                         .collect(toImmutableList()))),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
         RelationPlan candidatePlan = new RelationPlan(candidateRoot, analysis.getScope(nearest), candidateOutputs, outerContext);
 

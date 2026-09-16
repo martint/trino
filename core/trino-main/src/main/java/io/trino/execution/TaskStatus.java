@@ -26,7 +26,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.succinctDuration;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,7 +51,6 @@ public record TaskStatus(
         DataSize revocableMemoryReservation,
         long fullGcCount,
         Duration fullGcTime,
-        long dynamicFiltersVersion,
         long queuedPartitionedSplitsWeight,
         long runningPartitionedSplitsWeight)
 {
@@ -95,7 +93,6 @@ public record TaskStatus(
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         requireNonNull(fullGcTime, "fullGcTime is null");
-        checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
     }
 
     @Override
@@ -130,7 +127,6 @@ public record TaskStatus(
                 DataSize.ofBytes(0),
                 0,
                 succinctDuration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION,
                 0L,
                 0L);
     }
@@ -158,7 +154,6 @@ public record TaskStatus(
                 taskStatus.revocableMemoryReservation(),
                 taskStatus.fullGcCount(),
                 taskStatus.fullGcTime(),
-                taskStatus.dynamicFiltersVersion(),
                 taskStatus.queuedPartitionedSplitsWeight(),
                 taskStatus.runningPartitionedSplitsWeight());
     }

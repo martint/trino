@@ -764,7 +764,6 @@ public class TestEffectivePredicateExtractor
                 Optional.of(lessThanOrEqual(new Reference(BIGINT, "b"), new Reference(BIGINT, "e"))),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -804,7 +803,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -833,7 +831,6 @@ public class TestEffectivePredicateExtractor
                 Optional.of(FALSE),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -869,7 +866,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -914,7 +910,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -963,7 +958,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -1007,7 +1001,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);
@@ -1029,7 +1022,6 @@ public class TestEffectivePredicateExtractor
                 new Symbol(BIGINT, "a"),
                 new Symbol(BIGINT, "b"),
                 new Symbol(DOUBLE, "c"),
-                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), node);

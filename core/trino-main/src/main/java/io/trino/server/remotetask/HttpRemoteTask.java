@@ -39,8 +39,6 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.FutureStateChange;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -69,7 +67,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -118,7 +115,6 @@ import static io.trino.SystemSessionProperties.getRemoteTaskGuaranteedSplitsPerR
 import static io.trino.SystemSessionProperties.getRemoteTaskRequestSizeHeadroom;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isRemoteTaskAdaptiveUpdateRequestSizeEnabled;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskStatus.failWith;
@@ -155,11 +151,7 @@ public final class HttpRemoteTask
     private final Span span;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
-    private final DynamicFiltersFetcher dynamicFiltersFetcher;
 
-    private final DynamicFiltersCollector outboundDynamicFiltersCollector;
-    // The version of dynamic filters that has been successfully sent to the worker
-    private final AtomicLong sentDynamicFiltersVersion = new AtomicLong(INITIAL_DYNAMIC_FILTERS_VERSION);
     private final AtomicLong terminationStartedNanos = new AtomicLong();
 
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
@@ -234,7 +226,6 @@ public final class HttpRemoteTask
             Duration taskTerminationTimeout,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCodec,
@@ -242,7 +233,6 @@ public final class HttpRemoteTask
             Tracer tracer,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
-            Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory)
     {
         requireNonNull(session, "session is null");
@@ -260,7 +250,6 @@ public final class HttpRemoteTask
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
-        requireNonNull(outboundDynamicFilterIds, "outboundDynamicFilterIds is null");
         requireNonNull(estimatedMemory, "estimatedMemory is null");
 
         try (SetThreadName _ = new SetThreadName("HttpRemoteTask-" + taskId)) {
@@ -331,26 +320,11 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(Instant.now(), null));
 
-            this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
-                    this::fatalUnacknowledgedFailure,
-                    taskId,
-                    location,
-                    taskStatusRefreshMaxWait,
-                    dynamicFilterDomainsCodec,
-                    executor,
-                    httpClient,
-                    () -> createSpanBuilder("task-dynamic-filters", span),
-                    maxErrorDuration,
-                    errorScheduledExecutor,
-                    stats,
-                    dynamicFilterService);
-
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
                     initialTask.taskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
-                    dynamicFiltersFetcher,
                     executor,
                     httpClient,
                     () -> createSpanBuilder("task-status", span),
@@ -375,7 +349,6 @@ public final class HttpRemoteTask
                     stats,
                     estimatedMemory,
                     retryPolicy);
-
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.state();
                 // cleanup when done or partially cleanup when terminating begins
@@ -390,13 +363,6 @@ public final class HttpRemoteTask
                     span.end();
                 }
             });
-
-            this.outboundDynamicFiltersCollector = new DynamicFiltersCollector(this::triggerUpdate);
-            dynamicFilterService.registerDynamicFilterConsumer(
-                    taskId.queryId(),
-                    taskId.attemptId(),
-                    outboundDynamicFilterIds,
-                    outboundDynamicFiltersCollector::updateDomains);
 
             partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
             updateSplitQueueSpace();
@@ -435,7 +401,6 @@ public final class HttpRemoteTask
             started.set(true);
             triggerUpdate();
 
-            dynamicFiltersFetcher.start();
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }
@@ -624,12 +589,6 @@ public final class HttpRemoteTask
         return whenSplitQueueHasSpace.createNewListener();
     }
 
-    @VisibleForTesting
-    DynamicFiltersFetcher getDynamicFiltersFetcher()
-    {
-        return dynamicFiltersFetcher;
-    }
-
     private synchronized void updateSplitQueueSpace()
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
@@ -771,7 +730,6 @@ public final class HttpRemoteTask
 
         int currentSplitBatchSize = splitBatchSize.get();
         List<SplitAssignment> splitAssignments = getSplitAssignments(currentSplitBatchSize);
-        VersionedDynamicFilterDomains dynamicFilterDomains = outboundDynamicFiltersCollector.acknowledgeAndGetNewDomains(sentDynamicFiltersVersion.get());
 
         // Workers don't need the embedded JSON representation when the fragment is sent
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
@@ -783,7 +741,6 @@ public final class HttpRemoteTask
                 tableCredentials,
                 splitAssignments,
                 outputBuffers.get(),
-                dynamicFilterDomains.getDynamicFilterDomains(),
                 session.getExchangeEncryptionKey(),
                 speculative.get());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
@@ -797,10 +754,6 @@ public final class HttpRemoteTask
         if (fragment.isPresent()) {
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
         }
-        if (!dynamicFilterDomains.getDynamicFilterDomains().isEmpty()) {
-            stats.updateWithDynamicFilterBytes(taskUpdateRequestJson.length);
-        }
-
         HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
         Request request = preparePost()
                 .setUri(uriBuilder.build())
@@ -816,7 +769,7 @@ public final class HttpRemoteTask
 
         Futures.addCallback(
                 future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion(), System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
+                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
                 executor);
     }
 
@@ -902,9 +855,6 @@ public final class HttpRemoteTask
             splitQueueHasSpace = true;
             whenSplitQueueHasSpace.complete(null, executor);
         }
-
-        // clear pending outbound dynamic filters to free memory
-        outboundDynamicFiltersCollector.acknowledge(Long.MAX_VALUE);
 
         // only when termination is complete do we shut down status fetching
         if (taskState.isDone()) {
@@ -1220,14 +1170,12 @@ public final class HttpRemoteTask
             implements SimpleHttpResponseCallback<TaskInfo>
     {
         private final List<SplitAssignment> splitAssignments;
-        private final long currentRequestDynamicFiltersVersion;
         private final long currentRequestStartNanos;
         private final int currentPendingRequestsCounter;
 
-        private UpdateResponseHandler(List<SplitAssignment> splitAssignments, long currentRequestDynamicFiltersVersion, long currentRequestStartNanos, int currentPendingRequestsCounter)
+        private UpdateResponseHandler(List<SplitAssignment> splitAssignments, long currentRequestStartNanos, int currentPendingRequestsCounter)
         {
             this.splitAssignments = ImmutableList.copyOf(requireNonNull(splitAssignments, "splitAssignments is null"));
-            this.currentRequestDynamicFiltersVersion = currentRequestDynamicFiltersVersion;
             this.currentRequestStartNanos = currentRequestStartNanos;
             this.currentPendingRequestsCounter = currentPendingRequestsCounter;
         }
@@ -1236,9 +1184,6 @@ public final class HttpRemoteTask
         public void success(TaskInfo value)
         {
             try (SetThreadName _ = new SetThreadName("UpdateResponseHandler-" + taskId)) {
-                sentDynamicFiltersVersion.set(currentRequestDynamicFiltersVersion);
-                // Remove dynamic filters which were successfully sent to free up memory
-                outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
                 sendPlan.set(value.needsPlan());
                 currentRequest.set(null);
                 updateStats();

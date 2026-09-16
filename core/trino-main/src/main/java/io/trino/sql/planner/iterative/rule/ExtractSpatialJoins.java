@@ -331,7 +331,6 @@ public class ExtractSpatialJoins
                 Optional.of(newFilter),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters(),
                 joinNode.getReorderJoinStatsAndCost());
 
         return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (Call) distance, Optional.of(newRadius), plannerContext, splitManager, pageSourceManager);

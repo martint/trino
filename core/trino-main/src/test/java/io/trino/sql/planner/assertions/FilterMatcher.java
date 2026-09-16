@@ -13,15 +13,12 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher
@@ -49,8 +46,7 @@ final class FilterMatcher
         Expression filterPredicate = filterNode.getPredicate();
         ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
 
-        DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
-        return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), predicate));
+        return new MatchResult(verifier.process(filterPredicate, predicate));
     }
 
     @Override

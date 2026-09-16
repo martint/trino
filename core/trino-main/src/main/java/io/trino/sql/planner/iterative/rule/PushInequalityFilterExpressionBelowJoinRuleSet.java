@@ -78,7 +78,6 @@ import static java.util.stream.Collectors.partitioningBy;
  *              build (r)
  *       }
  * </pre>
- * This rule allows dynamic filtering to be applied for inequality join node.
  * Additionally, optimized execution of inequality join is performed when equi conditions are also present.
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet
@@ -270,7 +269,6 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
                 newJoinFilter,
                 originalJoinNode.getDistributionType(),
                 originalJoinNode.isSpillable(),
-                originalJoinNode.getDynamicFilters(),
                 originalJoinNode.getReorderJoinStatsAndCost());
     }
 

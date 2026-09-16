@@ -93,7 +93,6 @@ import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
-import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.ignoreDynamicFilter;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -476,7 +475,7 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);
     }
 
     public static PlanMatchPattern semiJoin(
@@ -487,30 +486,7 @@ public final class PlanMatchPattern
             PlanMatchPattern source,
             PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, ignoreDynamicFilter(), distributionType, source, filtering);
-    }
-
-    public static PlanMatchPattern semiJoin(
-            String sourceSymbolAlias,
-            String filteringSymbolAlias,
-            String outputAlias,
-            SemiJoinDynamicFilterProducer dynamicFilter,
-            PlanMatchPattern source,
-            PlanMatchPattern filtering)
-    {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, dynamicFilter, Optional.empty(), source, filtering);
-    }
-
-    public static PlanMatchPattern semiJoin(
-            String sourceSymbolAlias,
-            String filteringSymbolAlias,
-            String outputAlias,
-            SemiJoinDynamicFilterProducer dynamicFilter,
-            Optional<SemiJoinNode.DistributionType> distributionType,
-            PlanMatchPattern source,
-            PlanMatchPattern filtering)
-    {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, dynamicFilter));
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
     }
 
     public static PlanMatchPattern spatialJoin(Expression expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
@@ -716,13 +692,6 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
     {
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
-    }
-
-    public static PlanMatchPattern filter(Expression expectedPredicate, Consumer<DynamicFilterConsumerMatcher.Builder> handler, PlanMatchPattern source)
-    {
-        DynamicFilterConsumerMatcher.Builder builder = new DynamicFilterConsumerMatcher.Builder(source);
-        handler.accept(builder);
-        return builder.build().with(new FilterMatcher(expectedPredicate));
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, SetExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
@@ -937,21 +906,19 @@ public final class PlanMatchPattern
         return matchers.stream().allMatch(it -> it.shapeMatches(node));
     }
 
-    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases, MatchingDynamicFilters matchedDynamicFilters)
+    MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
-        MatchingDynamicFilters.Builder allSourceDynamicFilters = MatchingDynamicFilters.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases, matchedDynamicFilters));
+            MatchResult matchResult = matcher.detailMatches(node, new MatchContext(stats, session, metadata, symbolAliases));
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
             newAliases.putAll(matchResult.getAliases());
-            allSourceDynamicFilters.addAll(matchResult.getDynamicFilters());
         }
 
-        return match(newAliases.build(), allSourceDynamicFilters.build());
+        return match(newAliases.build());
     }
 
     public <T extends PlanNode> PlanMatchPattern with(Class<T> clazz, Predicate<T> predicate)

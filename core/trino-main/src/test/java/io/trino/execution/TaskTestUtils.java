@@ -51,8 +51,6 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -111,34 +109,6 @@ public final class TaskTestUtils
             ImmutableMap.of(),
             Optional.empty());
 
-    public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
-
-    public static final PlanFragment PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE = new PlanFragment(
-            new PlanFragmentId("fragment"),
-            new DynamicFilterSourceNode(
-                    new PlanNodeId("dynamicFilterSource"),
-                    new TableScanNode(
-                            TABLE_SCAN_NODE_ID,
-                            TEST_TABLE_HANDLE,
-                            ImmutableList.of(SYMBOL),
-                            ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT)),
-                            TupleDomain.all(),
-                            Optional.empty(),
-                            false,
-                            Optional.empty()),
-                    ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
-            ImmutableSet.of(SYMBOL),
-            SOURCE_DISTRIBUTION,
-            OptionalInt.empty(),
-            ImmutableList.of(TABLE_SCAN_NODE_ID),
-            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
-                    .withBucketToPartition(Optional.of(new int[1])),
-            OptionalInt.empty(),
-            StatsAndCosts.empty(),
-            ImmutableList.of(),
-            ImmutableMap.of(),
-            Optional.empty());
-
     public static LocalExecutionPlanner createTestingPlanner()
     {
         PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()));
@@ -179,7 +149,6 @@ public final class TaskTestUtils
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators(), hashCompiler),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
-                new DynamicFilterConfig(),
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 hashCompiler,
@@ -191,6 +160,6 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), ImmutableMap.of(), splitAssignments, outputBuffers, ImmutableMap.of(), false);
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), ImmutableMap.of(), splitAssignments, outputBuffers, false);
     }
 }

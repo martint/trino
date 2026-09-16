@@ -52,7 +52,6 @@ public final class PlanSanityChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateScaledWritersUsage(),
                         new ValidateStreamingAggregations(),
-                        new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
                 .putAll(

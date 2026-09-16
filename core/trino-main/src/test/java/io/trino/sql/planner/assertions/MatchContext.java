@@ -23,8 +23,7 @@ public record MatchContext(
         StatsProvider stats,
         Session session,
         Metadata metadata,
-        SymbolAliases symbolAliases,
-        MatchingDynamicFilters dynamicFilters)
+        SymbolAliases symbolAliases)
 {
     public MatchContext
     {
@@ -32,6 +31,5 @@ public record MatchContext(
         requireNonNull(session, "session is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(symbolAliases, "symbolAliases is null");
-        requireNonNull(dynamicFilters, "dynamicFilters is null");
     }
 }

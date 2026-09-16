@@ -262,7 +262,6 @@ import io.trino.operator.window.RowNumberFunction;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BooleanOperators;
@@ -571,8 +570,6 @@ public final class SystemFunctionBundle
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
                 .scalar(ConcatWsFunction.ConcatArrayWs.class)
-                .scalar(DynamicFilters.Function.class)
-                .scalar(DynamicFilters.NullableFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .scalars(ArrayJoin.class)

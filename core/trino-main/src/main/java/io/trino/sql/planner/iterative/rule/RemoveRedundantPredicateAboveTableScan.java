@@ -137,7 +137,6 @@ public class RemoveRedundantPredicateAboveTableScan
                 plannerContext,
                 session,
                 context.getSymbolAllocator(),
-                Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
                 domainTranslator.toPredicate(getCharVarcharCoercion(session), unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());

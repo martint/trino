@@ -63,7 +63,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -805,7 +804,6 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                Optional.empty(),
                 Optional.empty());
     }
 
@@ -817,25 +815,6 @@ public class PlanBuilder
             Symbol semiJoinOutput,
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
-        return semiJoin(
-                source,
-                filteringSource,
-                sourceJoinSymbol,
-                filteringSourceJoinSymbol,
-                semiJoinOutput,
-                distributionType,
-                Optional.empty());
-    }
-
-    public SemiJoinNode semiJoin(
-            PlanNode source,
-            PlanNode filteringSource,
-            Symbol sourceJoinSymbol,
-            Symbol filteringSourceJoinSymbol,
-            Symbol semiJoinOutput,
-            Optional<SemiJoinNode.DistributionType> distributionType,
-            Optional<DynamicFilterId> dynamicFilterId)
-    {
         return new SemiJoinNode(
                 idAllocator.getNextId(),
                 source,
@@ -843,8 +822,7 @@ public class PlanBuilder
                 sourceJoinSymbol,
                 filteringSourceJoinSymbol,
                 semiJoinOutput,
-                distributionType,
-                dynamicFilterId);
+                distributionType);
     }
 
     public IndexSourceNode indexSource(
@@ -989,8 +967,7 @@ public class PlanBuilder
                 ImmutableList.copyOf(criteria),
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
-                filter,
-                ImmutableMap.of());
+                filter);
     }
 
     public JoinNode join(JoinType type, JoinNode.DistributionType distributionType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
@@ -1003,8 +980,7 @@ public class PlanBuilder
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 Optional.empty(),
-                Optional.of(distributionType),
-                ImmutableMap.of());
+                Optional.of(distributionType));
     }
 
     public JoinNode join(
@@ -1016,7 +992,7 @@ public class PlanBuilder
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter)
     {
-        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), ImmutableMap.of());
+        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty());
     }
 
     public JoinNode join(
@@ -1027,21 +1003,7 @@ public class PlanBuilder
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
-            Map<DynamicFilterId, Symbol> dynamicFilters)
-    {
-        return join(type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, Optional.empty(), dynamicFilters);
-    }
-
-    public JoinNode join(
-            JoinType type,
-            PlanNode left,
-            PlanNode right,
-            List<JoinNode.EquiJoinClause> criteria,
-            List<Symbol> leftOutputSymbols,
-            List<Symbol> rightOutputSymbols,
-            Optional<Expression> filter,
-            Optional<JoinNode.DistributionType> distributionType,
-            Map<DynamicFilterId, Symbol> dynamicFilters)
+            Optional<JoinNode.DistributionType> distributionType)
     {
         return join(idAllocator.getNextId(),
                 type,
@@ -1051,8 +1013,7 @@ public class PlanBuilder
                 leftOutputSymbols,
                 rightOutputSymbols,
                 filter,
-                distributionType,
-                dynamicFilters);
+                distributionType);
     }
 
     public JoinNode join(
@@ -1064,8 +1025,7 @@ public class PlanBuilder
             List<Symbol> leftOutputSymbols,
             List<Symbol> rightOutputSymbols,
             Optional<Expression> filter,
-            Optional<JoinNode.DistributionType> distributionType,
-            Map<DynamicFilterId, Symbol> dynamicFilters)
+            Optional<JoinNode.DistributionType> distributionType)
     {
         return new JoinNode(
                 id,
@@ -1079,7 +1039,6 @@ public class PlanBuilder
                 filter,
                 distributionType,
                 Optional.empty(),
-                dynamicFilters,
                 Optional.empty());
     }
 

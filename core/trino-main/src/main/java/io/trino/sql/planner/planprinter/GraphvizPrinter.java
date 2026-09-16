@@ -28,7 +28,6 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
-import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -596,13 +595,6 @@ public final class GraphvizPrinter
             node.getIndexSource().accept(this, context);
 
             return null;
-        }
-
-        @Override
-        public Void visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
-        {
-            printNode(node, "DynamicFilterSource", NODE_COLORS.get(NodeType.DYNAMIC_FILTER_SOURCE));
-            return node.getSource().accept(this, context);
         }
 
         private void printNode(PlanNode node, String label, String color)

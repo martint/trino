@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -184,7 +183,6 @@ public class TransformCorrelatedGroupedAggregationWithProjection
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         // restore distinct aggregation

@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 /**
@@ -62,10 +61,6 @@ public class EvaluateCall
         }
 
         if (!function.deterministic()) {
-            return Optional.empty();
-        }
-
-        if (isDynamicFilter(expression)) {
             return Optional.empty();
         }
 

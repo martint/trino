@@ -117,7 +117,6 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -802,7 +801,6 @@ public final class ConnectorExpressionTranslator
             }
 
             CatalogSchemaFunctionName functionName = node.function().name();
-            checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
                 return translateLike(node, context);

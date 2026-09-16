@@ -33,7 +33,6 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.iterative.rule.AdaptiveReorderPartitionedJoin;
-import io.trino.sql.planner.iterative.rule.AddDynamicFilterSource;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
@@ -216,7 +215,6 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantWindow;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
-import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
 import io.trino.sql.planner.iterative.rule.ReplaceDecimalSumAndAvgWithSumAndCount;
 import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
@@ -585,7 +583,7 @@ public class PlanOptimizers
                         .withName("SimplifyExpressionsAfterMergeValues"),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(plannerContext, false, false)),
+                        new PredicatePushDown(plannerContext, false)),
                 new IterativeOptimizer(
                         "PostSubqueryPredicateCleanup",
                         plannerContext,
@@ -714,7 +712,7 @@ public class PlanOptimizers
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. We invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
-                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)),
+                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true)),
                 new IterativeOptimizer(
                         "SimplifyAfterPredicatePushdown",
                         plannerContext,
@@ -780,7 +778,7 @@ public class PlanOptimizers
                                 new RemoveRedundantJoin())),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(plannerContext, true, false)),
+                        new PredicatePushDown(plannerContext, true)),
                 new IterativeOptimizer(
                         "SimplifyAfterCrossJoinPushdown",
                         plannerContext,
@@ -796,7 +794,7 @@ public class PlanOptimizers
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
-                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)),
+                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true)),
                 new IterativeOptimizer(
                         "Phase5",
                         plannerContext,
@@ -821,7 +819,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))),
                 // ReorderJoins may produce filters above joins that could (and should be) pushed back down
-                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
+                new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true)));
 
         builder.add(new IterativeOptimizer(
                 "Phase6",
@@ -938,7 +936,7 @@ public class PlanOptimizers
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(new StatsRecordingPlanOptimizer(
                 optimizerStats,
-                new PredicatePushDown(plannerContext, true, false)));
+                new PredicatePushDown(plannerContext, true)));
         builder.add(new IterativeOptimizer(
                 "SimplifyAfterLayoutPredicatePushdown",
                 plannerContext,
@@ -962,10 +960,10 @@ public class PlanOptimizers
                 ImmutableSet.copyOf(new PushInequalityFilterExpressionBelowJoinRuleSet(metadata).rules())));
         // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
         // pushdown into the connectors. Invoke PredicatePushdown and PushPredicateIntoTableScan after this
-        // to leverage predicate pushdown on projected columns and to pushdown dynamic filters.
-        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, true)));
+        // to leverage predicate pushdown on projected columns.
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true)));
         builder.add(new IterativeOptimizer(
-                "CleanupAfterDynamicFilterPushdown",
+                "CleanupAfterFinalPredicatePushdown",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
@@ -978,11 +976,8 @@ public class PlanOptimizers
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext))
                         .add(new RemoveEmptyUnionBranches())
                         .build()));
-        // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
-        // PushPredicateIntoTableScan and RemoveRedundantPredicateAboveTableScan due to those rules replacing table scans with empty ValuesNode
-        builder.add(new RemoveUnsupportedDynamicFilters(plannerContext));
         builder.add(inlineProjections
-                .withName("InlineProjectionsAfterDynamicFilterCleanup"));
+                .withName("InlineProjectionsAfterFinalPredicateCleanup"));
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new IterativeOptimizer(
                 "PushRemoteExchangeThroughAssignUniqueId",
@@ -1042,17 +1037,6 @@ public class PlanOptimizers
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
         // DO NOT add optimizers that change the plan shape (computations) after this point
-
-        builder.add(new IterativeOptimizer(
-                "AddDynamicFilterSources",
-                plannerContext,
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                AddDynamicFilterSource.rules()));
-        // If AddDynamicFilterSource fails to rewrite dynamic filter from JoinNode/SemiJoinNode to DynamicFilterSourceNode,
-        // RemoveUnsupportedDynamicFilters needs to be run again to clean up the corresponding dynamic filter expression left over the table scan.
-        builder.add(new RemoveUnsupportedDynamicFilters(plannerContext));
 
         builder.add(new BeginTableWrite(metadata, plannerContext.getFunctionManager())); // HACK! see comments in BeginTableWrite
 

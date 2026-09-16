@@ -33,7 +33,6 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = AssignUniqueId.class, name = "assignUniqueId"),
         @JsonSubTypes.Type(value = CorrelatedJoinNode.class, name = "correlatedJoin"),
         @JsonSubTypes.Type(value = DistinctLimitNode.class, name = "distinctLimit"),
-        @JsonSubTypes.Type(value = DynamicFilterSourceNode.class, name = "dynamicFilterSource"),
         @JsonSubTypes.Type(value = EnforceSingleRowNode.class, name = "scalar"),
         @JsonSubTypes.Type(value = ExchangeNode.class, name = "exchange"),
         @JsonSubTypes.Type(value = ExplainAnalyzeNode.class, name = "explainAnalyze"),

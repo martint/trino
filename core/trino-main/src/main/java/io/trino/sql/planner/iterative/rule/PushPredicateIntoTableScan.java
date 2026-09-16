@@ -62,7 +62,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -206,7 +205,6 @@ public class PushPredicateIntoTableScan
                     plannerContext,
                     session,
                     symbolAllocator,
-                    splitExpression.getDynamicFilter(),
                     Booleans.TRUE,
                     splitExpression.getNonDeterministicPredicate(),
                     decomposedPredicate.getRemainingExpression());
@@ -277,7 +275,6 @@ public class PushPredicateIntoTableScan
                 plannerContext,
                 session,
                 symbolAllocator,
-                splitExpression.getDynamicFilter(),
                 new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), remainingFilter.transformKeys(assignments::get)),
                 splitExpression.getNonDeterministicPredicate(),
                 remainingDecomposedPredicate);
@@ -309,16 +306,11 @@ public class PushPredicateIntoTableScan
 
     private static SplitExpression splitExpression(Expression predicate)
     {
-        List<Expression> dynamicFilters = new ArrayList<>();
         List<Expression> deterministicPredicates = new ArrayList<>();
         List<Expression> nonDeterministicPredicate = new ArrayList<>();
 
         for (Expression conjunct : extractConjuncts(predicate)) {
-            if (isDynamicFilter(conjunct)) {
-                // dynamic filters have no meaning for connectors, so don't pass them
-                dynamicFilters.add(conjunct);
-            }
-            else if (isDeterministic(conjunct)) {
+            if (isDeterministic(conjunct)) {
                 deterministicPredicates.add(conjunct);
             }
             else {
@@ -328,7 +320,6 @@ public class PushPredicateIntoTableScan
         }
 
         return new SplitExpression(
-                combineConjuncts(dynamicFilters),
                 combineConjuncts(deterministicPredicates),
                 combineConjuncts(nonDeterministicPredicate));
     }
@@ -337,21 +328,19 @@ public class PushPredicateIntoTableScan
             PlannerContext plannerContext,
             Session session,
             SymbolAllocator symbolAllocator,
-            Expression dynamicFilter,
             Expression unenforcedConstraints,
             Expression nonDeterministicPredicate,
             Expression remainingDecomposedPredicate)
     {
         // The order of the arguments to combineConjuncts matters:
-        // * Dynamic filters go first because they cannot fail,
-        // * Unenforced constraints go next because they can only be simple column references,
+        // * Unenforced constraints go first because they can only be simple column references,
         //   which are not prone to logic errors such as out-of-bound access, div-by-zero, etc.
         // * Conjuncts in non-deterministic expressions and non-TupleDomain-expressible expressions should
         //   retain their original (maybe intermixed) order from the input predicate. However, this is not implemented yet.
         // * Short of implementing the previous bullet point, the current order of non-deterministic expressions
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
-        Expression expression = combineConjuncts(dynamicFilter, unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
+        Expression expression = combineConjuncts(unenforcedConstraints, nonDeterministicPredicate, remainingDecomposedPredicate);
 
         // Make sure we produce an expression whose terms are consistent with the canonical form used in other optimizations
         // Otherwise, we'll end up ping-ponging among rules
@@ -402,20 +391,13 @@ public class PushPredicateIntoTableScan
 
     private static class SplitExpression
     {
-        private final Expression dynamicFilter;
         private final Expression deterministicPredicate;
         private final Expression nonDeterministicPredicate;
 
-        public SplitExpression(Expression dynamicFilter, Expression deterministicPredicate, Expression nonDeterministicPredicate)
+        public SplitExpression(Expression deterministicPredicate, Expression nonDeterministicPredicate)
         {
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.deterministicPredicate = requireNonNull(deterministicPredicate, "deterministicPredicate is null");
             this.nonDeterministicPredicate = requireNonNull(nonDeterministicPredicate, "nonDeterministicPredicate is null");
-        }
-
-        public Expression getDynamicFilter()
-        {
-            return dynamicFilter;
         }
 
         public Expression getDeterministicPredicate()

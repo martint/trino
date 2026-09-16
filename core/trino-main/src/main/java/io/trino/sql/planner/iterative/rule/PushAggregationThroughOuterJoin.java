@@ -161,7 +161,6 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getDistributionType(),
                     join.isSpillable(),
-                    join.getDynamicFilters(),
                     join.getReorderJoinStatsAndCost());
         }
         else {
@@ -178,7 +177,6 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getDistributionType(),
                     join.isSpillable(),
-                    join.getDynamicFilters(),
                     join.getReorderJoinStatsAndCost());
         }
 
@@ -250,7 +248,6 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableMap.of(),
                 Optional.empty());
 
         // Add coalesce expressions for all aggregation functions

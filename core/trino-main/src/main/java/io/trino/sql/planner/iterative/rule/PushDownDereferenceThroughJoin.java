@@ -170,7 +170,6 @@ public class PushDownDereferenceThroughJoin
                 joinNode.getFilter().map(expression -> replaceExpression(expression, mappings)),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
-                joinNode.getDynamicFilters(),
                 joinNode.getReorderJoinStatsAndCost());
 
         return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), newJoinNode, newAssignments));

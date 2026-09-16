@@ -13,18 +13,13 @@
  */
 package io.trino.sql.planner.assertions;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
@@ -36,20 +31,17 @@ final class SemiJoinMatcher
     private final String filteringSymbolAlias;
     private final String outputAlias;
     private final Optional<SemiJoinNode.DistributionType> distributionType;
-    private final SemiJoinDynamicFilterProducer dynamicFilter;
 
     SemiJoinMatcher(
             String sourceSymbolAlias,
             String filteringSymbolAlias,
             String outputAlias,
-            Optional<SemiJoinNode.DistributionType> distributionType,
-            SemiJoinDynamicFilterProducer dynamicFilter)
+            Optional<SemiJoinNode.DistributionType> distributionType)
     {
         this.sourceSymbolAlias = requireNonNull(sourceSymbolAlias, "sourceSymbolAlias is null");
         this.filteringSymbolAlias = requireNonNull(filteringSymbolAlias, "filteringSymbolAlias is null");
         this.outputAlias = requireNonNull(outputAlias, "outputAlias is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @Override
@@ -73,36 +65,6 @@ final class SemiJoinMatcher
             return NO_MATCH;
         }
 
-        if (!dynamicFilter.ignored()) {
-            Optional<DynamicFilterId> semiJoinDynamicFilterId = getSemiJoinDynamicFilterId(semiJoinNode);
-            if (dynamicFilter.alias().isPresent()) {
-                if (semiJoinDynamicFilterId.isEmpty()) {
-                    return NO_MATCH;
-                }
-                DynamicFilterId dynamicFilterId = semiJoinDynamicFilterId.get();
-                DynamicFilterAlias dynamicFilterAlias = dynamicFilter.alias().get();
-                Set<DynamicFilterId> matching = context.dynamicFilters()
-                        .getCandidates(dynamicFilterAlias)
-                        .orElse(ImmutableSet.of())
-                        .stream()
-                        .filter(candidateId -> candidateId.equals(dynamicFilterId))
-                        .collect(toImmutableSet());
-                if (matching.size() == 1) {
-                    SymbolAliases newAliases = SymbolAliases.builder()
-                            .put(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference())
-                            .build();
-                    MatchingDynamicFilters matchingDynamicFilters = MatchingDynamicFilters.builder()
-                            .add(dynamicFilterAlias, matching)
-                            .build();
-                    return match(newAliases, matchingDynamicFilters);
-                }
-                return NO_MATCH;
-            }
-            if (semiJoinDynamicFilterId.isPresent()) {
-                return NO_MATCH;
-            }
-        }
-
         return match(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
     }
 
@@ -114,7 +76,6 @@ final class SemiJoinMatcher
                 .add("sourceSymbolAlias", sourceSymbolAlias)
                 .add("outputAlias", outputAlias)
                 .add("distributionType", distributionType)
-                .add("dynamicFilter", dynamicFilter)
                 .toString();
     }
 }

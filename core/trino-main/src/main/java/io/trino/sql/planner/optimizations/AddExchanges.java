@@ -1065,7 +1065,6 @@ public class AddExchanges
                     node.getFilter(),
                     Optional.of(newDistributionType),
                     node.isSpillable(),
-                    node.getDynamicFilters(),
                     node.getReorderJoinStatsAndCost());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));

@@ -224,7 +224,6 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                         ImmutableMap.of(),
                         ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                         PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                        ImmutableMap.of(),
                         false);
                 try {
                     Thread.sleep(0, ThreadLocalRandom.current().nextInt(25, 75));
