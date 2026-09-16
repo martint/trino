@@ -39,12 +39,17 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TaskRuntimeConstraintManager;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
 
@@ -203,9 +208,11 @@ public class SqlTask
                     synchronized (taskHolderLock) {
                         TaskHolder taskHolder = taskHolderReference.get();
                         if (!taskHolder.isFinished()) {
+                            TaskRuntimeConstraintManager runtimeConstraintManager = taskHolder.finishRuntimeConstraintManager();
                             TaskHolder newHolder = new TaskHolder(
                                     createTaskInfo(taskHolder),
-                                    taskHolder.getIoStats());
+                                    taskHolder.getIoStats(),
+                                    runtimeConstraintManager);
                             checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
                             finished = true;
                         }
@@ -319,6 +326,11 @@ public class SqlTask
         catalogsLoaded.set(true);
     }
 
+    public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(long callersRuntimeConstraintSequence)
+    {
+        return taskHolderReference.get().acknowledgeAndGetRuntimeConstraintContributions(callersRuntimeConstraintSequence);
+    }
+
     private synchronized void notifyStatusChanged()
     {
         taskStatusVersion.incrementAndGet();
@@ -351,6 +363,8 @@ public class SqlTask
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
         long fullGcCount = 0;
         Duration fullGcTime = succinctDuration(0, MILLISECONDS);
+        long runtimeConstraintContributionsSequence = 0;
+        long runtimeConstraintUpdateAcknowledgement = 0;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.stats();
@@ -367,6 +381,8 @@ public class SqlTask
             outputDataSize = taskStats.outputDataSize();
             fullGcCount = taskStats.fullGcCount();
             fullGcTime = taskStats.fullGcTime();
+            runtimeConstraintContributionsSequence = taskHolder.getRuntimeConstraintContributionsSequence();
+            runtimeConstraintUpdateAcknowledgement = taskInfo.taskStatus().runtimeConstraintUpdateAcknowledgement();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -388,11 +404,13 @@ public class SqlTask
             outputDataSize = DataSize.ofBytes(taskContext.getOutputDataSize().getTotalCount());
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
+            runtimeConstraintContributionsSequence = taskContext.getRuntimeConstraintContributionsSequence();
+            runtimeConstraintUpdateAcknowledgement = taskContext.getRuntimeConstraintUpdateAcknowledgement();
         }
         else if (state == FINISHED) {
             // if task FINISHED successfully but taskHolder is not yet updated with SqlTaskExecution or FinalTaskInfo
             // we are masking the state and return RUNNING. This is important so coordinator would not consider incomplete
-            // task information (e.g. final task statistics).
+            // task information (e.g. missing a final runtime constraint sequence).
             // This covers only short time window between call to SqlTaskExecution.start() and updating taskHolder reference in tryCreateSqlTaskExecution,
             // so it will not add any noticable delays.
             state = RUNNING;
@@ -419,6 +437,8 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
+                runtimeConstraintContributionsSequence,
+                runtimeConstraintUpdateAcknowledgement,
                 queuedPartitionedSplitsWeight,
                 runningPartitionedSplitsWeight);
     }
@@ -465,7 +485,10 @@ public class SqlTask
                 noMoreSplits,
                 taskStats,
                 Optional.empty(),
-                needsPlan.get());
+                needsPlan.get(),
+                taskHolder.getTaskExecution() == null
+                        ? RuntimeConstraintWiringReport.EMPTY
+                        : taskHolder.getTaskExecution().getRuntimeConstraintWiringReport());
     }
 
     public synchronized ListenableFuture<TaskStatus> getTaskStatus(long callersCurrentVersion)
@@ -499,6 +522,23 @@ public class SqlTask
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
+            boolean speculative)
+    {
+        return updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, ImmutableList.of(), runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement, speculative);
+    }
+
+    public TaskInfo updateTask(
+            Session session,
+            Span stageSpan,
+            Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
             boolean speculative)
     {
         try {
@@ -523,6 +563,10 @@ public class SqlTask
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
+                TaskContext taskContext = taskExecution.getTaskContext();
+                taskContext.addRuntimeConstraintWiringRequests(runtimeConstraintWiringRequests);
+                runtimeConstraintUpdates.ifPresent(taskContext::addRuntimeConstraintUpdates);
+                taskContext.acknowledgeRuntimeConstraintContributions(runtimeConstraintContributionAcknowledgement);
                 taskExecution.addSplitAssignments(splitAssignments);
             }
 
@@ -647,12 +691,14 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
+        private final TaskRuntimeConstraintManager runtimeConstraintManager;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.runtimeConstraintManager = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -660,13 +706,18 @@ public class SqlTask
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.runtimeConstraintManager = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats)
+        private TaskHolder(
+                TaskInfo finalTaskInfo,
+                SqlTaskIoStats finalIoStats,
+                TaskRuntimeConstraintManager runtimeConstraintManager)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
+            this.runtimeConstraintManager = runtimeConstraintManager;
         }
 
         public boolean isFinished()
@@ -699,6 +750,49 @@ public class SqlTask
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
             return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
+        }
+
+        public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(long callersRuntimeConstraintSequence)
+        {
+            if (finalTaskInfo != null) {
+                return runtimeConstraintManager == null
+                        ? RuntimeConstraintContributionBatch.empty(0)
+                        : runtimeConstraintManager.acknowledgeContributionsAndGetBatch(callersRuntimeConstraintSequence);
+            }
+            if (taskExecution == null) {
+                return RuntimeConstraintContributionBatch.empty(0);
+            }
+            return taskExecution.getTaskContext().acknowledgeAndGetRuntimeConstraintContributions(callersRuntimeConstraintSequence);
+        }
+
+        public long getRuntimeConstraintContributionsSequence()
+        {
+            if (finalTaskInfo != null) {
+                return runtimeConstraintManager == null ? 0 : runtimeConstraintManager.getContributionSequence();
+            }
+            requireNonNull(taskExecution, "taskExecution is null");
+            return taskExecution.getTaskContext().getRuntimeConstraintContributionsSequence();
+        }
+
+        @Nullable
+        public TaskRuntimeConstraintManager finishRuntimeConstraintManager()
+        {
+            if (taskExecution == null) {
+                return null;
+            }
+            TaskRuntimeConstraintManager manager = taskExecution.getTaskContext().getRuntimeConstraintManager();
+            manager.taskFinished();
+            return manager;
+        }
+
+        public void closeRuntimeConstraintManager()
+        {
+            if (runtimeConstraintManager != null) {
+                runtimeConstraintManager.close();
+            }
+            else if (taskExecution != null) {
+                taskExecution.getTaskContext().getRuntimeConstraintManager().close();
+            }
         }
     }
 
@@ -734,5 +828,12 @@ public class SqlTask
     public Optional<String> getTraceToken()
     {
         return Optional.ofNullable(traceToken.get());
+    }
+
+    public void destroy()
+    {
+        synchronized (taskHolderLock) {
+            taskHolderReference.get().closeRuntimeConstraintManager();
+        }
     }
 }

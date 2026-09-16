@@ -58,6 +58,7 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
@@ -69,6 +70,13 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintBatchCollector;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintBatchCollector.Batch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintProtocol;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintSnapshot;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.ws.rs.ServiceUnavailableException;
 
@@ -100,6 +108,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
@@ -117,6 +126,8 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isRemoteTaskAdaptiveUpdateRequestSizeEnabled;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.FINISHED;
+import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskStatus.failWith;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
@@ -134,6 +145,7 @@ public final class HttpRemoteTask
         implements RemoteTask
 {
     private static final Logger log = Logger.get(HttpRemoteTask.class);
+    private static final int MAX_RUNTIME_CONSTRAINTS_PER_UPDATE = 128;
 
     private final TaskId taskId;
 
@@ -151,7 +163,14 @@ public final class HttpRemoteTask
     private final Span span;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final RuntimeConstraintFetcher runtimeConstraintFetcher;
+    private final DynamicFilterService dynamicFilterService;
 
+    private final RuntimeConstraintBatchCollector<RuntimeConstraintId, RuntimeConstraintSnapshot> outboundRuntimeConstraints;
+    @GuardedBy("this")
+    private final Set<RuntimeConstraintId> subscribedRuntimeConstraints = new LinkedHashSet<>();
+    @GuardedBy("this")
+    private final Set<RuntimeConstraintRequest> pendingRuntimeConstraintWiringRequests = new LinkedHashSet<>();
     private final AtomicLong terminationStartedNanos = new AtomicLong();
 
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
@@ -226,6 +245,7 @@ public final class HttpRemoteTask
             Duration taskTerminationTimeout,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCodec,
@@ -247,6 +267,7 @@ public final class HttpRemoteTask
         requireNonNull(executor, "executor is null");
         requireNonNull(taskStatusCodec, "taskStatusCodec is null");
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(stats, "stats is null");
@@ -320,11 +341,27 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(Instant.now(), null));
 
+            this.runtimeConstraintFetcher = new RuntimeConstraintFetcher(
+                    this::fatalUnacknowledgedFailure,
+                    taskId,
+                    location,
+                    taskStatusRefreshMaxWait,
+                    runtimeConstraintContributionsCodec,
+                    executor,
+                    httpClient,
+                    () -> createSpanBuilder("task-dynamic-filters", span),
+                    maxErrorDuration,
+                    errorScheduledExecutor,
+                    stats,
+                    dynamicFilterService,
+                    this::triggerUpdate);
+
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
                     initialTask.taskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
+                    runtimeConstraintFetcher,
                     executor,
                     httpClient,
                     () -> createSpanBuilder("task-status", span),
@@ -352,6 +389,9 @@ public final class HttpRemoteTask
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.state();
                 // cleanup when done or partially cleanup when terminating begins
+                if (state == FLUSHING) {
+                    rejectPendingRuntimeConstraintWiringRequests();
+                }
                 if (state.isTerminatingOrDone()) {
                     cleanUpTask(state);
                 }
@@ -362,6 +402,19 @@ public final class HttpRemoteTask
                 if (state.isDone()) {
                     span.end();
                 }
+            });
+
+            this.outboundRuntimeConstraints = new RuntimeConstraintBatchCollector<>(
+                    dynamicFilterService.getRuntimeConstraintGeneration(taskId.queryId()),
+                    RuntimeConstraintSnapshot::constraintId);
+            dynamicFilterService.registerTaskRuntimeConstraintWiring(
+                    taskId,
+                    planFragment.getId(),
+                    this::addRuntimeConstraintWiringRequests);
+            this.taskInfoFetcher.addFinalTaskInfoListener(taskInfo -> {
+                dynamicFilterService.addTaskRuntimeConstraintWiring(taskId, taskInfo.runtimeConstraintWiringReport());
+                dynamicFilterService.rejectTaskRuntimeConstraintWiring(taskId, taskInfo.runtimeConstraintWiringReport().rejectedOutputRequests());
+                dynamicFilterService.taskRuntimeConstraintWiringFinished(taskId, planFragment.getId(), taskInfo.taskStatus().state() == FINISHED);
             });
 
             partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
@@ -401,6 +454,7 @@ public final class HttpRemoteTask
             started.set(true);
             triggerUpdate();
 
+            runtimeConstraintFetcher.start();
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }
@@ -589,6 +643,12 @@ public final class HttpRemoteTask
         return whenSplitQueueHasSpace.createNewListener();
     }
 
+    @VisibleForTesting
+    RuntimeConstraintFetcher getRuntimeConstraintFetcher()
+    {
+        return runtimeConstraintFetcher;
+    }
+
     private synchronized void updateSplitQueueSpace()
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
@@ -602,6 +662,30 @@ public final class HttpRemoteTask
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<SplitAssignment> splitAssignments)
     {
+        dynamicFilterService.addTaskRuntimeConstraintWiring(taskId, newValue.runtimeConstraintWiringReport());
+        dynamicFilterService.rejectTaskRuntimeConstraintWiring(taskId, newValue.runtimeConstraintWiringReport().rejectedOutputRequests());
+        if (newValue.taskStatus().state().isDone()) {
+            dynamicFilterService.taskRuntimeConstraintWiringFinished(taskId, planFragment.getId(), newValue.taskStatus().state() == FINISHED);
+        }
+        Set<RuntimeConstraintId> discoveredRuntimeConstraints = newValue.runtimeConstraintWiringReport().scans().stream()
+                .flatMap(scan -> scan.bindings().stream())
+                .map(binding -> binding.constraintId())
+                .filter(subscribedRuntimeConstraints::add)
+                .collect(toImmutableSet());
+        dynamicFilterService.registerRuntimeConstraintConsumer(
+                taskId.queryId(),
+                taskId.attemptId(),
+                outboundRuntimeConstraints.getGeneration(),
+                discoveredRuntimeConstraints,
+                snapshots -> {
+                    boolean changed = false;
+                    for (RuntimeConstraintSnapshot snapshot : snapshots) {
+                        changed |= outboundRuntimeConstraints.update(snapshot, snapshot.retainedSizeInBytes());
+                    }
+                    if (changed) {
+                        triggerUpdate();
+                    }
+                });
         updateTaskInfo(newValue);
 
         // remove acknowledged splits, which frees memory
@@ -635,6 +719,43 @@ public final class HttpRemoteTask
         // Update node level split tracker before split queue space to ensure it's up to date before waking up the scheduler
         partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
         updateSplitQueueSpace();
+    }
+
+    private void addRuntimeConstraintWiringRequests(List<RuntimeConstraintRequest> requests)
+    {
+        List<RuntimeConstraintRequest> rejectedRequests = ImmutableList.of();
+        boolean changed = false;
+        synchronized (this) {
+            TaskState taskState = getTaskStatus().state();
+            if (taskState == FLUSHING || taskState == FINISHED) {
+                rejectedRequests = ImmutableList.copyOf(requests);
+            }
+            else if (!taskState.isDone()) {
+                changed = pendingRuntimeConstraintWiringRequests.addAll(requests);
+            }
+        }
+        if (!rejectedRequests.isEmpty()) {
+            dynamicFilterService.rejectTaskRuntimeConstraintWiring(taskId, rejectedRequests);
+        }
+        else if (changed) {
+            triggerUpdate();
+        }
+    }
+
+    private void rejectPendingRuntimeConstraintWiringRequests()
+    {
+        List<RuntimeConstraintRequest> rejectedRequests;
+        synchronized (this) {
+            TaskState taskState = getTaskStatus().state();
+            if (taskState != FLUSHING && taskState != FINISHED) {
+                return;
+            }
+            rejectedRequests = ImmutableList.copyOf(pendingRuntimeConstraintWiringRequests);
+            pendingRuntimeConstraintWiringRequests.clear();
+        }
+        if (!rejectedRequests.isEmpty()) {
+            dynamicFilterService.rejectTaskRuntimeConstraintWiring(taskId, rejectedRequests);
+        }
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
@@ -730,6 +851,22 @@ public final class HttpRemoteTask
 
         int currentSplitBatchSize = splitBatchSize.get();
         List<SplitAssignment> splitAssignments = getSplitAssignments(currentSplitBatchSize);
+        List<RuntimeConstraintRequest> runtimeConstraintWiringRequests;
+        synchronized (this) {
+            runtimeConstraintWiringRequests = ImmutableList.copyOf(pendingRuntimeConstraintWiringRequests);
+        }
+        outboundRuntimeConstraints.acknowledge(taskStatus.runtimeConstraintUpdateAcknowledgement());
+        Batch<RuntimeConstraintSnapshot> runtimeConstraintBatch = outboundRuntimeConstraints.getPendingBatch(
+                Math.max(0, maxRequestSizeInBytes - requestSizeHeadroomInBytes),
+                MAX_RUNTIME_CONSTRAINTS_PER_UPDATE);
+        List<RuntimeConstraintSnapshot> runtimeConstraintSnapshots = runtimeConstraintBatch.values();
+        Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates = runtimeConstraintSnapshots.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new RuntimeConstraintUpdateBatch(
+                RuntimeConstraintProtocol.CURRENT_FORMAT_VERSION,
+                runtimeConstraintBatch.sequence(),
+                outboundRuntimeConstraints.getGeneration(),
+                runtimeConstraintSnapshots));
 
         // Workers don't need the embedded JSON representation when the fragment is sent
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
@@ -741,6 +878,9 @@ public final class HttpRemoteTask
                 tableCredentials,
                 splitAssignments,
                 outputBuffers.get(),
+                runtimeConstraintWiringRequests,
+                runtimeConstraintUpdates,
+                runtimeConstraintFetcher.getSequence(),
                 session.getExchangeEncryptionKey(),
                 speculative.get());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
@@ -769,7 +909,7 @@ public final class HttpRemoteTask
 
         Futures.addCallback(
                 future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
+                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, runtimeConstraintBatch.hasMore(), System.nanoTime(), currentPendingRequestsCounter), request.getUri(), stats),
                 executor);
     }
 
@@ -847,6 +987,9 @@ public final class HttpRemoteTask
         checkState(taskState.isTerminatingOrDone(), "attempt to clean up a task that is not terminating or done: %s", taskState);
 
         // clear pending splits to free memory
+        if (taskState == FINISHED) {
+            rejectPendingRuntimeConstraintWiringRequests();
+        }
         synchronized (this) {
             pendingSplits.clear();
             pendingSourceSplitCount = 0;
@@ -855,6 +998,8 @@ public final class HttpRemoteTask
             splitQueueHasSpace = true;
             whenSplitQueueHasSpace.complete(null, executor);
         }
+
+        outboundRuntimeConstraints.acknowledge(Long.MAX_VALUE);
 
         // only when termination is complete do we shut down status fetching
         if (taskState.isDone()) {
@@ -1170,12 +1315,18 @@ public final class HttpRemoteTask
             implements SimpleHttpResponseCallback<TaskInfo>
     {
         private final List<SplitAssignment> splitAssignments;
+        private final boolean runtimeConstraintsRemaining;
         private final long currentRequestStartNanos;
         private final int currentPendingRequestsCounter;
 
-        private UpdateResponseHandler(List<SplitAssignment> splitAssignments, long currentRequestStartNanos, int currentPendingRequestsCounter)
+        private UpdateResponseHandler(
+                List<SplitAssignment> splitAssignments,
+                boolean runtimeConstraintsRemaining,
+                long currentRequestStartNanos,
+                int currentPendingRequestsCounter)
         {
             this.splitAssignments = ImmutableList.copyOf(requireNonNull(splitAssignments, "splitAssignments is null"));
+            this.runtimeConstraintsRemaining = runtimeConstraintsRemaining;
             this.currentRequestStartNanos = currentRequestStartNanos;
             this.currentPendingRequestsCounter = currentPendingRequestsCounter;
         }
@@ -1184,14 +1335,23 @@ public final class HttpRemoteTask
         public void success(TaskInfo value)
         {
             try (SetThreadName _ = new SetThreadName("UpdateResponseHandler-" + taskId)) {
+                outboundRuntimeConstraints.acknowledge(value.taskStatus().runtimeConstraintUpdateAcknowledgement());
                 sendPlan.set(value.needsPlan());
                 currentRequest.set(null);
                 updateStats();
                 updateErrorTracker.requestSucceeded();
+                synchronized (HttpRemoteTask.this) {
+                    pendingRuntimeConstraintWiringRequests.removeAll(value.runtimeConstraintWiringReport().appliedOutputRequests());
+                    pendingRuntimeConstraintWiringRequests.removeAll(value.runtimeConstraintWiringReport().rejectedOutputRequests());
+                }
                 processTaskUpdate(value, splitAssignments);
+                rejectPendingRuntimeConstraintWiringRequests();
                 if (pendingRequestsCounter.addAndGet(-currentPendingRequestsCounter) > 0) {
                     // schedule an update because triggerUpdate was called in the meantime
                     scheduleUpdate();
+                }
+                else if (runtimeConstraintsRemaining) {
+                    triggerUpdate();
                 }
             }
         }

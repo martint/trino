@@ -51,6 +51,8 @@ public record TaskStatus(
         DataSize revocableMemoryReservation,
         long fullGcCount,
         Duration fullGcTime,
+        long runtimeConstraintContributionsSequence,
+        long runtimeConstraintUpdateAcknowledgement,
         long queuedPartitionedSplitsWeight,
         long runningPartitionedSplitsWeight)
 {
@@ -93,6 +95,58 @@ public record TaskStatus(
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         requireNonNull(fullGcTime, "fullGcTime is null");
+        checkArgument(runtimeConstraintContributionsSequence >= 0, "runtimeConstraintContributionsSequence is negative");
+        checkArgument(runtimeConstraintUpdateAcknowledgement >= 0, "runtimeConstraintUpdateAcknowledgement is negative");
+    }
+
+    public TaskStatus(
+            TaskId taskId,
+            long taskInstanceId,
+            long version,
+            TaskState state,
+            URI self,
+            String nodeId,
+            boolean speculative,
+            List<ExecutionFailureInfo> failures,
+            int queuedPartitionedDrivers,
+            int runningPartitionedDrivers,
+            OutputBufferStatus outputBufferStatus,
+            DataSize outputDataSize,
+            DataSize writerInputDataSize,
+            DataSize physicalWrittenDataSize,
+            OptionalInt maxWriterCount,
+            DataSize memoryReservation,
+            DataSize peakMemoryReservation,
+            DataSize revocableMemoryReservation,
+            long fullGcCount,
+            Duration fullGcTime,
+            long queuedPartitionedSplitsWeight,
+            long runningPartitionedSplitsWeight)
+    {
+        this(taskId,
+                taskInstanceId,
+                version,
+                state,
+                self,
+                nodeId,
+                speculative,
+                failures,
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                outputBufferStatus,
+                outputDataSize,
+                writerInputDataSize,
+                physicalWrittenDataSize,
+                maxWriterCount,
+                memoryReservation,
+                peakMemoryReservation,
+                revocableMemoryReservation,
+                fullGcCount,
+                fullGcTime,
+                0,
+                0,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
     }
 
     @Override
@@ -154,6 +208,8 @@ public record TaskStatus(
                 taskStatus.revocableMemoryReservation(),
                 taskStatus.fullGcCount(),
                 taskStatus.fullGcTime(),
+                taskStatus.runtimeConstraintContributionsSequence(),
+                taskStatus.runtimeConstraintUpdateAcknowledgement(),
                 taskStatus.queuedPartitionedSplitsWeight(),
                 taskStatus.runningPartitionedSplitsWeight());
     }

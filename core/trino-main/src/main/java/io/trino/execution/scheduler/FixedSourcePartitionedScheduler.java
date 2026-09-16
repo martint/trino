@@ -104,6 +104,12 @@ public class FixedSourcePartitionedScheduler
     }
 
     @Override
+    public void start()
+    {
+        sourceSchedulers.forEach(SourceScheduler::start);
+    }
+
+    @Override
     public ScheduleResult schedule()
     {
         // schedule a task on every node in the distribution

@@ -28,6 +28,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.split.DeferredSplitSource;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
@@ -83,6 +84,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -153,15 +155,19 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
-            SplitSource splitSource = createSplitSource(node.getTable(), node.getAssignments(), Optional.empty());
+            SplitSource splitSource = createSplitSource(node, Optional.empty());
 
             splitSources.add(splitSource);
 
             return ImmutableMap.of(node.getId(), splitSource);
         }
 
-        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
+        private SplitSource createSplitSource(TableScanNode scan, Optional<Expression> filterPredicate)
         {
+            TableHandle table = scan.getTable();
+            Map<Symbol, ColumnHandle> assignments = scan.getAssignments();
+            List<ColumnHandle> columns = scan.getOutputSymbols().stream().map(assignments::get).toList();
+
             Expression predicate = filterPredicate.orElse(TRUE);
             Map<String, ColumnHandle> columnHandlesByName = assignments.entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
@@ -174,7 +180,20 @@ public class SplitSourceFactory
                     expression,
                     columnHandlesByName);
 
-            return splitManager.getSplits(session, stageSpan, table, DynamicFilter.EMPTY, constraint);
+            if (!isEnableDynamicFiltering(session)) {
+                return splitManager.getSplits(session, stageSpan, table, DynamicFilter.EMPTY, constraint);
+            }
+
+            // get dataSource for table
+            return new DeferredSplitSource(
+                    table.catalogHandle(),
+                    dynamicFilterService.discoverRuntimeConstraintDynamicFilter(session, scan.getId(), columns)
+                            .thenApply(dynamicFilter -> splitManager.getSplits(
+                                    session,
+                                    stageSpan,
+                                    table,
+                                    dynamicFilter,
+                                    constraint)));
         }
 
         @Override
@@ -234,7 +253,7 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
             if (node.getSource() instanceof TableScanNode scan) {
-                SplitSource splitSource = createSplitSource(scan.getTable(), scan.getAssignments(), Optional.of(node.getPredicate()));
+                SplitSource splitSource = createSplitSource(scan, Optional.of(node.getPredicate()));
 
                 splitSources.add(splitSource);
 

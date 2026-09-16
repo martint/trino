@@ -211,7 +211,7 @@ public class PushPartialAggregationThroughJoin
         double joinRowCount = context.getStatsProvider().getStats(join).getOutputRowCount();
         // Pushing aggregation through filtering join could mean more work for partial aggregation. However,
         // we allow pushing partial aggregations through filtering join because:
-        // 1. unmatched rows can be removed by the join
+        // 1. runtime constraints should filter unmatched rows at source
         // 2. partial aggregation will adaptively switch off when it's not reducing input rows
         // 3. join operator is not particularly efficient at filtering rows
         if (isNaN(sourceRowCount) || isNaN(joinRowCount) || joinRowCount > 1.1 * sourceRowCount) {

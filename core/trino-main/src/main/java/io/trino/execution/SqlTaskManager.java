@@ -47,6 +47,7 @@ import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.operator.RetryPolicy;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
@@ -58,6 +59,8 @@ import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -462,6 +465,15 @@ public class SqlTaskManager
         return sqlTask.getTaskStatus(currentVersion);
     }
 
+    public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(TaskId taskId, long currentRuntimeConstraintSequence)
+    {
+        requireNonNull(taskId, "taskId is null");
+
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.acknowledgeAndGetRuntimeConstraintContributions(currentRuntimeConstraintSequence);
+    }
+
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
         Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
@@ -487,10 +499,28 @@ public class SqlTaskManager
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
+            boolean speculative)
+    {
+        return updateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, ImmutableList.of(), runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement, speculative);
+    }
+
+    public TaskInfo updateTask(
+            Session session,
+            TaskId taskId,
+            Span stageSpan,
+            Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
+            List<SplitAssignment> splitAssignments,
+            OutputBuffers outputBuffers,
+            List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
             boolean speculative)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, speculative)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, runtimeConstraintWiringRequests, runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement, speculative)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -507,6 +537,9 @@ public class SqlTaskManager
             Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
+            List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+            Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+            long runtimeConstraintContributionAcknowledgement,
             boolean speculative)
     {
         requireNonNull(session, "session is null");
@@ -551,7 +584,7 @@ public class SqlTaskManager
                 .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, speculative);
+        return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, runtimeConstraintWiringRequests, runtimeConstraintUpdates, runtimeConstraintContributionAcknowledgement, speculative);
     }
 
     /**
@@ -645,6 +678,7 @@ public class SqlTaskManager
                     try {
                         Instant endTime = sqlTask.getTaskEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                            sqlTask.destroy();
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
                             tasks.unsafeInvalidate(taskId);

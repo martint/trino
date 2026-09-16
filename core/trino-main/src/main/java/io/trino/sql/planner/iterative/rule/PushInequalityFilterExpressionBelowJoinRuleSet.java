@@ -78,6 +78,7 @@ import static java.util.stream.Collectors.partitioningBy;
  *              build (r)
  *       }
  * </pre>
+ * This rule allows runtime constraints to be applied for inequality join nodes.
  * Additionally, optimized execution of inequality join is performed when equi conditions are also present.
  */
 public class PushInequalityFilterExpressionBelowJoinRuleSet

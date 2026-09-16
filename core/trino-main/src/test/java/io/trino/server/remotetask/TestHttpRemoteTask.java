@@ -17,7 +17,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -37,6 +36,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.execution.BaseTestSqlTaskManager;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.RemoteTask;
@@ -68,10 +68,12 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintProtocol;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDescriptorDeserializer;
 import io.trino.type.TypeDescriptorKeyDeserializer;
@@ -93,8 +95,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -119,10 +123,13 @@ import static io.trino.metadata.TestingMetadataManager.createTestingMetadataMana
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_RUNTIME_CONSTRAINT_SEQUENCE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -179,7 +186,7 @@ public class TestHttpRemoteTask
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
 
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -194,6 +201,41 @@ public class TestHttpRemoteTask
         remoteTask.cancel();
         poll(() -> remoteTask.getTaskStatus().state().isDone());
         poll(() -> remoteTask.getTaskInfo().taskStatus().state().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testRuntimeConstraintContributionIsAcknowledged()
+    {
+        TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig());
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
+        HttpRemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        testingTaskResource.setRuntimeConstraintContributions(new RuntimeConstraintContributionBatch(
+                RuntimeConstraintProtocol.CURRENT_FORMAT_VERSION,
+                1,
+                0,
+                ImmutableList.of()));
+
+        remoteTask.start();
+        remoteTask.getRuntimeConstraintFetcher().updateSequenceAndFetchIfNecessary(1);
+
+        assertEventually(new Duration(10, SECONDS), () -> {
+            assertThat(testingTaskResource.getRuntimeConstraintFetchRequests())
+                    .extracting(TestingTaskResource.RuntimeConstraintFetchRequest::currentSequence)
+                    .hasSizeGreaterThanOrEqualTo(2)
+                    .startsWith(0L)
+                    .endsWith(1L)
+                    .isSorted();
+            assertThat(remoteTask.getRuntimeConstraintFetcher().getSequence()).isEqualTo(1);
+        });
 
         httpRemoteTaskFactory.stop();
     }
@@ -216,7 +258,7 @@ public class TestHttpRemoteTask
                 .build();
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
 
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, session);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -258,7 +300,7 @@ public class TestHttpRemoteTask
                 .build();
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
 
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, session);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
 
@@ -283,7 +325,7 @@ public class TestHttpRemoteTask
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
 
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
-        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
@@ -320,12 +362,12 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == expectedSplitsCount);
     }
 
-    private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds)
+    private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory)
     {
-        return createRemoteTask(httpRemoteTaskFactory, outboundDynamicFilterIds, TEST_SESSION);
+        return createRemoteTask(httpRemoteTaskFactory, TEST_SESSION);
     }
 
-    private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds, Session session)
+    private HttpRemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Session session)
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 session,
@@ -344,7 +386,11 @@ public class TestHttpRemoteTask
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
-        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService());
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                new TypeOperators(),
+                new DynamicFilterConfig()));
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
@@ -369,6 +415,7 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addKeyDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorKeyDeserializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+                        jsonCodecBinder(binder).bindJsonCodec(RuntimeConstraintContributionBatch.class);
                         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
                         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
@@ -389,6 +436,7 @@ public class TestHttpRemoteTask
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
                             JaxRsJsonMapper jsonMapper,
                             JsonCodec<TaskStatus> taskStatusCodec,
+                            JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionCodec,
                             JsonCodec<TaskInfo> taskInfoCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
                             JsonCodec<FailTaskRequest> failTaskRequestCodec)
@@ -402,6 +450,7 @@ public class TestHttpRemoteTask
                                 testingHttpClient,
                                 new BaseTestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
+                                runtimeConstraintContributionCodec,
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
                                 failTaskRequestCodec,
@@ -472,12 +521,15 @@ public class TestHttpRemoteTask
 
         private TaskInfo initialTaskInfo;
         private TaskStatus initialTaskStatus;
+        private Optional<RuntimeConstraintContributionBatch> runtimeConstraintContributions = Optional.empty();
         private long version;
         private TaskState taskState;
         private long taskInstanceId = INITIAL_TASK_INSTANCE_ID;
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
+        private long runtimeConstraintFetchCounter;
+        private final List<RuntimeConstraintFetchRequest> runtimeConstraintFetchRequests = new ArrayList<>();
 
         public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
         {
@@ -547,6 +599,22 @@ public class TestHttpRemoteTask
             return buildTaskStatus();
         }
 
+        @GET
+        @Path("{taskId}/runtimeconstraints")
+        @Produces(MediaType.APPLICATION_JSON)
+        public synchronized RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(
+                @PathParam("taskId") TaskId taskId,
+                @HeaderParam(TRINO_RUNTIME_CONSTRAINT_SEQUENCE) @DefaultValue("0") long currentSequence,
+                @Context UriInfo uriInfo)
+        {
+            runtimeConstraintFetchCounter++;
+            runtimeConstraintFetchRequests.add(new RuntimeConstraintFetchRequest(
+                    uriInfo.getRequestUri().toString(),
+                    taskId,
+                    currentSequence));
+            return runtimeConstraintContributions.orElse(null);
+        }
+
         @DELETE
         @Path("{taskId}")
         @Produces(MediaType.APPLICATION_JSON)
@@ -578,6 +646,11 @@ public class TestHttpRemoteTask
             }
         }
 
+        public synchronized void setRuntimeConstraintContributions(RuntimeConstraintContributionBatch runtimeConstraintContributions)
+        {
+            this.runtimeConstraintContributions = Optional.of(runtimeConstraintContributions);
+        }
+
         public synchronized long getStatusFetchCounter()
         {
             return statusFetchCounter;
@@ -586,6 +659,16 @@ public class TestHttpRemoteTask
         public synchronized long getCreateOrUpdateCounter()
         {
             return createOrUpdateCounter;
+        }
+
+        public synchronized long getRuntimeConstraintFetchCounter()
+        {
+            return runtimeConstraintFetchCounter;
+        }
+
+        public synchronized List<RuntimeConstraintFetchRequest> getRuntimeConstraintFetchRequests()
+        {
+            return ImmutableList.copyOf(runtimeConstraintFetchRequests);
         }
 
         private TaskInfo buildTaskInfo()
@@ -642,8 +725,22 @@ public class TestHttpRemoteTask
                     initialTaskStatus.revocableMemoryReservation(),
                     initialTaskStatus.fullGcCount(),
                     initialTaskStatus.fullGcTime(),
+                    runtimeConstraintContributions.map(RuntimeConstraintContributionBatch::sequence).orElse(0L),
+                    0,
                     initialTaskStatus.queuedPartitionedSplitsWeight(),
                     initialTaskStatus.runningPartitionedSplitsWeight());
+        }
+
+        private record RuntimeConstraintFetchRequest(
+                String uriInfo,
+                TaskId taskId,
+                long currentSequence)
+        {
+            private RuntimeConstraintFetchRequest
+            {
+                requireNonNull(uriInfo, "uriInfo is null");
+                requireNonNull(taskId, "taskId is null");
+            }
         }
     }
 }

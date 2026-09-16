@@ -21,6 +21,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.PartitionedSplitsInfo;
@@ -381,7 +382,7 @@ public class TestMultiSourcePartitionedScheduler
                 ImmutableMap.of(TABLE_SCAN_1_NODE_ID, createFixedSplitSource(200), TABLE_SCAN_2_NODE_ID, createFixedSplitSource(200)),
                 createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager),
                 stage,
-                new DynamicFilterService(),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> true,
                 200);
         // the queues of 3 running nodes should be full
@@ -432,7 +433,7 @@ public class TestMultiSourcePartitionedScheduler
                 splitSources,
                 splitPlacementPolicy,
                 stage,
-                new DynamicFilterService(),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> false,
                 splitBatchSize);
     }

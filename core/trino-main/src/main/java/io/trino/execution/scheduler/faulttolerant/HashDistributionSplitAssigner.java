@@ -123,6 +123,27 @@ class HashDistributionSplitAssigner
     }
 
     @Override
+    public AssignmentResult startWiring(PlanNodeId planNodeId)
+    {
+        AssignmentResult initial = assign(planNodeId, ImmutableListMultimap.of(), false);
+        AssignmentResult.Builder result = AssignmentResult.builder();
+        initial.partitionsAdded().forEach(result::addPartition);
+        if (initial.noMorePartitions()) {
+            result.setNoMorePartitions();
+        }
+        initial.partitionUpdates().forEach(result::updatePartition);
+        initial.sealedPartitions().forEach(result::sealPartition);
+        result.updatePartition(new PartitionUpdate(
+                createdTaskPartitions.stream().min(Integer::compareTo).orElseThrow(),
+                planNodeId,
+                true,
+                ImmutableListMultimap.of(),
+                false,
+                true));
+        return result.build();
+    }
+
+    @Override
     public AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
     {
         AssignmentResult.Builder assignment = AssignmentResult.builder();

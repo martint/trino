@@ -41,6 +41,7 @@ import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -63,6 +64,7 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
+    private final JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionsCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final JsonCodec<FailTaskRequest> failTaskRequestCoded;
@@ -86,6 +88,7 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
+            JsonCodec<RuntimeConstraintContributionBatch> runtimeConstraintContributionsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCoded,
@@ -96,6 +99,7 @@ public class HttpRemoteTaskFactory
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
+        this.runtimeConstraintContributionsCodec = runtimeConstraintContributionsCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.failTaskRequestCoded = failTaskRequestCoded;
@@ -165,6 +169,7 @@ public class HttpRemoteTaskFactory
                 taskTerminationTimeout,
                 summarizeTaskInfo,
                 taskStatusCodec,
+                runtimeConstraintContributionsCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 failTaskRequestCoded,

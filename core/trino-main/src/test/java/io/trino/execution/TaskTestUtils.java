@@ -149,6 +149,7 @@ public final class TaskTestUtils
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators(), hashCompiler),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
+                new DynamicFilterConfig(),
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 hashCompiler,
@@ -160,6 +161,6 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), ImmutableMap.of(), splitAssignments, outputBuffers, false);
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), ImmutableMap.of(), splitAssignments, outputBuffers, Optional.empty(), 0, false);
     }
 }

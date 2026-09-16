@@ -20,15 +20,18 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.SessionRepresentation;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,6 +45,9 @@ public record TaskUpdateRequest(
         Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
         List<SplitAssignment> splitAssignments,
         OutputBuffers outputIds,
+        List<RuntimeConstraintRequest> runtimeConstraintWiringRequests,
+        Optional<RuntimeConstraintUpdateBatch> runtimeConstraintUpdates,
+        long runtimeConstraintContributionAcknowledgement,
         Optional<Slice> exchangeEncryptionKey,
         boolean speculative)
 {
@@ -54,6 +60,9 @@ public record TaskUpdateRequest(
         tableCredentials = ImmutableMap.copyOf(tableCredentials);
         splitAssignments = ImmutableList.copyOf(splitAssignments);
         requireNonNull(outputIds, "outputIds is null");
+        runtimeConstraintWiringRequests = runtimeConstraintWiringRequests == null ? ImmutableList.of() : ImmutableList.copyOf(runtimeConstraintWiringRequests);
+        runtimeConstraintUpdates = runtimeConstraintUpdates == null ? Optional.empty() : runtimeConstraintUpdates;
+        checkArgument(runtimeConstraintContributionAcknowledgement >= 0, "runtimeConstraintContributionAcknowledgement is negative");
         requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
     }
 
@@ -66,6 +75,9 @@ public record TaskUpdateRequest(
                 .add("fragment", fragment)
                 .add("splitAssignments", splitAssignments)
                 .add("outputIds", outputIds)
+                .add("runtimeConstraintWiringRequests", runtimeConstraintWiringRequests)
+                .add("runtimeConstraintUpdates", runtimeConstraintUpdates)
+                .add("runtimeConstraintContributionAcknowledgement", runtimeConstraintContributionAcknowledgement)
                 .add("exchangeEncryptionKey", exchangeEncryptionKey.map(_ -> "[REDACTED]"))
                 .add("speculative", speculative)
                 .toString();

@@ -19,6 +19,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
@@ -29,6 +30,9 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
+import io.trino.server.DynamicFilterService;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -44,6 +48,8 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskStatus.STARTING_VERSION;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -204,11 +210,31 @@ public class TestTaskInfoFetcherInstanceMismatch
             TaskStatus initialStatus,
             ScheduledExecutorService executor)
     {
+        RuntimeConstraintFetcher runtimeConstraintFetcher = new RuntimeConstraintFetcher(
+                _ -> {},
+                TASK_ID,
+                TASK_URI,
+                new Duration(10, SECONDS),
+                JsonCodec.jsonCodec(RuntimeConstraintContributionBatch.class),
+                executor,
+                new TestingHttpClient(_ -> { throw new UnsupportedOperationException(); }),
+                () -> noopTracer().spanBuilder("test"),
+                new Duration(10, SECONDS),
+                executor,
+                new RemoteTaskStats(),
+                new DynamicFilterService(
+                        createTestingMetadataManager(),
+                        PLANNER_CONTEXT.getFunctionManager(),
+                        new TypeOperators(),
+                        new DynamicFilterConfig()),
+                () -> {});
+
         return new ContinuousTaskStatusFetcher(
                 _ -> {},
                 initialStatus,
                 new Duration(10, SECONDS),
                 JsonCodec.jsonCodec(TaskStatus.class),
+                runtimeConstraintFetcher,
                 executor,
                 new TestingHttpClient(_ -> { throw new UnsupportedOperationException(); }),
                 () -> noopTracer().spanBuilder("test"),

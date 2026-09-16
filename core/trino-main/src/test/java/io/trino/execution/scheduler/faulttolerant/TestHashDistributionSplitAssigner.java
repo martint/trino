@@ -71,6 +71,38 @@ public class TestHashDistributionSplitAssigner
     private static final InternalNode NODE_3 = new InternalNode("node3", URI.create("http://localhost:8083"), NodeVersion.UNKNOWN, false);
 
     @Test
+    public void testStartWiringMarksEmptySchedulingUpdate()
+    {
+        FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(1, Optional.empty());
+        HashDistributionSplitAssigner splitAssigner = new HashDistributionSplitAssigner(
+                new PlanFragmentId("fragment"),
+                Optional.of(TEST_CATALOG_HANDLE),
+                ImmutableSet.of(PARTITIONED_1),
+                ImmutableSet.of(),
+                partitioningScheme,
+                createSourcePartitionToTaskPartition(
+                        partitioningScheme,
+                        ImmutableSet.of(PARTITIONED_1),
+                        ImmutableMap.of(),
+                        1,
+                        1,
+                        1,
+                        _ -> false,
+                        true));
+
+        assertThat(splitAssigner.startWiring(PARTITIONED_1).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> {
+                    assertThat(update.readyForScheduling()).isTrue();
+                    assertThat(update.splits().isEmpty()).isTrue();
+                    assertThat(update.wiringOnly()).isTrue();
+                });
+        assertThat(splitAssigner.assign(PARTITIONED_1, createSplitMap(createSplit(1, 0)), false).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> assertThat(update.wiringOnly()).isFalse());
+    }
+
+    @Test
     public void testEmpty()
     {
         testAssigner()

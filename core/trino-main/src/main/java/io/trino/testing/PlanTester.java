@@ -849,6 +849,7 @@ public class PlanTester
                 joinCompiler,
                 hashStrategyCompiler,
                 new OrderingCompiler(plannerContext.getTypeOperators()),
+                new DynamicFilterConfig(),
                 blockTypeOperators,
                 typeOperators,
                 hashCompiler,

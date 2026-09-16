@@ -57,6 +57,7 @@ class ContinuousTaskStatusFetcher
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final JsonCodec<TaskStatus> taskStatusCodec;
+    private final RuntimeConstraintFetcher runtimeConstraintFetcher;
 
     private final Duration refreshMaxWait;
     private final Executor executor;
@@ -76,6 +77,7 @@ class ContinuousTaskStatusFetcher
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
             JsonCodec<TaskStatus> taskStatusCodec,
+            RuntimeConstraintFetcher runtimeConstraintFetcher,
             Executor executor,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
@@ -91,6 +93,7 @@ class ContinuousTaskStatusFetcher
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
+        this.runtimeConstraintFetcher = requireNonNull(runtimeConstraintFetcher, "runtimeConstraintFetcher is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -248,6 +251,8 @@ class ContinuousTaskStatusFetcher
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
             onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().self()))));
         }
+
+        runtimeConstraintFetcher.updateSequenceAndFetchIfNecessary(newValue.runtimeConstraintContributionsSequence());
     }
 
     /**

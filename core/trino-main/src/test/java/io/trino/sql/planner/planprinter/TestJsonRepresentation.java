@@ -16,6 +16,7 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.trino.Session;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.TableInfo;
@@ -121,6 +122,19 @@ public class TestJsonRepresentation
 
         assertThat(queryRunner.execute("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query).getOnlyValue())
                 .isEqualTo(DISTRIBUTED_PLAN_JSON_CODEC.toJson(ImmutableMap.of("0", expectedPlan)));
+    }
+
+    @Test
+    public void testDistributedExplainDoesNotIncludeRuntimeConstraintMetadata()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .build();
+
+        assertThat((String) queryRunner.execute(
+                session,
+                "EXPLAIN (TYPE DISTRIBUTED) SELECT orders.orderkey FROM orders JOIN nation ON orders.orderkey = nation.nationkey").getOnlyValue())
+                .doesNotContain("runtimeConstraint")
+                .doesNotContain("dynamicFilterAssignments");
     }
 
     @Test

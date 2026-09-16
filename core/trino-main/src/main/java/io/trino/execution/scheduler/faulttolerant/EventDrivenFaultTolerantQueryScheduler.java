@@ -1303,7 +1303,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             boolean standardTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
             boolean standardTasksWaitingForNode = preSchedulingTaskContexts.hasTasksWaitingForNode(STANDARD);
 
-            boolean eager = stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan);
+            boolean runtimeConstraintWiring = dynamicFilterService.isRuntimeConstraintWiringEnabled(queryStateMachine.getQueryId());
+            boolean eager = runtimeConstraintWiring ||
+                    (stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan));
             boolean speculative = false;
             int finishedSourcesCount = 0;
             Map<String, Integer> estimateCountByKind = new HashMap<>();
@@ -1320,6 +1322,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
 
                 if (sourceStageExecution.getState() != StageState.FINISHED) {
+                    if (runtimeConstraintWiring) {
+                        sourceOutputStatsEstimates.put(
+                                sourceStageExecution.getStageId(),
+                                new OutputDataSizeEstimate(ImmutableLongArray.copyOf(new long[sourceStageExecution.getSinkPartitioningScheme().getPartitionCount()])));
+                        speculative = true;
+                        continue;
+                    }
                     if (!exchangeManager.supportsConcurrentReadAndWrite()) {
                         // speculative execution not supported by Exchange implementation
                         return IsReadyForExecutionResult.notReady();
@@ -1899,7 +1908,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                         partitionUpdate.planNodeId(),
                         partitionUpdate.readyForScheduling(),
                         partitionUpdate.splits(),
-                        partitionUpdate.noMoreSplits());
+                        partitionUpdate.noMoreSplits(),
+                        partitionUpdate.wiringOnly());
                 scheduledTask.ifPresent(schedulingQueue::addOrUpdate);
             }
             assignment.sealedPartitions().forEach(partitionId -> {
@@ -2231,7 +2241,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 PlanNodeId planNodeId,
                 boolean readyForScheduling,
                 ListMultimap<Integer, Split> splits, // sourcePartitionId -> splits
-                boolean noMoreSplits)
+                boolean noMoreSplits,
+                boolean wiringOnly)
         {
             if (getState().isDone()) {
                 return Optional.empty();
@@ -2240,10 +2251,20 @@ public class EventDrivenFaultTolerantQueryScheduler
             StagePartition partition = getStagePartition(taskPartitionId);
             partition.addSplits(planNodeId, splits, noMoreSplits);
             if (readyForScheduling && !partition.isTaskScheduled()) {
+                if (wiringOnly) {
+                    partition.setWiringOnly();
+                }
                 partition.setTaskScheduled(true);
-                PrioritizedScheduledTask task = speculative ?
-                        PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, eager) :
-                        PrioritizedScheduledTask.create(stage.getStageId(), taskPartitionId, schedulingPriority);
+                PrioritizedScheduledTask task;
+                if (wiringOnly) {
+                    task = PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, true);
+                }
+                else if (speculative) {
+                    task = PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, eager);
+                }
+                else {
+                    task = PrioritizedScheduledTask.create(stage.getStageId(), taskPartitionId, schedulingPriority);
+                }
                 return Optional.of(task);
             }
             return Optional.empty();
@@ -2271,6 +2292,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void noMorePartitions()
         {
             noMorePartitions = true;
+            dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, ImmutableSet.copyOf(partitions.keySet()));
             if (getState().isDone()) {
                 return;
             }
@@ -2508,8 +2530,11 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             if (!remainingPartitions.remove(partitionId)) {
                 // a different task for the same partition finished before
+                dynamicFilterService.taskFinished(taskId, false, taskStatus.runtimeConstraintContributionsSequence());
                 return Optional.empty();
             }
+
+            dynamicFilterService.taskFinished(taskId, true, taskStatus.runtimeConstraintContributionsSequence());
 
             updateOutputSize(outputStats.orElseThrow());
 
@@ -2544,7 +2569,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void doFinish(boolean force)
         {
-            dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, partitions.size());
+            dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, ImmutableSet.copyOf(partitions.keySet()));
             exchange.noMoreSinks();
             exchange.allRequiredSinksFinished();
             if (!force) {
@@ -2585,6 +2610,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public List<PrioritizedScheduledTask> taskFailed(TaskId taskId, ExecutionFailureInfo failureInfo, TaskStatus taskStatus)
         {
+            dynamicFilterService.taskFinished(taskId, false, taskStatus.runtimeConstraintContributionsSequence());
             int partitionId = taskId.partitionId();
             StagePartition partition = getStagePartition(partitionId);
             partition.taskFailed(taskId);
@@ -2646,6 +2672,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             if (!partition.isSealed()) {
+                if (partition.isWiringOnly()) {
+                    log.warn(failure, "Rescheduling wiring task %s due to %s error", taskId, errorCode != null ? errorCode.getName() : "unknown");
+                    return ImmutableList.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority, true));
+                }
                 // don't reschedule speculative tasks
                 return ImmutableList.of();
             }
@@ -2839,6 +2869,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Map<TaskId, NodeLease> taskNodeLeases = new HashMap<>();
         private final Set<PlanNodeId> finalSelectors = new HashSet<>();
         private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+        private boolean wiringOnly;
         private boolean taskScheduled;
         private boolean finished;
 
@@ -3070,6 +3101,17 @@ public class EventDrivenFaultTolerantQueryScheduler
             return taskScheduled;
         }
 
+        public boolean isWiringOnly()
+        {
+            return wiringOnly;
+        }
+
+        public void setWiringOnly()
+        {
+            checkState(!taskScheduled, "task is already scheduled");
+            wiringOnly = true;
+        }
+
         public void setTaskScheduled(boolean taskScheduled)
         {
             checkArgument(taskScheduled, "taskScheduled must be true");
@@ -3098,6 +3140,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("taskNodeLeases", taskNodeLeases)
                     .add("finalSelectors", finalSelectors)
                     .add("noMoreSplits", noMoreSplits)
+                    .add("wiringOnly", wiringOnly)
                     .add("taskScheduled", taskScheduled)
                     .add("finished", finished)
                     .toString();

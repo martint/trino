@@ -86,6 +86,8 @@ class EventDrivenTaskSource
     private boolean initialized;
     @GuardedBy("this")
     private List<IdempotentSplitSource> splitSources;
+    private Optional<PlanNodeId> deferredSplitSource = Optional.empty();
+    private boolean wiringStarted;
     @GuardedBy("this")
     private final Set<PlanFragmentId> completedFragments = new HashSet<>();
 
@@ -152,11 +154,17 @@ class EventDrivenTaskSource
             PlanFragmentId sourceFragmentId = entry.getKey();
             PlanNodeId remoteSourceNodeId = remoteSourceNodeIds.get(sourceFragmentId);
             verify(remoteSourceNodeId != null, "remote source not found for fragment: %s", sourceFragmentId);
+            if (deferredSplitSource.isEmpty()) {
+                deferredSplitSource = Optional.of(remoteSourceNodeId);
+            }
             ExchangeSourceHandleSource handleSource = closer.register(entry.getValue().getSourceHandles());
             ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, metricsRecorder)));
         }
         for (Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
+            if (deferredSplitSource.isEmpty() && entry.getValue().isSplitSourceCreationDeferred()) {
+                deferredSplitSource = Optional.of(entry.getKey());
+            }
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, metricsRecorder)));
         }
         this.splitSources = splitSources.build();
@@ -165,6 +173,11 @@ class EventDrivenTaskSource
     @GuardedBy("this")
     private ListenableFuture<AssignmentResult> processNext()
     {
+        if (!wiringStarted && deferredSplitSource.isPresent()) {
+            wiringStarted = true;
+            AssignmentResult result = assigner.startWiring(deferredSplitSource.orElseThrow());
+            return immediateFuture(result);
+        }
         List<ListenableFuture<IdempotentSplitSource.SplitBatchReference>> futures = splitSources.stream()
                 .map(IdempotentSplitSource::getNext)
                 .filter(Optional::isPresent)

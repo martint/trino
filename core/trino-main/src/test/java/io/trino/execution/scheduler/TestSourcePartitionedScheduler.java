@@ -21,6 +21,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.StatsAndCosts;
+import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.NodeTaskMap;
@@ -368,7 +369,7 @@ public class TestSourcePartitionedScheduler
                     new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(20, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                     2,
-                    new DynamicFilterService(),
+                    new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                     new TableExecuteContextManager(),
                     () -> false);
             scheduler.schedule();
@@ -506,7 +507,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(4 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 4 * 300,
-                new DynamicFilterService(),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> false);
 
@@ -549,7 +550,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(3 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 3 * 300,
-                new DynamicFilterService(),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> true);
 
@@ -613,7 +614,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, splitSource, DynamicFilter.EMPTY),
                 placementPolicy,
                 splitBatchSize,
-                new DynamicFilterService(),
+                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> false);
     }

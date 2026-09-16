@@ -418,7 +418,7 @@ public class SqlQueryExecution
                 try {
                     CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession(), stateMachine::isDone);
                     PlanRoot plan = planQuery(tableStatsProvider);
-                    // Register query statistics before distribution planning.
+                    // Query should be registered before runtime constraint suppliers are requested in distribution planning.
                     registerDynamicFilteringQuery(plan);
                     planDistribution(plan, tableStatsProvider);
                 }
