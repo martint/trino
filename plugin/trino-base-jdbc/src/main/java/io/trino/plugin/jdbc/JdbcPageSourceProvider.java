@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
@@ -93,12 +94,27 @@ public class JdbcPageSourceProvider
                 .filter(column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID))
                 .collect(toOptional());
         if (mergeRowId.isEmpty()) {
+            // Approximate only the dynamic filter. The table constraint may already be enforced.
+            TupleDomain<JdbcColumnHandle> dynamicPredicate = jdbcSplit.getDynamicFilter();
+            if (!dynamicPredicate.isAll() && !dynamicPredicate.isNone()) {
+                List<JdbcColumnHandle> filterColumns = dynamicPredicate.getDomains().stream()
+                        .flatMap(domains -> domains.keySet().stream())
+                        .collect(toImmutableList());
+                List<ColumnMapping> mappings = jdbcClient.toColumnMappings(session, filterColumns.stream()
+                        .map(JdbcColumnHandle::getJdbcTypeHandle)
+                        .collect(toImmutableList()));
+                Map<JdbcColumnHandle, ColumnMapping> filterMappings = IntStream.range(0, filterColumns.size())
+                        .boxed()
+                        .collect(toImmutableMap(filterColumns::get, mappings::get));
+                dynamicPredicate = dynamicPredicate.transformDomains((column, domain) ->
+                        filterMappings.get(column).getPredicatePushdownController().apply(session, domain).getPushedDown());
+            }
             return new JdbcPageSource(
                     jdbcClient,
                     executor,
                     session,
                     jdbcSplit,
-                    tableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                    tableHandle.intersectedWithConstraint(dynamicPredicate.transformKeys(ColumnHandle.class::cast)),
                     jdbcColumns);
         }
 

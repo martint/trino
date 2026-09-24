@@ -59,6 +59,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -105,7 +106,7 @@ import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
-import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedDomain;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
@@ -656,10 +657,14 @@ public class MongoMetadata
             for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                Type columnType = columnHandle.type();
                 // TODO: Support predicate pushdown on more types including JSON
-                if (isPushdownSupportedType(columnType)) {
+                if (isPushdownSupportedDomain(domain)) {
                     supported.put(entry.getKey(), entry.getValue());
+                    // MongoDB orders NaN before numbers; a range may admit NaN that Trino excludes.
+                    if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                            floatingPoint.getRanges().getOrderedRanges().stream().anyMatch(range -> range.isLowUnbounded() || range.isHighUnbounded())) {
+                        unsupported.put(columnHandle, domain);
+                    }
                 }
                 else {
                     unsupported.put(columnHandle, domain);
