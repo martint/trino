@@ -3881,7 +3881,8 @@ class AstBuilder
                 .map(DataTypeParameter.class::cast)
                 .collect(toImmutableList());
 
-        return new GenericDataType(getLocation(context), (Identifier) visit(context.identifier()), parameters);
+        Optional<Identifier> collation = Optional.ofNullable(context.collation).map(identifier -> (Identifier) visit(identifier));
+        return new GenericDataType(Optional.of(getLocation(context)), (Identifier) visit(context.identifier(0)), parameters, collation);
     }
 
     @Override

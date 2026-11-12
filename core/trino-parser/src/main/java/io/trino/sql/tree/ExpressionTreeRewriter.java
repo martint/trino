@@ -1097,7 +1097,7 @@ public final class ExpressionTreeRewriter<C>
             List<DataTypeParameter> rewrittenArguments = arguments.build();
 
             if (name != node.getName() || !sameElements(rewrittenArguments, node.getArguments())) {
-                return new GenericDataType(node.getLocation(), name, rewrittenArguments);
+                return new GenericDataType(node.getLocation(), name, rewrittenArguments, node.getCollation());
             }
 
             return node;

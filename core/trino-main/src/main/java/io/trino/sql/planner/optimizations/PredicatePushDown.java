@@ -113,6 +113,7 @@ import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
+import static io.trino.type.collation.Collations.hasNonDefaultCollation;
 import static java.util.Objects.requireNonNull;
 
 public class PredicatePushDown
@@ -641,6 +642,9 @@ public class PredicatePushDown
                                                 alignedComparison ? rightExpression : leftExpression,
                                                 dynamicFilter.nullAllowed());
                                     }))
+                    // A dynamic filter is evaluated with code point comparisons, so it would drop probe rows
+                    // equal to a build value under a collation
+                    .filter(clause -> !hasNonDefaultCollation(clause.right().type()))
                     .collect(toImmutableList());
 
             // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
@@ -1360,7 +1364,7 @@ public class PredicatePushDown
 
             // Add dynamic filtering predicate
             Optional<DynamicFilterId> dynamicFilterId = node.getDynamicFilterId();
-            if (dynamicFilterId.isEmpty() && isEnableDynamicFiltering(session) && dynamicFiltering) {
+            if (dynamicFilterId.isEmpty() && isEnableDynamicFiltering(session) && dynamicFiltering && !hasNonDefaultCollation(node.getSourceJoinSymbol().type())) {
                 dynamicFilterId = Optional.of(new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
                 Symbol sourceSymbol = node.getSourceJoinSymbol();
                 sourceConjuncts.add(createDynamicFilterExpression(

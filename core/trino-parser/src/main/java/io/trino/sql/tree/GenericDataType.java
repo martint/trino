@@ -26,19 +26,24 @@ public final class GenericDataType
 {
     private final Identifier name;
     private final List<DataTypeParameter> arguments;
+    private final Optional<Identifier> collation;
 
     public GenericDataType(NodeLocation location, Identifier name, List<DataTypeParameter> arguments)
     {
-        super(Optional.of(location));
-        this.name = requireNonNull(name, "name is null");
-        this.arguments = requireNonNull(arguments, "arguments is null");
+        this(Optional.of(location), name, arguments, Optional.empty());
     }
 
     public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments)
     {
+        this(location, name, arguments, Optional.empty());
+    }
+
+    public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments, Optional<Identifier> collation)
+    {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
+        this.collation = requireNonNull(collation, "collation is null");
     }
 
     public Identifier getName()
@@ -51,13 +56,20 @@ public final class GenericDataType
         return arguments;
     }
 
+    /// The collation named by a trailing `COLLATE` clause, as in `varchar(10) COLLATE unicode_ci`.
+    public Optional<Identifier> getCollation()
+    {
+        return collation;
+    }
+
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
+        ImmutableList.Builder<Node> children = ImmutableList.<Node>builder()
                 .add(name)
-                .addAll(arguments)
-                .build();
+                .addAll(arguments);
+        collation.ifPresent(children::add);
+        return children.build();
     }
 
     @Override
@@ -71,13 +83,14 @@ public final class GenericDataType
         }
         GenericDataType that = (GenericDataType) o;
         return name.equals(that.name) &&
-                arguments.equals(that.arguments);
+                arguments.equals(that.arguments) &&
+                collation.equals(that.collation);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments);
+        return Objects.hash(name, arguments, collation);
     }
 
     @Override

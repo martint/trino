@@ -26,7 +26,6 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.ReservedIdentifiers;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CompositeIntervalQualifier;
@@ -55,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -65,6 +65,8 @@ import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
+import static io.trino.type.collation.CollationNames.canonicalName;
+import static io.trino.type.collation.CollationNames.requiresQuoting;
 import static io.trino.util.DateTimeUtils.parseDayTimeIntervalToPicos;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -131,7 +133,7 @@ public final class TypeDescriptorTranslator
             }
             return TypeTemplates.toTypeDescriptor(toTypeTemplate(intervalType, Set.of(), true));
         }
-        if (type instanceof GenericDataType genericType && !genericType.getArguments().isEmpty()) {
+        if (type instanceof GenericDataType genericType && !genericType.getArguments().isEmpty() && genericType.getCollation().isEmpty()) {
             return new TypeDescriptor(canonicalize(genericType.getName()), genericType.getArguments().stream()
                     .map(parameter -> switch (parameter) {
                         case NumericParameter numeric -> TypeParameter.numericParameter(numeric.getParsedValue());
@@ -260,15 +262,21 @@ public final class TypeDescriptorTranslator
                 "Numeric variable cannot appear in a type position: %s",
                 name);
 
-        if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
-            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeDescriptor.
-            return TypeTemplates.fromTypeDescriptor(VarcharType.VARCHAR.getTypeDescriptor());
+        if (type.getCollation().isPresent() && !name.equalsIgnoreCase(VARCHAR)) {
+            throw new TrinoException(TYPE_MISMATCH, "COLLATE is not supported for type " + name);
         }
+        Optional<TemplateParameter> collation = type.getCollation()
+                .map(identifier -> new TemplateParameter.TextArgument(canonicalName(identifier.getValue())));
 
         List<TemplateParameter> parameters = new ArrayList<>();
+        if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
+            // Unbounded VARCHAR is modeled as VARCHAR(n) with a magic length, matching toTypeDescriptor.
+            parameters.add(new TemplateParameter.NumericArgument(new NumericExpression.Literal(UNBOUNDED_LENGTH)));
+        }
         for (DataTypeParameter parameter : type.getArguments()) {
             parameters.add(toTemplateParameter(parameter, typeVariables, numericVariables));
         }
+        collation.ifPresent(parameters::add);
         return new TypeTemplate.TypeApplication(canonicalize(type.getName()), parameters);
     }
 
@@ -591,9 +599,10 @@ public final class TypeDescriptorTranslator
                     Optional.empty(),
                     new Identifier(typeDescriptor.getBase(), false),
                     typeDescriptor.getParameters().stream()
-                            .filter(parameter -> ((TypeParameter.Numeric) parameter).value() != UNBOUNDED_LENGTH)
-                            .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
-                            .collect(toImmutableList()));
+                            .filter(parameter -> parameter instanceof TypeParameter.Numeric(long length) && length != UNBOUNDED_LENGTH)
+                            .map(parameter -> (DataTypeParameter) new NumericParameter(Optional.empty(), parameter.toString()))
+                            .collect(toImmutableList()),
+                    collation(typeDescriptor));
             default -> new GenericDataType(
                     Optional.empty(),
                     new Identifier(typeDescriptor.getBase(), false),
@@ -601,6 +610,15 @@ public final class TypeDescriptorTranslator
                             .map(TypeDescriptorTranslator::toTypeParameter)
                             .collect(toImmutableList()));
         };
+    }
+
+    private static Optional<Identifier> collation(TypeDescriptor typeDescriptor)
+    {
+        return typeDescriptor.getParameters().stream()
+                .filter(TypeParameter.Text.class::isInstance)
+                .map(parameter -> ((TypeParameter.Text) parameter).value())
+                .map(name -> new Identifier(name, requiresQuoting(name)))
+                .findFirst();
     }
 
     private static boolean requiresDelimiting(String identifier)

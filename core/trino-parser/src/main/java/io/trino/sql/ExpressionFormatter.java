@@ -755,6 +755,8 @@ public final class ExpressionFormatter
                         .collect(joining(", ", "(", ")")));
             }
 
+            node.getCollation().ifPresent(collation -> result.append(" COLLATE ").append(process(collation)));
+
             return result.toString();
         }
 

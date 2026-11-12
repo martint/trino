@@ -33,10 +33,23 @@ public final class TypeSyntax
     /// The user-visible SQL spelling of a ground type.
     public static String toSql(TypeDescriptor descriptor)
     {
-        List<String> parameters = descriptor.getParameters().stream()
+        List<TypeParameter> descriptorParameters = descriptor.getParameters();
+        // A collated character string type carries its collation as a trailing text parameter and
+        // spells it as a trailing COLLATE clause.
+        if (isCharacterString(descriptor.getBase())
+                && descriptorParameters.size() == 2
+                && descriptorParameters.get(1) instanceof TypeParameter.Text(String collation)) {
+            return render(descriptor.getBase(), List.of(parameterToSql(descriptorParameters.get(0)))) + " COLLATE " + Collation.toSql(collation);
+        }
+        List<String> parameters = descriptorParameters.stream()
                 .map(TypeSyntax::parameterToSql)
                 .collect(toUnmodifiableList());
         return render(descriptor.getBase(), parameters);
+    }
+
+    private static boolean isCharacterString(String base)
+    {
+        return base.equalsIgnoreCase(StandardTypes.VARCHAR) || base.equalsIgnoreCase(StandardTypes.CHAR);
     }
 
     /// The user-visible SQL spelling of an open (variable-bearing) type, e.g. for rendering a function

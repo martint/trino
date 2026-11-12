@@ -11,6 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import io.trino.spi.type.CollationComparisons;
+
 module trino.spi {
     requires com.fasterxml.jackson.annotation;
     requires com.google.errorprone.annotations;
@@ -41,4 +43,6 @@ module trino.spi {
     exports io.trino.spi.transaction;
     exports io.trino.spi.type;
     exports io.trino.spi.variant;
+
+    uses CollationComparisons;
 }
