@@ -78,6 +78,21 @@ class FunctionBinder
 
     Optional<CatalogFunctionBinding> tryBindFunction(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
+        Optional<CatalogFunctionBinding> match = tryBindFunctionWithTypes(charVarcharCoercion, parameterTypes, candidates);
+        if (match.isPresent()) {
+            return match;
+        }
+        // String functions are declared over default-collation types. When no declaration accepts
+        // the collated arguments, bind them as default-collation strings. A declaration that does
+        // accept them, such as one over a type variable, keeps the collation. The analyzer aligns
+        // the operands of comparisons to one collation before resolving them, so a comparison
+        // never binds arguments of different collations this way.
+        return withoutCollations(parameterTypes)
+                .flatMap(uncollated -> tryBindFunctionWithTypes(charVarcharCoercion, uncollated, candidates));
+    }
+
+    private Optional<CatalogFunctionBinding> tryBindFunctionWithTypes(CharVarcharCoercion charVarcharCoercion, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
+    {
         if (candidates.isEmpty()) {
             return Optional.empty();
         }
@@ -138,6 +153,33 @@ class FunctionBinder
                                 .map(FunctionBinder::withoutCollation)
                                 .collect(toImmutableList())),
                         withoutCollation(actualSignature.returnType()));
+    }
+
+    /// The arguments with the collation removed from character string types, or empty when no argument
+    /// is collated.
+    private static Optional<List<TypeDescriptorProvider>> withoutCollations(List<TypeDescriptorProvider> parameterTypes)
+    {
+        boolean collated = false;
+        ImmutableList.Builder<TypeDescriptorProvider> uncollated = ImmutableList.builder();
+        for (TypeDescriptorProvider parameterType : parameterTypes) {
+            if (parameterType.hasDependency()) {
+                uncollated.add(parameterType);
+                continue;
+            }
+            TypeDescriptor descriptor = parameterType.getTypeDescriptor();
+            TypeDescriptor withoutCollation = withoutCollation(descriptor);
+            if (withoutCollation != descriptor) {
+                collated = true;
+                uncollated.add(new TypeDescriptorProvider(withoutCollation));
+            }
+            else {
+                uncollated.add(parameterType);
+            }
+        }
+        if (!collated) {
+            return Optional.empty();
+        }
+        return Optional.of(uncollated.build());
     }
 
     /// The descriptor of a character string type with its collation removed, or the descriptor itself.
