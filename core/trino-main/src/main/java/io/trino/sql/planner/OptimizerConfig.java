@@ -74,6 +74,7 @@ public class OptimizerConfig
     private MarkDistinctStrategy markDistinctStrategy;
     private DistinctAggregationsStrategy distinctAggregationsStrategy;
     private boolean preferPartialAggregation = true;
+    private boolean useCollationKeys = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThroughJoin = true;
@@ -512,6 +513,19 @@ public class OptimizerConfig
     public boolean isPreferPartialAggregation()
     {
         return preferPartialAggregation;
+    }
+
+    public boolean isUseCollationKeys()
+    {
+        return useCollationKeys;
+    }
+
+    @Config("optimizer.use-collation-keys")
+    @ConfigDescription("Group collated strings by their collation keys")
+    public OptimizerConfig setUseCollationKeys(boolean value)
+    {
+        this.useCollationKeys = value;
+        return this;
     }
 
     @Config("optimizer.prefer-partial-aggregation")

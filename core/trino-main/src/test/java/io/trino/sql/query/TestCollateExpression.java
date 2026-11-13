@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -558,6 +559,48 @@ public class TestCollateExpression
         // an explicit collation makes the key orderable
         assertThat(assertions.query("SELECT x FROM (VALUES 1) t(x) ORDER BY (%s) COLLATE unicode".formatted(uncollated)))
                 .matches("VALUES 1");
+    }
+
+    @Test
+    public void testCollationKeyFunction()
+    {
+        // the hidden key function computes the key of its argument's collation, and accepts only strings
+        assertThat(assertions.query("SELECT \"$collation_key\"('a' COLLATE unicode_ci) = \"$collation_key\"('A' COLLATE unicode_ci)"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT \"$collation_key\"('a') = \"$collation_key\"('A')"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT \"$collation_key\"(1)"))
+                .failure().hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testCollationKeysPreserveResults()
+    {
+        // grouping and joining by collation keys forms the same groups and matches as comparing
+        // the strings under the collation
+        String values = "(VALUES 'Alice', 'ALICE', 'alice', 'Bob', 'BOB', 'Ærøskøbing', 'ærøskøbing', 'Strasse', 'STRASSE') v(x)";
+        for (String collation : new String[] {"ucs_basic", "unicode", "unicode_ci"}) {
+            String keyed = "(SELECT x COLLATE %s k, x FROM %s)".formatted(collation, values);
+            for (String query : new String[] {
+                    "SELECT count(*) FROM (SELECT k FROM %s t GROUP BY k)",
+                    "SELECT count(*) FROM %1$s a JOIN %1$s b ON a.k = b.k",
+                    "SELECT count(*) FROM (SELECT DISTINCT k FROM %s t)",
+                    "SELECT count(DISTINCT k) FROM %s t",
+                    "SELECT count(*) FROM (SELECT a.x, b.x FROM %1$s a JOIN %1$s b ON a.k = b.k WHERE a.x <> b.x)",
+            }) {
+                String sql = query.formatted(keyed);
+                assertThat(assertions.execute(withCollationKeys(true), sql).getMaterializedRows())
+                        .as("%s: %s", collation, sql)
+                        .isEqualTo(assertions.execute(withCollationKeys(false), sql).getMaterializedRows());
+            }
+        }
+    }
+
+    private Session withCollationKeys(boolean enabled)
+    {
+        return Session.builder(assertions.getDefaultSession())
+                .setSystemProperty("use_collation_keys", Boolean.toString(enabled))
+                .build();
     }
 
     @Test

@@ -10,6 +10,15 @@ Use function preimages to translate predicates and dynamic filters on functions 
 such as `year(date_column) = 2025`, into ranges on the column itself. Set to `false` to use the previous
 implementation.
 
+## `optimizer.use-collation-keys`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `use_collation_keys`
+
+Group collated strings by their collation keys, byte strings that order and compare
+as the collation does, instead of applying the collation to every comparison. Set to `false` to compare the strings under the collation.
+
 ## `optimizer.dictionary-aggregation`
 
 - **Type:** {ref}`prop-type-boolean`

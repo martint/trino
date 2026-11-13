@@ -129,6 +129,7 @@ public final class SystemSessionProperties
     public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String DISTINCT_AGGREGATIONS_STRATEGY = "distinct_aggregations_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
+    public static final String USE_COLLATION_KEYS = "use_collation_keys";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
@@ -617,6 +618,11 @@ public final class SystemSessionProperties
                         PREFER_PARTIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
                         optimizerConfig.isPreferPartialAggregation(),
+                        false),
+                booleanProperty(
+                        USE_COLLATION_KEYS,
+                        "Group collated strings by their collation keys",
+                        optimizerConfig.isUseCollationKeys(),
                         false),
                 booleanProperty(
                         OPTIMIZE_TOP_N_RANKING,
@@ -1516,6 +1522,11 @@ public final class SystemSessionProperties
     public static boolean preferPartialAggregation(Session session)
     {
         return session.getSystemProperty(PREFER_PARTIAL_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isUseCollationKeys(Session session)
+    {
+        return session.getSystemProperty(USE_COLLATION_KEYS, Boolean.class);
     }
 
     public static boolean isOptimizeTopNRanking(Session session)
