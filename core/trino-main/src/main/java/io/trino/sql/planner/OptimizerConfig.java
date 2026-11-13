@@ -521,7 +521,7 @@ public class OptimizerConfig
     }
 
     @Config("optimizer.use-collation-keys")
-    @ConfigDescription("Group collated strings by their collation keys")
+    @ConfigDescription("Group and sort collated strings by their collation keys")
     public OptimizerConfig setUseCollationKeys(boolean value)
     {
         this.useCollationKeys = value;

@@ -621,7 +621,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         USE_COLLATION_KEYS,
-                        "Group collated strings by their collation keys",
+                        "Group and sort collated strings by their collation keys",
                         optimizerConfig.isUseCollationKeys(),
                         false),
                 booleanProperty(

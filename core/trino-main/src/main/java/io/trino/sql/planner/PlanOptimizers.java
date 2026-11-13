@@ -232,6 +232,7 @@ import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.trino.sql.planner.iterative.rule.SortByCollationKey;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithoutProjection;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedGlobalAggregationWithProjection;
@@ -829,6 +830,15 @@ public class PlanOptimizers
                         ImmutableSet.of(new ReorderJoins(plannerContext, costComparator))),
                 // ReorderJoins may produce filters above joins that could (and should be) pushed back down
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
+
+        // After the logical rewrites of sorts and windows, and before TopN is split into partial and final
+        builder.add(new IterativeOptimizer(
+                "SortByCollationKey",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new SortByCollationKey(metadata).rules()));
 
         builder.add(new IterativeOptimizer(
                 "Phase6",

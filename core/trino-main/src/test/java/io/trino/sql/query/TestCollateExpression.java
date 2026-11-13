@@ -644,6 +644,32 @@ public class TestCollateExpression
     }
 
     @Test
+    public void testCollationKeysPreserveOrder()
+    {
+        // sorting and partitioning by collation keys order and partition rows as by the strings
+        String values = "(VALUES (1, 'Zoë'), (2, 'zoe'), (3, 'Ångström'), (4, 'angstrom'), (5, 'Müller'), (6, 'Mutter'), (7, 'mull'), (8, 'Ä'), (9, 'a'), (10, 'z'), (11, 'Straße'), (12, 'strasse'), (13, NULL), (14, 'résumé'), (15, 'resume')) v(id, x)";
+        for (String collation : new String[] {"unicode_ci", "unicode"}) {
+            String keyed = "(SELECT id, x COLLATE %s k FROM %s)".formatted(collation, values);
+            for (String query : new String[] {
+                    "SELECT id FROM %s t ORDER BY k, id",
+                    "SELECT id FROM %s t ORDER BY k DESC NULLS FIRST, id",
+                    "SELECT id FROM %s t ORDER BY k, id LIMIT 5",
+                    "SELECT id, row_number() OVER (ORDER BY k, id) FROM %s t ORDER BY id",
+                    "SELECT id, rank() OVER (PARTITION BY k ORDER BY id) FROM %s t ORDER BY id",
+                    "SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY k ORDER BY id) r FROM %s t) WHERE r = 1 ORDER BY id",
+                    // an unordered row number partitions without sorting
+                    "SELECT count(*), max(r) FROM (SELECT row_number() OVER (PARTITION BY k) r FROM %s t)",
+                    "SELECT count(*) FROM (SELECT row_number() OVER (PARTITION BY k) r FROM %s t) WHERE r <= 1",
+            }) {
+                String sql = query.formatted(keyed);
+                assertThat(assertions.execute(withCollationKeys(true), sql).getMaterializedRows())
+                        .as("%s: %s", collation, sql)
+                        .containsExactlyElementsOf(assertions.execute(withCollationKeys(false), sql).getMaterializedRows());
+            }
+        }
+    }
+
+    @Test
     public void testOrderAndGroup()
     {
         assertThat(assertions.query(

@@ -16,8 +16,9 @@ implementation.
 - **Default value:** `true`
 - **Session property:** `use_collation_keys`
 
-Group collated strings by their collation keys, byte strings that order and compare
-as the collation does, instead of applying the collation to every comparison. Set to `false` to compare the strings under the collation.
+Group, sort, and partition collated strings by their collation keys, byte strings that
+order and compare as the collation does, instead of applying the collation to every
+comparison. Set to `false` to compare the strings under the collation.
 
 ## `optimizer.dictionary-aggregation`
 
