@@ -19,6 +19,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Collation;
 import io.trino.spi.type.NumericExpression;
 import io.trino.spi.type.TemplateParameter;
 import io.trino.spi.type.Type;
@@ -39,6 +40,7 @@ import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.type.IntervalDayTimeType;
@@ -266,7 +268,7 @@ public final class TypeDescriptorTranslator
             throw new TrinoException(TYPE_MISMATCH, "COLLATE is not supported for type " + name);
         }
         Optional<TemplateParameter> collation = type.getCollation()
-                .map(identifier -> new TemplateParameter.TextArgument(canonicalName(identifier.getValue())));
+                .map(identifier -> new TemplateParameter.TextArgument(collationDescriptor(identifier, type.getPadAttribute())));
 
         List<TemplateParameter> parameters = new ArrayList<>();
         if (name.equalsIgnoreCase(VARCHAR) && type.getArguments().isEmpty()) {
@@ -602,7 +604,8 @@ public final class TypeDescriptorTranslator
                             .filter(parameter -> parameter instanceof TypeParameter.Numeric(long length) && length != UNBOUNDED_LENGTH)
                             .map(parameter -> (DataTypeParameter) new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()),
-                    collation(typeDescriptor));
+                    collation(typeDescriptor).map(collation -> new Identifier(collation.name(), requiresQuoting(collation.name()))),
+                    collation(typeDescriptor).filter(Collation::isPadSpace).map(_ -> PadAttribute.PAD_SPACE));
             default -> new GenericDataType(
                     Optional.empty(),
                     new Identifier(typeDescriptor.getBase(), false),
@@ -612,12 +615,18 @@ public final class TypeDescriptorTranslator
         };
     }
 
-    private static Optional<Identifier> collation(TypeDescriptor typeDescriptor)
+    // The descriptor of a COLLATE clause; NO PAD is the default pad attribute, so it is not recorded
+    private static String collationDescriptor(Identifier collation, Optional<PadAttribute> padAttribute)
+    {
+        Collation named = Collation.of(canonicalName(collation.getValue()));
+        return (padAttribute.orElse(PadAttribute.NO_PAD) == PadAttribute.PAD_SPACE ? named.withPadSpace() : named).descriptor();
+    }
+
+    private static Optional<Collation> collation(TypeDescriptor typeDescriptor)
     {
         return typeDescriptor.getParameters().stream()
                 .filter(TypeParameter.Text.class::isInstance)
-                .map(parameter -> ((TypeParameter.Text) parameter).value())
-                .map(name -> new Identifier(name, requiresQuoting(name)))
+                .map(parameter -> Collation.fromDescriptor(((TypeParameter.Text) parameter).value()))
                 .findFirst();
     }
 

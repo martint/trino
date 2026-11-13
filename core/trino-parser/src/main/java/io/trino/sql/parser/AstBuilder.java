@@ -214,6 +214,7 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PathElement;
@@ -2659,7 +2660,16 @@ class AstBuilder
         return new CollateExpression(
                 getLocation(context.COLLATE()),
                 (Expression) visit(context.valueExpression()),
-                (Identifier) visit(context.collation));
+                (Identifier) visit(context.collation),
+                padAttribute(context.padAttribute()));
+    }
+
+    private static Optional<PadAttribute> padAttribute(SqlBaseParser.PadAttributeContext context)
+    {
+        if (context == null) {
+            return Optional.empty();
+        }
+        return Optional.of(context.SPACE() != null ? PadAttribute.PAD_SPACE : PadAttribute.NO_PAD);
     }
 
     @Override
@@ -3909,7 +3919,7 @@ class AstBuilder
                 .collect(toImmutableList());
 
         Optional<Identifier> collation = Optional.ofNullable(context.collation).map(identifier -> (Identifier) visit(identifier));
-        return new GenericDataType(Optional.of(getLocation(context)), (Identifier) visit(context.identifier(0)), parameters, collation);
+        return new GenericDataType(Optional.of(getLocation(context)), (Identifier) visit(context.identifier(0)), parameters, collation, padAttribute(context.padAttribute()));
     }
 
     @Override

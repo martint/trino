@@ -39,7 +39,7 @@ public final class TypeSyntax
         if (isCharacterString(descriptor.getBase())
                 && descriptorParameters.size() == 2
                 && descriptorParameters.get(1) instanceof TypeParameter.Text(String collation)) {
-            return render(descriptor.getBase(), List.of(parameterToSql(descriptorParameters.get(0)))) + " COLLATE " + Collation.toSql(collation);
+            return render(descriptor.getBase(), List.of(parameterToSql(descriptorParameters.get(0)))) + " COLLATE " + Collation.fromDescriptor(collation).toSql();
         }
         List<String> parameters = descriptorParameters.stream()
                 .map(TypeSyntax::parameterToSql)

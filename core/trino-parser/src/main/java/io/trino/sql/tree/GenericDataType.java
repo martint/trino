@@ -27,23 +27,28 @@ public final class GenericDataType
     private final Identifier name;
     private final List<DataTypeParameter> arguments;
     private final Optional<Identifier> collation;
+    private final Optional<PadAttribute> padAttribute;
 
     public GenericDataType(NodeLocation location, Identifier name, List<DataTypeParameter> arguments)
     {
-        this(Optional.of(location), name, arguments, Optional.empty());
+        this(Optional.of(location), name, arguments, Optional.empty(), Optional.empty());
     }
 
     public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments)
     {
-        this(location, name, arguments, Optional.empty());
+        this(location, name, arguments, Optional.empty(), Optional.empty());
     }
 
-    public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments, Optional<Identifier> collation)
+    public GenericDataType(Optional<NodeLocation> location, Identifier name, List<DataTypeParameter> arguments, Optional<Identifier> collation, Optional<PadAttribute> padAttribute)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
         this.collation = requireNonNull(collation, "collation is null");
+        this.padAttribute = requireNonNull(padAttribute, "padAttribute is null");
+        if (padAttribute.isPresent() && collation.isEmpty()) {
+            throw new IllegalArgumentException("pad attribute requires a collation");
+        }
     }
 
     public Identifier getName()
@@ -60,6 +65,12 @@ public final class GenericDataType
     public Optional<Identifier> getCollation()
     {
         return collation;
+    }
+
+    /// The pad attribute of the `COLLATE` clause, as in `varchar(10) COLLATE unicode PAD SPACE`.
+    public Optional<PadAttribute> getPadAttribute()
+    {
+        return padAttribute;
     }
 
     @Override
@@ -84,18 +95,19 @@ public final class GenericDataType
         GenericDataType that = (GenericDataType) o;
         return name.equals(that.name) &&
                 arguments.equals(that.arguments) &&
-                collation.equals(that.collation);
+                collation.equals(that.collation) &&
+                padAttribute.equals(that.padAttribute);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments, collation);
+        return Objects.hash(name, arguments, collation, padAttribute);
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other);
+        return sameClass(this, other) && padAttribute.equals(((GenericDataType) other).padAttribute);
     }
 }

@@ -172,7 +172,7 @@ public final class ExpressionFormatter
                 case ArrayWildcardSubscript node -> visitExpression(node);
                 case AtLocal node -> process(node.getValue(), context) + " AT LOCAL";
                 case AtTimeZone node -> visitAtTimeZone(node, context);
-                case CollateExpression node -> "(" + process(node.getValue(), context) + " COLLATE " + process(node.getCollation(), context) + ")";
+                case CollateExpression node -> "(" + process(node.getValue(), context) + " COLLATE " + process(node.getCollation(), context) + node.getPadAttribute().map(pad -> " " + pad.toSql()).orElse("") + ")";
                 case CollationFor node -> "COLLATION FOR (" + process(node.getValue(), context) + ")";
                 case BetweenPredicate node -> visitBetweenPredicate(node, context);
                 case BinaryLiteral node -> visitBinaryLiteral(node);
@@ -760,6 +760,7 @@ public final class ExpressionFormatter
             }
 
             node.getCollation().ifPresent(collation -> result.append(" COLLATE ").append(process(collation)));
+            node.getPadAttribute().ifPresent(pad -> result.append(" ").append(pad.toSql()));
 
             return result.toString();
         }

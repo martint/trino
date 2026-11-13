@@ -173,6 +173,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
+import io.trino.sql.tree.PadAttribute;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
@@ -3420,6 +3421,9 @@ public class ExpressionAnalyzer
             }
             catch (TrinoException e) {
                 throw semanticException(COLLATION_NOT_FOUND, node.getCollation(), "Collation not found: %s", node.getCollation().getValue());
+            }
+            if (node.getPadAttribute().equals(Optional.of(PadAttribute.PAD_SPACE))) {
+                collation = collation.withPadSpace();
             }
             collationDerivations.put(NodeRef.of(node), new Leaf(Collated.explicit(collation)));
             return setExpressionType(node, varcharType.withCollation(collation));

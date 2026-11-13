@@ -123,6 +123,9 @@ public class TestCollationRegistry
         assertThat(TESTING_TYPE_MANAGER.getType(new TypeDescriptor("varchar", numericParameter(VarcharType.UNBOUNDED_LENGTH), textParameter("unicode"))))
                 .isEqualTo(VarcharType.VARCHAR.withCollation(registry.getCollation("unicode")));
 
+        assertThat(TESTING_TYPE_MANAGER.getType(new TypeDescriptor("varchar", numericParameter(10), textParameter("unicode_ci pad space"))))
+                .isEqualTo(createVarcharType(10, registry.getCollation("unicode_ci").withPadSpace()));
+
         assertThatThrownBy(() -> TESTING_TYPE_MANAGER.getType(new TypeDescriptor("varchar", numericParameter(10), textParameter("xx"))))
                 .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(COLLATION_NOT_FOUND.toErrorCode()));
     }
@@ -134,6 +137,8 @@ public class TestCollationRegistry
                 createVarcharType(10, registry.getCollation("unicode_ci")),
                 VarcharType.VARCHAR.withCollation(registry.getCollation("unicode")),
                 createVarcharType(0, registry.getCollation("unicode")),
+                createVarcharType(10, registry.getCollation("unicode_ci").withPadSpace()),
+                VarcharType.VARCHAR.withCollation(UCS_BASIC.withPadSpace()),
         }) {
             TypeId typeId = type.getTypeId();
             assertThat(TESTING_TYPE_MANAGER.getType(typeId)).as(typeId.getId()).isEqualTo(type);
@@ -158,14 +163,17 @@ public class TestCollationRegistry
     @Test
     public void testEveryCollationRoundTrips()
     {
-        // every catalog name survives the type's SQL spelling
+        // every catalog name, with each pad attribute, survives the type's SQL spelling
         for (String name : registry.collationNames()) {
-            Type type = createVarcharType(10, registry.getCollation(name));
-            assertThat(TESTING_TYPE_MANAGER.getType(type.getTypeId())).as(type.getTypeId().getId()).isEqualTo(type);
-            assertThat(TESTING_TYPE_MANAGER.fromSqlType(type.getDisplayName())).as(type.getDisplayName()).isEqualTo(type);
+            Collation collation = registry.getCollation(name);
+            for (Type type : new Type[] {createVarcharType(10, collation), createVarcharType(10, collation.withPadSpace())}) {
+                assertThat(TESTING_TYPE_MANAGER.getType(type.getTypeId())).as(type.getTypeId().getId()).isEqualTo(type);
+                assertThat(TESTING_TYPE_MANAGER.fromSqlType(type.getDisplayName())).as(type.getDisplayName()).isEqualTo(type);
+            }
         }
         // a name that is a reserved word is quoted, so that it parses again
         assertThat(Collation.of("is").toSql()).isEqualTo("\"is\"");
+        assertThat(Collation.of("is").withPadSpace().toSql()).isEqualTo("\"is\" PAD SPACE");
         assertThat(Collation.of("unicode").toSql()).isEqualTo("unicode");
     }
 

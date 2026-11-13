@@ -1229,7 +1229,7 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(CollationFor node)
     {
         Type valueType = Optional.ofNullable(analysis.getCoercion(node.getValue())).orElseGet(() -> analysis.getType(node.getValue()));
-        String collation = ((VarcharType) valueType).getCollation().name();
+        String collation = ((VarcharType) valueType).getCollation().toSql();
         return new Constant(analysis.getType(node), utf8Slice(collation));
     }
 
