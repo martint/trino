@@ -286,6 +286,7 @@ import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowCollations;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
 import io.trino.sql.tree.ShowFunctions;
@@ -1658,6 +1659,15 @@ class AstBuilder
         return new ShowSchemas(
                 getLocation(context),
                 visitIfPresent(context.identifier(), Identifier.class),
+                visitIfPresent(context.pattern, StringLiteral.class).map(StringLiteral::getValue),
+                visitIfPresent(context.escape, StringLiteral.class).map(StringLiteral::getValue));
+    }
+
+    @Override
+    public Node visitShowCollations(SqlBaseParser.ShowCollationsContext context)
+    {
+        return new ShowCollations(
+                getLocation(context),
                 visitIfPresent(context.pattern, StringLiteral.class).map(StringLiteral::getValue),
                 visitIfPresent(context.escape, StringLiteral.class).map(StringLiteral::getValue));
     }
